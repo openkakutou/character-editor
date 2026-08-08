@@ -1,0 +1,26 @@
+{
+  "name": "character-editor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Read+write editor for OpenKakutou MUGEN/Ikemen GO character files — characteristics, sprites, palettes, animations, state logic, commands, save/export.",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.20.1",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.7.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}
