@@ -3,11 +3,12 @@
 A read+write web editor for [OpenKakutou](https://github.com/openkakutou) (MUGEN/Ikemen GO-compatible) characters: create and modify a character's characteristics, sprites, palettes, animations, state/combat logic, and commands, then save/export the result. It reads and writes character data (`.def`/`.sff`/`.air`/`.cns`/`.cmd`/`.zss`) via WebAssembly modules built from the sibling [`character`](https://github.com/openkakutou/character) and [`sff`](https://github.com/openkakutou/sff) Go libraries. Separate app from the read-only [`character-viewer-web`](https://github.com/openkakutou/character-viewer-web).
 
 <!-- vibe:begin:features -->
-This project is in early-stage development — only the project scaffold exists so far, no functionality yet.
+This project is in early-stage development. Available now:
+
+- Built on the shared `web-ui-kit` design system: a styled app frame with the app title/version, and a light/dark theme toggle.
 
 Planned:
 
-- Adopt the shared `web-ui-kit` design system as this app's UI foundation
 - Load a character's files for editing
 - Edit characteristics (`CharacterInfo` fields: name, author, etc.)
 - Browse, import, replace, and delete sprites

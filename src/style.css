@@ -1,0 +1,55 @@
+/*
+ * Height chain up to the viewport — `wuik-app-shell` only sets its own
+ * min-height to 100%, so without this its ancestors collapse to their
+ * content size and the shell never actually fills the screen.
+ */
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+#app {
+  height: 100%;
+}
+
+/*
+ * App-level typography for the root frame. Every value is a `web-ui-kit`
+ * design token — see .vibe/decisions/001-web-ui-kit-adoption-scope.md.
+ */
+.app-title {
+  font-size: var(--wuik-font-size-lg);
+  font-weight: var(--wuik-font-weight-bold);
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+/*
+ * The "web-ui-kit is too old" error state deliberately avoids every
+ * `--wuik-*` token and component: it is the one screen guaranteed to
+ * render when the design system itself failed to load or is outdated, so
+ * it must not depend on the thing it is reporting as broken. Plain,
+ * system-default styling only.
+ */
+.web-ui-kit-version-error {
+  box-sizing: border-box;
+  max-width: 40em;
+  margin: 2em auto;
+  padding: 1em 1.5em;
+  font-family: system-ui, sans-serif;
+  color: #1a1a1a;
+  background: #fff3f3;
+  border: 1px solid #b00020;
+  border-radius: 4px;
+}
+
+.web-ui-kit-version-error h1 {
+  margin: 0 0 0.5em;
+  font-size: 1.1em;
+}
+
+.web-ui-kit-version-error p {
+  margin: 0;
+}
