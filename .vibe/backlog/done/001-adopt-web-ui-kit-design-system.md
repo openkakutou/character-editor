@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 ---
 # Adopt `web-ui-kit` Design System
 
