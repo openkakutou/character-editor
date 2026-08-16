@@ -14,4 +14,4 @@ Add cross-editor undo/redo (a single history stack spanning characteristics, spr
 - [ ] Undo past the last recorded change, or redo past the most recent undo, is a no-op with no error, not a crash or history corruption
 
 ## Notes
-None.
+Build the cross-editor history on top of `web-ui-kit`'s shared undo/redo command-stack primitive (`web-ui-kit`'s `.vibe/backlog/009-undo-redo-command-stack-primitive.md`) rather than a bespoke history implementation, so this app stays consistent with `stage-editor`/`lifebar-editor` and any fix lands once for all editors. That primitive is `status: todo` as of this writing — a soft cross-repo prerequisite for this item, even though not reflected in `depends_on` (same-repo only by convention).
