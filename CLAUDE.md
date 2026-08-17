@@ -20,6 +20,8 @@ Character data (`.def`/`.air`/`.cns`/`.cmd`/`.zss`) is parsed and, eventually, s
 
 Being an *editor*, not a viewer, this app additionally needs each library's write/serialize path (format-preserving round trip), not just its read path — several backlog items are explicitly blocked on that WASM surface landing in `character`/`sff` first (see `.vibe/backlog/`).
 
+**The current pin lives in exactly one place: the `wasm:download -- vX.Y.Z` argument in `.github/workflows/deploy-pages.yml`.** That is the source of truth a `character` release should update — see `roadmap`'s `.vibe/decisions/016-wasm-version-pinning-push-based-propagation.md` for the org-wide policy: exact pins, bumped by the producer's own release step, no scheduled job. When bumping by hand, also update the illustrative version number in `README.md` and `docs/development.md` so they don't drift into stale examples.
+
 ## Shared design system: `web-ui-kit` <!-- keep -->
 
 This app adopts `web-ui-kit` (github.com/openkakutou/web-ui-kit) — the org's shared, framework-agnostic design system (native Web Components + CSS custom-property tokens) — as its layout shell, tokens, and form components from day one, rather than building ad-hoc UI first and retrofitting later. See `roadmap`'s `.vibe/decisions/011` and backlog item 001.

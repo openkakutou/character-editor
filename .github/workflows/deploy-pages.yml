@@ -30,6 +30,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Must run before Test: the WASM bridge test suite loads
+      # public/wasm/wasm_exec.js directly, the same way the app itself
+      # does at runtime — see src/wasm/bridge.test.ts.
+      #
+      # Pinned to an exact character release. Bumped as a follow-up step
+      # of character's own /vibe:release, per roadmap's
+      # .vibe/decisions/016-wasm-version-pinning-push-based-propagation.md
+      # — see this repo's own CLAUDE.md ("WASM dependency on character")
+      # for where that pin lives.
+      - name: Download character WASM release
+        run: npm run wasm:download -- v0.7.0
+
       - name: Test
         run: npm test
 
