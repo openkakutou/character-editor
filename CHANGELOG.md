@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-18
+
 ### Added
 
 - Users can now edit a loaded character's name, author, referenced file paths, and its lists of state and palette files, right after loading it — a required name left empty, or a file-list entry left blank, shows a clear inline error instead of being silently accepted.
@@ -22,5 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/openkakutou/character-editor/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openkakutou/character-editor/releases/tag/v0.2.0
