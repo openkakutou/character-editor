@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "biome check --write ."
+    "lint": "biome check --write .",
+    "wasm:download": "node scripts/download-wasm.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

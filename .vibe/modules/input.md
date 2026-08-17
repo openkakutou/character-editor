@@ -1,0 +1,5 @@
+# Module: input
+**Role:** Character file input — accumulates a character's files (4 required: `.def`/`.air`/`.sff`/`.cns`; 2 optional: `.cmd`/`.zss`, captured but not parsed) across any number of picker/drop gestures, validates them, and loads the character through the `wasm` module once the required kinds are complete; also renders the file-picker + drag-and-drop UI.
+**Files:** `src/input/character-file-input.ts`, `src/input/character-file-input-view.ts`
+**Exports:** `mergeFiles(current, incoming): MergeFilesResult`, `missingRequiredKinds(slots): RequiredFileKind[]`, `isComplete(slots): boolean`, `loadCharacterFromSlots(slots, options?): Promise<CharacterInputResult>`, `readFileAsBytes(file): Promise<Uint8Array>`, `renderCharacterFileInput(root, options): void`, `REQUIRED_FILE_KINDS`, `OPTIONAL_FILE_KINDS`, `ALL_FILE_KINDS`, `EXTENSION_BY_KIND`, `FileKind`, `RequiredFileKind`, `OptionalFileKind`, `FileSlots`, `CompleteFileSlots`, `LoadedFileBytes`, `CharacterInputResult`, `CharacterFileInputOptions`, `CharacterFileInputViewOptions`
+**Depends on:** `modules/wasm.md`

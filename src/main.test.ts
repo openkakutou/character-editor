@@ -1,10 +1,60 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getCharacterDocument,
+  resetCharacterDocumentForTests,
+} from "./document/character-document.ts";
 import { renderApp } from "./main.ts";
+import { resetWasmBridgeForTests } from "./wasm/bridge.ts";
+import type { WasmBridgeOptions } from "./wasm/bridge.ts";
 import { MIN_SUPPORTED_WEB_UI_KIT_VERSION } from "./web-ui-kit-version.ts";
+
+const publicWasmDir = path.resolve(import.meta.dirname, "..", "public", "wasm");
+const bridgeOptions: WasmBridgeOptions = {
+  fetchWasmExecSource: async () =>
+    readFileSync(path.join(publicWasmDir, "wasm_exec.js"), "utf-8"),
+  fetchWasmBytes: async () =>
+    new Uint8Array(readFileSync(path.join(publicWasmDir, "character.wasm"))),
+};
+
+const testdataDir = path.resolve(import.meta.dirname, "wasm", "testdata");
+function fixtureBytes(name: string): Uint8Array {
+  return new Uint8Array(readFileSync(path.join(testdataDir, name)));
+}
+
+function textBytes(text: string): Uint8Array {
+  return new Uint8Array(new TextEncoder().encode(text));
+}
+
+function fileFromBytes(name: string, bytes: Uint8Array): File {
+  return new File([bytes as BufferSource], name);
+}
+
+function requiredFiles(): File[] {
+  return [
+    fileFromBytes(
+      "ryu.def",
+      textBytes("[Info]\nname = Main Wiring Test Character\n"),
+    ),
+    fileFromBytes("ryu.air", fixtureBytes("sample.air")),
+    fileFromBytes("ryu.sff", fixtureBytes("v1-basic.sff")),
+    fileFromBytes("ryu.cns", fixtureBytes("sample.cns")),
+  ];
+}
+
+function dispatchDrop(dropZone: Element, files: File[]): void {
+  const dataTransfer = { files } as unknown as DataTransfer;
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  dropZone.dispatchEvent(event);
+}
 
 describe("renderApp", () => {
   beforeEach(() => {
     document.documentElement.removeAttribute("data-theme");
+    resetWasmBridgeForTests();
+    resetCharacterDocumentForTests();
   });
 
   it("mounts a wuik-app-shell root frame with a toolbar showing the title and version, plus a theme toggle button", () => {
@@ -73,5 +123,31 @@ describe("renderApp", () => {
 
     expect(root.querySelector('[role="alert"]')).toBeNull();
     expect(root.querySelector("wuik-app-shell")).not.toBeNull();
+  });
+
+  it("mounts the character file input into the shell's main content", () => {
+    const root = document.createElement("div");
+
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    expect(dropZone).not.toBeNull();
+  });
+
+  it("stores the loaded character and raw file bytes in the in-memory document once the 4 required files load successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(getCharacterDocument()).not.toBeNull();
+    });
+
+    const doc = getCharacterDocument();
+    expect(doc?.character.name).toBe("Main Wiring Test Character");
+    expect(doc?.files.def).toBeInstanceOf(Uint8Array);
   });
 });

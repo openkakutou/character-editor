@@ -6,10 +6,10 @@ A read+write web editor for [OpenKakutou](https://github.com/openkakutou) (MUGEN
 This project is in early-stage development. Available now:
 
 - Built on the shared `web-ui-kit` design system: a styled app frame with the app title/version, and a light/dark theme toggle.
+- Load a character for editing by picking or dragging in its 4 required files (`.def`, `.air`, `.sff`, `.cns`), plus its `.cmd`/`.zss` files if it has them — the app reads them, clearly calls out a missing required file or an unreadable/corrupt one, and confirms once the character is loaded.
 
 Planned:
 
-- Load a character's files for editing
 - Edit characteristics (`CharacterInfo` fields: name, author, etc.)
 - Browse, import, replace, and delete sprites
 - Edit/create palettes
@@ -37,6 +37,12 @@ To update dependencies to their latest allowed versions:
 
 ```sh
 npm update
+```
+
+Download a specific version of the `character` library's WebAssembly build (needed to load a character):
+
+```sh
+npm run wasm:download -- v0.7.0
 ```
 <!-- vibe:end:install -->
 
@@ -73,5 +79,7 @@ npm run lint
 <!-- vibe:end:usage -->
 
 <!-- vibe:begin:docs-index -->
-No additional documentation yet.
+- [docs/architecture.md](docs/architecture.md) — how the app is put together: the main modules, how a character's files flow through them, and its WebAssembly dependency.
+- [docs/development.md](docs/development.md) — local dev setup notes, including how to fetch the `character` library's WebAssembly build.
+- [docs/testing.md](docs/testing.md) — how the test suite is structured, including how it exercises the real WebAssembly module and works around test-environment quirks.
 <!-- vibe:end:docs-index -->

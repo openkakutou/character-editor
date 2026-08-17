@@ -2,6 +2,9 @@ import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
+import { setCharacterDocument } from "./document/character-document.ts";
+import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
+import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
 import { appVersion } from "./version.ts";
 import {
   MIN_SUPPORTED_WEB_UI_KIT_VERSION,
@@ -46,17 +49,28 @@ function renderThemeToggle(): HTMLElement {
   return toggle;
 }
 
+export interface RenderAppOptions {
+  /** Forwarded to the file input's WASM bridge; injectable for testing. */
+  bridgeOptions?: CharacterFileInputOptions;
+}
+
 /**
  * Builds the app's root frame — a `web-ui-kit` `<wuik-app-shell>` with the
- * app title (plus version) and a light/dark theme toggle in the toolbar.
- * If the installed `web-ui-kit` version is too old to expose the shell/
- * tokens this relies on, renders a clear, screen-reader-announced error
- * instead — see .vibe/decisions/001-web-ui-kit-adoption-scope.md.
+ * app title (plus version) and a light/dark theme toggle in the toolbar,
+ * plus the character file input (backlog item 002) as the main content.
+ * Once the 4 required files load successfully, the parsed character and
+ * every supplied file's raw bytes are stored in the in-memory
+ * `CharacterDocument` (src/document/character-document.ts) — the form later
+ * editor items (003-008) read from and eventually write back to. If the
+ * installed `web-ui-kit` version is too old to expose the shell/tokens this
+ * relies on, renders a clear, screen-reader-announced error instead — see
+ * .vibe/decisions/001-web-ui-kit-adoption-scope.md.
  */
 export function renderApp(
   root: HTMLElement,
   version: string,
   installedWebUiKitVersion: string,
+  options: RenderAppOptions = {},
 ): void {
   root.replaceChildren();
 
@@ -80,6 +94,15 @@ export function renderApp(
 
   toolbar.append(title, spacer, renderThemeToggle());
   shell.appendChild(toolbar);
+
+  const main = document.createElement("main");
+  renderCharacterFileInput(main, {
+    onLoaded: (character, files) => {
+      setCharacterDocument({ character, files });
+    },
+    bridgeOptions: options.bridgeOptions,
+  });
+  shell.appendChild(main);
 
   root.appendChild(shell);
 }

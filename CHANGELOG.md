@@ -10,3 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Adopted the shared `web-ui-kit` design system as the app's foundation: a styled toolbar frame showing the app title and version, and a light/dark theme toggle button. If an outdated `web-ui-kit` version is installed, the app now shows a clear, screen-reader-announced error instead of rendering unstyled.
+- Users can now load a character to edit by selecting or dragging its `.def`, `.air`, `.sff`, and `.cns` files (required), optionally alongside its `.cmd`/`.zss` files, onto the file input. A missing required file or an unreadable/corrupt file shows a clear error naming the problem instead of a crash, and the loaded character's data stays available for the editors still to come.

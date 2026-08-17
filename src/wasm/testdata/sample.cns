@@ -1,0 +1,52 @@
+; Sample .cns fixture used by cns.Parse tests.
+
+[Data]
+; An unrelated section that appears before the first Statedef; its content
+; must be skipped without erroring.
+life = 1000
+attack = 100
+
+[Statedef 0, Standing]
+type            = S
+movetype        = I
+physics         = S
+anim            = 0
+ctrl            = 1
+poweradd        = 0
+juggle          = 0
+facep2          = 0
+hitdefpersist   = 0
+movehitpersist  = 0
+hitcountpersist = 0
+sprpriority     = 0
+
+[State 0, ChangeState]
+trigger1 = Command = "holdback"
+type = ChangeState
+trigger2 = StateType = S
+value = 10
+ctrl = 0
+
+[State 0]
+type = VelSet
+x = 0
+y = 0
+
+[Statedef -1]
+type = S
+movetype = I
+physics = S
+
+[State -1, HitDetection]
+type = HitDef
+triggerall = MoveType != H
+trigger1 = Command = "x"
+attr = S, NA
+damage = 30
+
+[Statedef 200, Attack]
+type = S
+movetype = A
+physics = S
+anim = 200
+ctrl = 0

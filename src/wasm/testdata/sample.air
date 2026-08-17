@@ -1,0 +1,17 @@
+; OpenKakutou sample animation set
+; Action 200: walk cycle
+
+[Begin Action 200] ;walking
+Clsn2Default: 1
+ Clsn2[0] = -6,-92,6,0
+0,0, 0,0, 5 ; idle-ish first frame
+0,1, 5,-2, 4, H
+Clsn1: 1
+ Clsn1[0] = -3,-73,15,-1
+0,2, 0,0, 3, , A
+Loopstart
+0,3, 0,0, 6
+
+; Action 201: a single-frame stance
+[Begin Action 201]
+0,0, 0,0, 10, HV, AS

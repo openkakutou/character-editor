@@ -53,3 +53,112 @@ body {
 .web-ui-kit-version-error p {
   margin: 0;
 }
+
+/*
+ * Character file input (backlog item 002) — 6 accumulating slots (4
+ * required, 2 optional), same interaction model as
+ * character-viewer-web's own file input, extended for the required/
+ * optional split. Error text uses `--wuik-color-text`, not
+ * `--wuik-color-danger` — see web-ui-kit's own
+ * .vibe/decisions/009-error-text-uses-text-token-not-danger.md; the
+ * invalid state still signals non-verbally via a danger-colored left
+ * border instead.
+ */
+.file-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-4);
+  padding: var(--wuik-space-4);
+}
+
+.file-input__dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-4);
+  border: 2px dashed var(--wuik-color-border);
+  border-radius: var(--wuik-space-2);
+}
+
+.file-input__dropzone--dragging {
+  border-color: var(--wuik-color-accent);
+  background-color: var(--wuik-color-surface);
+}
+
+.file-input__dropzone--loading {
+  opacity: 0.6;
+}
+
+.file-input__label {
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.file-input__hint {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
+
+.file-input__slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-input__slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--wuik-space-2);
+}
+
+.file-input__slot-kind {
+  min-width: 3.5em;
+  font-family: var(--wuik-font-family-mono);
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+/* Optional slots' kind label (incl. its "(optional)" suffix) is de-
+ * emphasized relative to required slots', so the required/optional split
+ * reads at a glance without a new badge shape. */
+.file-input__slot--optional .file-input__slot-kind {
+  font-weight: var(--wuik-font-weight-regular);
+  color: var(--wuik-color-text-secondary);
+}
+
+.file-input__slot-value {
+  color: var(--wuik-color-text-secondary);
+}
+
+.file-input__slot--filled .file-input__slot-value {
+  color: var(--wuik-color-text);
+}
+
+/* Non-verbal error signal via a border, per web-ui-kit's own decision 009 —
+ * the message text itself stays on --wuik-color-text below. */
+.file-input__slot--error {
+  padding-left: var(--wuik-space-2);
+  border-left: 3px solid var(--wuik-color-danger);
+}
+
+.file-input__slot-error-text {
+  flex-basis: 100%;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+.file-input__ignored {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-warning);
+}
+
+.file-input__status {
+  min-height: 1.2em;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
