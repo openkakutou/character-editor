@@ -4,6 +4,7 @@ import {
   getCharacterDocument,
   resetCharacterDocumentForTests,
   setCharacterDocument,
+  updateCharacterFields,
 } from "./character-document.ts";
 
 function minimalCharacter(): CharacterData {
@@ -107,5 +108,63 @@ describe("setCharacterDocument / getCharacterDocument", () => {
     setCharacterDocument(null);
 
     expect(getCharacterDocument()).toBeNull();
+  });
+});
+
+describe("updateCharacterFields", () => {
+  it("merges a partial patch onto the currently loaded character, leaving other fields untouched", () => {
+    setCharacterDocument({
+      character: { ...minimalCharacter(), name: "Original", author: "Someone" },
+      files: {
+        def: bytes("d"),
+        air: bytes("a"),
+        sff: bytes("s"),
+        cns: bytes("c"),
+      },
+    });
+
+    updateCharacterFields({ name: "Renamed" });
+
+    const doc = getCharacterDocument();
+    expect(doc?.character.name).toBe("Renamed");
+    expect(doc?.character.author).toBe("Someone");
+  });
+
+  it("leaves the raw file bytes untouched when updating character fields", () => {
+    const files = {
+      def: bytes("d"),
+      air: bytes("a"),
+      sff: bytes("s"),
+      cns: bytes("c"),
+    };
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    updateCharacterFields({ author: "New Author" });
+
+    expect(getCharacterDocument()?.files).toEqual(files);
+  });
+
+  it("does nothing when no character is currently loaded, instead of throwing", () => {
+    expect(() => updateCharacterFields({ name: "Nobody" })).not.toThrow();
+    expect(getCharacterDocument()).toBeNull();
+  });
+
+  it("can replace an array field (e.g. stateFiles) wholesale via the patch", () => {
+    setCharacterDocument({
+      character: minimalCharacter(),
+      files: {
+        def: bytes("d"),
+        air: bytes("a"),
+        sff: bytes("s"),
+        cns: bytes("c"),
+      },
+    });
+
+    updateCharacterFields({ stateFiles: ["a.st", "b.st"] });
+
+    expect(getCharacterDocument()?.character.stateFiles).toEqual([
+      "a.st",
+      "b.st",
+    ]);
   });
 });

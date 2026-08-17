@@ -162,3 +162,97 @@ body {
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-secondary);
 }
+
+/*
+ * Characteristics editor (backlog item 003) — the app's first editing
+ * screen. `web-ui-kit` has no generic text-input component yet, so plain
+ * `<input>`s are styled here directly with its tokens, reusing the exact
+ * invalid-state contract (`is-invalid` + `aria-invalid` + a danger border,
+ * inset focus ring) `web-ui-kit`'s own components already follow — see
+ * .vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md.
+ * Error text stays on `--wuik-color-text`, never `--wuik-color-danger`,
+ * matching `.file-input__slot-error-text` above and web-ui-kit's own
+ * .vibe/decisions/009-error-text-uses-text-token-not-danger.md.
+ */
+.characteristics-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-5);
+  padding: var(--wuik-space-4);
+}
+
+.characteristics-editor__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+}
+
+.characteristics-editor__section h2 {
+  margin: 0;
+  font-size: var(--wuik-font-size-base);
+  font-weight: var(--wuik-font-weight-medium);
+  color: var(--wuik-color-text-secondary);
+}
+
+.characteristics-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+}
+
+.characteristics-editor__label {
+  font-size: var(--wuik-font-size-sm);
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.characteristics-editor__input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 28rem;
+  padding: var(--wuik-space-2);
+  font-family: var(--wuik-font-family-base);
+  font-size: var(--wuik-font-size-base);
+  color: var(--wuik-color-text);
+  background-color: var(--wuik-color-bg);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-1);
+}
+
+.characteristics-editor__input:focus-visible {
+  outline: 2px solid var(--wuik-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.characteristics-editor__input.is-invalid {
+  border-color: var(--wuik-color-danger);
+}
+
+/* Keeps the invalid signal visible even while focused — otherwise the
+ * (inset) focus ring visually covers the danger border it sits on top
+ * of, and a user editing the very field they just made invalid would see
+ * no non-verbal cue at all until they tab away. */
+.characteristics-editor__input.is-invalid:focus-visible {
+  outline-color: var(--wuik-color-danger);
+}
+
+.characteristics-editor__field-error {
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+.characteristics-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  margin-bottom: var(--wuik-space-2);
+}
+
+.characteristics-editor__list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--wuik-space-2);
+}
+
+.characteristics-editor__list-row .characteristics-editor__input {
+  flex: 1;
+}

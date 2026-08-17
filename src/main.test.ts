@@ -150,4 +150,44 @@ describe("renderApp", () => {
     expect(doc?.character.name).toBe("Main Wiring Test Character");
     expect(doc?.files.def).toBeInstanceOf(Uint8Array);
   });
+
+  it("mounts the characteristics editor once a character loads successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".characteristics-editor")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelector(".characteristics-editor")).not.toBeNull();
+    });
+    const nameInput = root.querySelector<HTMLInputElement>(
+      '[data-field="name"]',
+    );
+    expect(nameInput?.value).toBe("Main Wiring Test Character");
+  });
+
+  it("reflects a characteristics-editor edit in the in-memory document immediately", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+    await vi.waitFor(() => {
+      expect(root.querySelector(".characteristics-editor")).not.toBeNull();
+    });
+
+    const nameInput = root.querySelector<HTMLInputElement>(
+      '[data-field="name"]',
+    );
+    if (!nameInput) throw new Error("name field not found");
+    nameInput.value = "Renamed";
+    nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(getCharacterDocument()?.character.name).toBe("Renamed");
+  });
 });

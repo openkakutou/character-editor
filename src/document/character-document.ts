@@ -38,3 +38,17 @@ export function setCharacterDocument(doc: CharacterDocument | null): void {
 export function resetCharacterDocumentForTests(): void {
   current = null;
 }
+
+/**
+ * Merges `patch` onto the currently loaded character in place, leaving
+ * every other field (and the raw file bytes) untouched. The single mutation
+ * path editor screens (starting with the characteristics editor, item 003)
+ * use to reflect a user's edit immediately — see that screen's `onChange`
+ * wiring in `main.ts`. A no-op, not an error, when no character is loaded:
+ * an editor screen only ever renders once one is, so this guards against a
+ * stray event firing during/after teardown rather than a real caller bug.
+ */
+export function updateCharacterFields(patch: Partial<CharacterData>): void {
+  if (current === null) return;
+  current = { ...current, character: { ...current.character, ...patch } };
+}

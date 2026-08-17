@@ -2,7 +2,11 @@ import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
-import { setCharacterDocument } from "./document/character-document.ts";
+import {
+  setCharacterDocument,
+  updateCharacterFields,
+} from "./document/character-document.ts";
+import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
 import { appVersion } from "./version.ts";
@@ -60,8 +64,12 @@ export interface RenderAppOptions {
  * plus the character file input (backlog item 002) as the main content.
  * Once the 4 required files load successfully, the parsed character and
  * every supplied file's raw bytes are stored in the in-memory
- * `CharacterDocument` (src/document/character-document.ts) — the form later
- * editor items (003-008) read from and eventually write back to. If the
+ * `CharacterDocument` (src/document/character-document.ts), and the
+ * characteristics editor (backlog item 003) appears — inline, not behind a
+ * tab, following the same "one screen until a second one exists" precedent
+ * `character-viewer-web` set — reflecting every edit into that same
+ * document immediately. Later editor items (004-008) read from and
+ * eventually write back to the same document. If the
  * installed `web-ui-kit` version is too old to expose the shell/tokens this
  * relies on, renders a clear, screen-reader-announced error instead — see
  * .vibe/decisions/001-web-ui-kit-adoption-scope.md.
@@ -96,12 +104,17 @@ export function renderApp(
   shell.appendChild(toolbar);
 
   const main = document.createElement("main");
+  const characteristicsContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
+      renderCharacteristicsEditor(characteristicsContainer, character, {
+        onChange: (patch) => updateCharacterFields(patch),
+      });
     },
     bridgeOptions: options.bridgeOptions,
   });
+  main.appendChild(characteristicsContainer);
   shell.appendChild(main);
 
   root.appendChild(shell);

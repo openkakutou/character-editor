@@ -14,8 +14,10 @@ itself.
 flowchart LR
     app["app\n(src/main.ts)"] --> input["input\n(src/input/)"]
     app --> document["document\n(src/document/)"]
+    app --> editors["editors\n(src/editors/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
+    editors --> document
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -25,7 +27,17 @@ flowchart LR
 - **`app`** (`src/main.ts`, `src/version.ts`, `src/style.css`) — the entry
   point. Builds the root layout (the org's shared `@openkakutou/web-ui-kit`
   app shell: a toolbar plus a main content region), mounts the `input`
-  module's view into it, and wires its load callback to `document`'s store.
+  module's view into it, wires its load callback to `document`'s store, and
+  mounts `editors`' characteristics editor once a character loads.
+- **`editors`** (`src/editors/`) — screens that edit an already-loaded
+  character. `characteristics-editor.ts` renders the first one: a form for
+  the top-level identity, referenced-file-path, and list (state files,
+  palettes) fields, committing every edit straight into `document`'s store
+  via an injected `onChange` callback rather than importing the store
+  directly — kept decoupled and testable the same way `input` never touches
+  `document` either, only `app` wires the two together. Its text fields are
+  plain `<input>`s styled with `web-ui-kit` tokens, not a `web-ui-kit`
+  component — see "Native form inputs" below.
 - **`input`** (`src/input/`) — the character file input. `character-file-input.ts`
   holds the DOM-free logic: it accumulates files across any number of
   picker/drop gestures into 6 slots — 4 required (`.def`/`.air`/`.sff`/`.cns`)
@@ -63,6 +75,19 @@ both, and `.cmd` is common but not universal. So `.cmd`/`.zss` are optional
 input slots: their raw bytes are captured into `document`'s store for a
 later editor item to use, but never parsed or validated by this app today.
 See `.vibe/decisions/002-required-vs-optional-input-files-and-in-memory-document.md`.
+
+## Native form inputs
+
+`web-ui-kit` has no generic text-input/form-field component yet (only
+specialized ones — a slider, a color picker — plus `wuik-button`). The
+characteristics editor's text fields are plain `<input>`/`<label>`
+elements styled directly with `web-ui-kit`'s `--wuik-*` tokens, reusing
+that design system's own documented invalid-state contract (`is-invalid`
+class, `aria-invalid`, a danger-colored border, inset focus ring) so the
+screen still reads as part of the same system. Buttons (list row add/
+remove) stay real `wuik-button` elements, since that component already
+exists. See `.vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md`
+and follow-up backlog item `013` (migrate once a real component ships).
 
 ## WebAssembly dependency
 
