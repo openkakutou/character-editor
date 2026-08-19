@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-19
+
 ### Added
 
 - Users can now browse every sprite of a loaded character, grouped and zoomable, import a new image as a sprite, replace an existing sprite's image, or delete a sprite. Deleting shows how many animation frames still reference it before asking to confirm. Picking a file that isn't a supported image shows a clear error instead of corrupting the sprite sheet. These edits aren't saved to a file yet — that lands in a later update.
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/openkakutou/character-editor/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/openkakutou/character-editor/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openkakutou/character-editor/releases/tag/v0.2.0
