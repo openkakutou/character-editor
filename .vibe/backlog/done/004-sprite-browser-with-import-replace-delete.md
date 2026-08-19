@@ -1,5 +1,5 @@
 ---
-status: in_progress
+status: done
 depends_on: [002]
 ---
 # Sprite Browser With Import/Replace/Delete
