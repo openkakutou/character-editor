@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadCharacter, resetWasmBridgeForTests } from "./bridge.ts";
+import {
+  loadCharacter,
+  resetWasmBridgeForTests,
+  resolveSpritePixels,
+} from "./bridge.ts";
 
 // The real WASM assets (public/wasm/, gitignored) are fetched via
 // `npm run wasm:download` before tests run in this environment. There is no
@@ -190,5 +194,67 @@ describe("loadCharacter", () => {
     );
 
     expect(fetchCount).toBe(1);
+  });
+});
+
+describe("resolveSpritePixels", () => {
+  it("decodes a real sprite's pixels at its correct dimensions", async () => {
+    const [result] = await resolveSpritePixels(
+      sffBytes,
+      [[0, 0]],
+      null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+    expect(result.pixels).toBeInstanceOf(Uint8Array);
+    expect(result.pixels.length).toBe(result.width * result.height * 4);
+  });
+
+  it("returns one typed result per request, in the same order", async () => {
+    const results = await resolveSpritePixels(
+      sffBytes,
+      [
+        [0, 0],
+        [999, 999],
+      ],
+      null,
+      testOptions,
+    );
+
+    expect(results).toHaveLength(2);
+    expect(results[0].ok).toBe(true);
+    expect(results[1].ok).toBe(false);
+  });
+
+  it("returns a distinguishable error for a sprite that doesn't exist, instead of throwing", async () => {
+    const [result] = await resolveSpritePixels(
+      sffBytes,
+      [[999, 999]],
+      null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error).toContain("sprite not found");
+  });
+
+  it("returns a typed error instead of throwing for malformed sffBytes", async () => {
+    const garbageSffBytes = textBytes("this is not a valid .sff file");
+
+    const [result] = await resolveSpritePixels(
+      garbageSffBytes,
+      [[0, 0]],
+      null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
   });
 });

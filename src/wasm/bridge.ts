@@ -1,10 +1,11 @@
 // Bridge to the `character` WASM module: loads `wasm_exec.js`, instantiates
-// `character.wasm`, and exposes a typed wrapper around the global
-// `OpenKakutouCharacter.load` call. Scoped to loading only (backlog item
-// 002) — later editor items add their own typed wrappers around the
-// module's `save*`/`resolveSprites` globals as they need them. Loading
-// strategy (injectable fetch, `Function`-executed `wasm_exec.js`, unawaited
-// `go.run`) mirrors character-viewer-web's own src/wasm/bridge.ts — see its
+// `character.wasm`, and exposes typed wrappers around the global
+// `OpenKakutouCharacter.load` (backlog item 002) and `resolveSprites`
+// (item 004, sprite pixel decoding for the sprite browser) calls. Later
+// editor items add their own typed wrappers around the module's `save*`
+// globals as they need them. Loading strategy (injectable fetch,
+// `Function`-executed `wasm_exec.js`, unawaited `go.run`) mirrors
+// character-viewer-web's own src/wasm/bridge.ts — see its
 // .vibe/decisions/002-wasm-bridge-loading-and-result-shape.md for the
 // rationale, which applies identically here.
 import type { CharacterData, CharacterResult } from "./types.ts";
@@ -24,6 +25,14 @@ interface RawLoadResult {
   error: string | null;
 }
 
+/** The `{pixels, width, height, error}` shape returned per request by `OpenKakutouCharacter.resolveSprites`. */
+interface RawSpriteResult {
+  pixels: Uint8Array | null;
+  width: number;
+  height: number;
+  error: string | null;
+}
+
 interface OpenKakutouCharacterGlobal {
   load(
     defBytes: Uint8Array,
@@ -31,6 +40,11 @@ interface OpenKakutouCharacterGlobal {
     sffBytes: Uint8Array,
     cnsBytes: Uint8Array,
   ): RawLoadResult;
+  resolveSprites(
+    sffBytes: Uint8Array,
+    requests: readonly (readonly [number, number])[],
+    overrideBytes: Uint8Array | null,
+  ): RawSpriteResult[];
 }
 
 export interface WasmBridgeOptions {
@@ -153,4 +167,55 @@ export async function loadCharacter(
 
   const character = JSON.parse(raw.character) as CharacterData;
   return { ok: true, character };
+}
+
+/** One decoded sprite's pixels, or a descriptive error instead of throwing. */
+export type SpritePixelResult =
+  | { ok: true; pixels: Uint8Array; width: number; height: number }
+  | { ok: false; error: string };
+
+/**
+ * Decodes one or more sprites' actual on-screen pixels from raw `.sff` file
+ * bytes via the `character` WASM module — unlike `loadCharacter`, whose
+ * JSON contract only ever carries sprite *metadata* (dimensions, axis,
+ * palette index), never pixel data. `sffBytes` is transferred once for the
+ * whole batch, so resolving many sprites from the same sheet doesn't
+ * re-transfer the file per sprite.
+ *
+ * `requests` is a list of `[group, image]` pairs, resolved in order — the
+ * returned array has exactly one result per request, in the same order.
+ * `overridePaletteBytes` is `null` to use each sprite's own palette, or an
+ * external `.act` palette file's bytes to recolor every sprite in the batch
+ * with it instead.
+ */
+export async function resolveSpritePixels(
+  sffBytes: Uint8Array,
+  requests: readonly (readonly [number, number])[],
+  overridePaletteBytes: Uint8Array | null,
+  options: WasmBridgeOptions = {},
+): Promise<SpritePixelResult[]> {
+  await ensureGoRuntimeReady(options);
+
+  const raw = getOpenKakutouCharacter().resolveSprites(
+    sffBytes,
+    requests,
+    overridePaletteBytes,
+  );
+
+  return raw.map((entry): SpritePixelResult => {
+    if (entry.error !== null || entry.pixels === null) {
+      return {
+        ok: false,
+        error:
+          entry.error ??
+          "OpenKakutouCharacter.resolveSprites returned neither pixels nor an error",
+      };
+    }
+    return {
+      ok: true,
+      pixels: entry.pixels,
+      width: entry.width,
+      height: entry.height,
+    };
+  });
 }

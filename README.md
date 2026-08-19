@@ -8,10 +8,10 @@ This project is in early-stage development. Available now:
 - Built on the shared `web-ui-kit` design system: a styled app frame with the app title/version, and a light/dark theme toggle.
 - Load a character for editing by picking or dragging in its 4 required files (`.def`, `.air`, `.sff`, `.cns`), plus its `.cmd`/`.zss` files if it has them — the app reads them, clearly calls out a missing required file or an unreadable/corrupt one, and confirms once the character is loaded.
 - Edit a loaded character's name, author, referenced file paths, and its lists of state and palette files, right after loading it — a required name left empty, or a file-list entry left blank, shows a clear inline error instead of being silently accepted.
+- Browse every sprite, grouped and zoomable; import a new one, replace an existing one's image, or delete one — deleting warns how many animation frames still reference it first, and picking an unsupported file shows a clear error instead of corrupting the sprite sheet. These edits aren't saved to a file yet.
 
 Planned:
 
-- Browse, import, replace, and delete sprites
 - Edit/create palettes
 - Create/edit animations (frame timing, sprite refs, hitbox/hurtbox boxes)
 - Structured editing of state/combat logic (`.cns` StateDef/Controllers)

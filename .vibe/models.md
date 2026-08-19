@@ -21,14 +21,27 @@ The full character graph returned by the `character` WASM module's `OpenKakutouC
 Defined in: `src/wasm/types.ts`
 
 ## CharacterDocument
-The in-memory representation of the currently loaded character: the parsed data plus every supplied file's raw bytes.
+The in-memory representation of the currently loaded character: the parsed data, every supplied file's raw bytes, and pending sprite edits.
 
 | Field | Type | Notes |
 |---|---|---|
 | character | CharacterData | |
 | files | LoadedFileBytes | Raw bytes per file kind, required kinds always present |
+| spriteEdits | SpriteEdit[] | Pending sprite add/replace/delete edits (item 004); always reset to `[]` on a fresh load |
 
 Defined in: `src/document/character-document.ts`
+
+## SpriteEdit
+A pending sprite browser edit against the WASM-parsed sprite list — never written back into `CharacterData` itself. `AddOrReplaceSpriteEdit` carries the already-decoded image to preview; `DeleteSpriteEdit` carries nothing beyond the sprite reference.
+
+| Field | Type | Notes |
+|---|---|---|
+| kind | "add" \| "replace" \| "delete" | Discriminant |
+| group, image | number | The `.sff` sprite reference this edit targets |
+| pixels | Uint8Array | `add`/`replace` only — flat RGBA, straight alpha |
+| width, height | number | `add`/`replace` only |
+
+Defined in: `src/sprites/sprite-edits.ts`
 
 ## FileSlots / CompleteFileSlots / LoadedFileBytes
 The character file input's accumulating state: one optional `File` slot per accepted kind (`def`/`air`/`sff`/`cns`/`cmd`/`zss`). `CompleteFileSlots` narrows this once the 4 required kinds are present (optional kinds may still be absent). `LoadedFileBytes` is the byte-buffer equivalent, produced after reading every filled slot.

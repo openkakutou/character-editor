@@ -15,12 +15,18 @@
 // src/wasm/bridge.ts's resetWasmBridgeForTests already established for its
 // own module-level memoization.
 import type { LoadedFileBytes } from "../input/character-file-input.ts";
+import { type SpriteEdit, applySpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData } from "../wasm/types.ts";
 
 export interface CharacterDocument {
   character: CharacterData;
   files: LoadedFileBytes;
+  /** Pending sprite import/replace/delete edits (item 004) — see sprite-edits.ts. */
+  spriteEdits: SpriteEdit[];
 }
+
+/** Everything a caller supplies to setCharacterDocument — spriteEdits always starts empty on load. */
+export type LoadedCharacter = Pick<CharacterDocument, "character" | "files">;
 
 let current: CharacterDocument | null = null;
 
@@ -29,9 +35,13 @@ export function getCharacterDocument(): CharacterDocument | null {
   return current;
 }
 
-/** Replaces the currently loaded character. Pass `null` to clear it. */
-export function setCharacterDocument(doc: CharacterDocument | null): void {
-  current = doc;
+/**
+ * Replaces the currently loaded character. Pass `null` to clear it. Always
+ * starts with an empty `spriteEdits` overlay — a freshly loaded document
+ * has no pending edits of its own yet, discarding any the previous one had.
+ */
+export function setCharacterDocument(doc: LoadedCharacter | null): void {
+  current = doc === null ? null : { ...doc, spriteEdits: [] };
 }
 
 /** Resets the in-memory document to its initial (unloaded) state. Test-only. */
@@ -51,4 +61,18 @@ export function resetCharacterDocumentForTests(): void {
 export function updateCharacterFields(patch: Partial<CharacterData>): void {
   if (current === null) return;
   current = { ...current, character: { ...current.character, ...patch } };
+}
+
+/**
+ * Appends `edit` to the currently loaded document's pending sprite edits
+ * (see applySpriteEdit — an edit for a sprite already pending one replaces
+ * it rather than piling up). A no-op, not an error, when no character is
+ * loaded, mirroring updateCharacterFields's own guard.
+ */
+export function addSpriteEdit(edit: SpriteEdit): void {
+  if (current === null) return;
+  current = {
+    ...current,
+    spriteEdits: applySpriteEdit(current.spriteEdits, edit),
+  };
 }

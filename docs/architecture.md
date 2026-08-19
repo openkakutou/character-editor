@@ -15,9 +15,12 @@ flowchart LR
     app["app\n(src/main.ts)"] --> input["input\n(src/input/)"]
     app --> document["document\n(src/document/)"]
     app --> editors["editors\n(src/editors/)"]
+    app --> sprites["sprites\n(src/sprites/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
+    sprites --> document
+    sprites --> wasm
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -28,7 +31,8 @@ flowchart LR
   point. Builds the root layout (the org's shared `@openkakutou/web-ui-kit`
   app shell: a toolbar plus a main content region), mounts the `input`
   module's view into it, wires its load callback to `document`'s store, and
-  mounts `editors`' characteristics editor once a character loads.
+  mounts `editors`' characteristics editor and `sprites`' sprite browser
+  once a character loads.
 - **`editors`** (`src/editors/`) — screens that edit an already-loaded
   character. `characteristics-editor.ts` renders the first one: a form for
   the top-level identity, referenced-file-path, and list (state files,
@@ -48,19 +52,33 @@ flowchart LR
   renders the file-picker + drag-and-drop UI on top of that logic.
 - **`document`** (`src/document/`) — the in-memory representation of the
   currently loaded character (`character-document.ts`): the WASM-parsed
-  data plus the raw bytes of every file the user supplied. A plain
-  module-level get/set store, not a class — the single place later editor
-  screens (characteristics, sprites, palettes, animations, state logic,
-  commands) will read from and eventually write back to.
+  data, the raw bytes of every file the user supplied, and now a pending
+  `spriteEdits` overlay (see `sprites` below). A plain module-level
+  get/set store, not a class — the single place later editor screens
+  (palettes, animations, state logic, commands) will read from and
+  eventually write back to.
+- **`sprites`** (`src/sprites/`) — the sprite browser: browse every sprite
+  group/image with a zoom/pan preview (`web-ui-kit`'s `<wuik-viewport>`),
+  import a new image as a sprite, replace an existing one's pixels, or
+  delete one. `sprite-edits.ts` is the DOM-free pure logic (merging pending
+  edits onto the WASM-parsed sprite list for display, reference counting
+  for the delete warning); `image-decode.ts` decodes a picked file into raw
+  pixels (`createImageBitmap` + a throwaway canvas); `sprite-browser.ts` is
+  the Web Component-ish DOM layer, committing edits into `document`'s
+  `spriteEdits` overlay via an injected `onSpriteEdit` callback, the same
+  decoupling `editors` already established. Persisting these edits into a
+  real `.sff` file is out of scope for now — see
+  `.vibe/decisions/004-sprite-edits-in-memory-overlay-not-persisted.md`.
 - **`wasm`** (`src/wasm/`) — the bridge to the `character` WebAssembly
   module. `bridge.ts` loads `wasm_exec.js` and instantiates `character.wasm`
   client-side (both fetched from `public/wasm/`, which is gitignored — see
-  "WebAssembly dependency" below), then exposes a typed `loadCharacter(...)`
-  wrapper around the module's `OpenKakutouCharacter.load` global. `types.ts`
-  is the TypeScript mirror of the module's JSON contract (`CharacterData`
-  and its nested shapes, including the full `.def` metadata — author,
-  referenced file paths, state files, palettes) — pure data types, no
-  parsing logic.
+  "WebAssembly dependency" below), then exposes typed wrappers around the
+  module's `OpenKakutouCharacter.load` (`loadCharacter`) and
+  `resolveSprites` (`resolveSpritePixels`, sprite pixel decoding for
+  `sprites`) globals. `types.ts` is the TypeScript mirror of the module's
+  JSON contract (`CharacterData` and its nested shapes, including the full
+  `.def` metadata — author, referenced file paths, state files, palettes)
+  — pure data types, no parsing logic.
 - **`scripts`** (`scripts/download-wasm.mjs`) — dev-only tooling, not part
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
@@ -117,3 +135,22 @@ and under the test suite's jsdom environment.
    file's raw bytes (required and optional) into `document`'s in-memory
    store. Loading a different character later repeats this from step 1 and
    fully replaces the previous document.
+
+## Data flow: browsing and editing sprites
+
+1. `sprites` reads the WASM-parsed sprite metadata (`CharacterData.sprites`)
+   and, for a selected sprite with no pending edit, decodes its actual
+   pixels on demand via `wasm.resolveSpritePixels` — pixel data is never
+   part of `CharacterData` itself, since the WASM `load` JSON contract
+   never carries it, only metadata (dimensions, axis, palette index).
+2. Importing or replacing decodes the picked file locally
+   (`image-decode.ts`, real browser `createImageBitmap`) — no round trip
+   through the WASM module, since it exposes no encode/save call yet.
+3. Every committed add/replace/delete is merged onto the base sprite list
+   purely in `sprite-edits.ts` for display, and reported to `app` via
+   `onSpriteEdit`, which appends it to `document`'s `spriteEdits` array.
+   Loading a different character resets `spriteEdits` to empty, the same
+   "a fresh load starts clean" rule the rest of the document follows.
+4. Nothing here writes to a real `.sff` file yet — a later item does that,
+   consuming `spriteEdits` once the `sff` module's own WASM build exposes
+   an encode call.

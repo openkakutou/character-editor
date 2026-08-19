@@ -190,4 +190,46 @@ describe("renderApp", () => {
 
     expect(getCharacterDocument()?.character.name).toBe("Renamed");
   });
+
+  it("mounts the sprite browser once a character loads successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".sprite-browser")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelector(".sprite-browser")).not.toBeNull();
+    });
+  });
+
+  it("reflects a sprite browser edit in the in-memory document's spriteEdits", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+    await vi.waitFor(() => {
+      expect(root.querySelector(".sprite-browser")).not.toBeNull();
+    });
+
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__group-toggle")
+      ?.click();
+    root
+      .querySelectorAll<HTMLButtonElement>(".sprite-browser__sprite")[0]
+      ?.click();
+    root.querySelector<HTMLButtonElement>(".sprite-browser__delete")?.click();
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__delete-confirm")
+      ?.click();
+
+    expect(getCharacterDocument()?.spriteEdits).toEqual([
+      { kind: "delete", group: 0, image: 0 },
+    ]);
+  });
 });

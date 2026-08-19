@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now browse every sprite of a loaded character, grouped and zoomable, import a new image as a sprite, replace an existing sprite's image, or delete a sprite. Deleting shows how many animation frames still reference it before asking to confirm. Picking a file that isn't a supported image shows a clear error instead of corrupting the sprite sheet. These edits aren't saved to a file yet — that lands in a later update.
+
 ## [0.3.0] - 2026-08-18
 
 ### Added

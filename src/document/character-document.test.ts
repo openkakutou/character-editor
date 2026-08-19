@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import {
+  addSpriteEdit,
   getCharacterDocument,
   resetCharacterDocumentForTests,
   setCharacterDocument,
@@ -50,7 +52,11 @@ describe("setCharacterDocument / getCharacterDocument", () => {
 
     setCharacterDocument({ character, files });
 
-    expect(getCharacterDocument()).toEqual({ character, files });
+    expect(getCharacterDocument()).toEqual({
+      character,
+      files,
+      spriteEdits: [],
+    });
   });
 
   it("carries optional .cmd/.zss bytes through when they were supplied", () => {
@@ -166,5 +172,70 @@ describe("updateCharacterFields", () => {
       "a.st",
       "b.st",
     ]);
+  });
+});
+
+describe("addSpriteEdit", () => {
+  const files = {
+    def: bytes("d"),
+    air: bytes("a"),
+    sff: bytes("s"),
+    cns: bytes("c"),
+  };
+
+  it("starts empty for a freshly loaded document", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    expect(getCharacterDocument()?.spriteEdits).toEqual([]);
+  });
+
+  it("appends a pending sprite edit onto the document", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    const edit: SpriteEdit = {
+      kind: "add",
+      group: 0,
+      image: 0,
+      pixels: new Uint8Array(4),
+      width: 1,
+      height: 1,
+    };
+
+    addSpriteEdit(edit);
+
+    expect(getCharacterDocument()?.spriteEdits).toEqual([edit]);
+  });
+
+  it("replaces an earlier pending edit for the same sprite rather than appending a duplicate", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    addSpriteEdit({
+      kind: "add",
+      group: 0,
+      image: 0,
+      pixels: new Uint8Array(4),
+      width: 1,
+      height: 1,
+    });
+
+    addSpriteEdit({ kind: "delete", group: 0, image: 0 });
+
+    expect(getCharacterDocument()?.spriteEdits).toEqual([
+      { kind: "delete", group: 0, image: 0 },
+    ]);
+  });
+
+  it("does nothing when no character is currently loaded, instead of throwing", () => {
+    expect(() =>
+      addSpriteEdit({ kind: "delete", group: 0, image: 0 }),
+    ).not.toThrow();
+    expect(getCharacterDocument()).toBeNull();
+  });
+
+  it("resets to empty on a fresh load, discarding any prior document's pending edits", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    addSpriteEdit({ kind: "delete", group: 0, image: 0 });
+
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    expect(getCharacterDocument()?.spriteEdits).toEqual([]);
   });
 });

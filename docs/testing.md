@@ -14,9 +14,10 @@ test (`*.test.ts` next to the file it covers).
 
 ## Fixture-driven tests against the real WASM module
 
-Tests that touch character parsing (`src/wasm/bridge.test.ts`,
-`src/input/character-file-input.test.ts`, `src/input/character-file-input-view.test.ts`,
-and `src/main.test.ts`'s file-input wiring tests) run against the **real**
+Tests that touch character parsing (`src/wasm/bridge.test.ts`, including its
+`resolveSpritePixels` sprite-pixel-decoding tests, `src/input/character-file-input.test.ts`,
+`src/input/character-file-input-view.test.ts`, and `src/main.test.ts`'s
+file-input/sprite-browser wiring tests) run against the **real**
 `character.wasm` module, not a mock — they read `public/wasm/character.wasm`
 + `wasm_exec.js` straight off disk via `node:fs` and inject them into the
 bridge's `fetchWasmExecSource`/`fetchWasmBytes` options, so no dev server or
@@ -38,8 +39,17 @@ at all. `src/input/character-file-input.ts` reads `File` objects via
 jsdom and in a real browser.
 
 Native browser objects that jsdom doesn't construct in a test-friendly way
-(a drop event's `dataTransfer`) are stubbed with `Object.defineProperty` in
-tests rather than built through jsdom's own `DataTransfer`.
+(a drop event's `dataTransfer`, a file input's `files`) are stubbed with
+`Object.defineProperty` in tests rather than built through jsdom's own
+`DataTransfer`/`FileList`.
+
+`jsdom` doesn't implement `HTMLCanvasElement.getContext("2d")` or
+`createImageBitmap` at all (logs a "not implemented" warning and returns
+nothing usable). `sprite-browser.ts`'s pixel drawing and `image-decode.ts`'s
+image decoding are both taken as injectable options for this reason —
+`drawPixels`/`decodeImageFile` — with the real implementation verified
+separately by a real-browser pass (see "Beyond the test suite" below)
+instead of by the unit test suite.
 
 ## Testable-by-construction patterns
 
@@ -56,5 +66,11 @@ Passing tests are not treated as proof a UI feature works. The file input
 was additionally driven against a real headless Chromium (dev server +
 Playwright) during development — dropping the 4 required files and
 confirming the success status, and swapping in a corrupt `.sff` to confirm
-the error path renders cleanly with no console errors. This isn't part of
-`npm test`; it's a manual verification step, not a CI gate.
+the error path renders cleanly with no console errors. The sprite browser
+got the same treatment: loading a character, confirming a selected sprite's
+pixels actually render inside `<wuik-viewport>` (sampled non-blank canvas
+content, not just "no crash"), importing and replacing with a real PNG,
+walking the delete confirm/cancel/confirm flow and checking the reported
+reference count, and confirming a non-image file produces a clear inline
+error. This isn't part of `npm test`; it's a manual verification step, not
+a CI gate.

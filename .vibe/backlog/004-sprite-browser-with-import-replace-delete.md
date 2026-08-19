@@ -1,5 +1,5 @@
 ---
-status: todo
+status: in_progress
 depends_on: [002]
 ---
 # Sprite Browser With Import/Replace/Delete

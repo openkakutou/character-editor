@@ -3,12 +3,14 @@ import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
 import {
+  addSpriteEdit,
   setCharacterDocument,
   updateCharacterFields,
 } from "./document/character-document.ts";
 import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
+import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { appVersion } from "./version.ts";
 import {
   MIN_SUPPORTED_WEB_UI_KIT_VERSION,
@@ -105,16 +107,20 @@ export function renderApp(
 
   const main = document.createElement("main");
   const characteristicsContainer = document.createElement("div");
+  const spriteBrowserContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
       renderCharacteristicsEditor(characteristicsContainer, character, {
         onChange: (patch) => updateCharacterFields(patch),
       });
+      renderSpriteBrowser(spriteBrowserContainer, character, files.sff, [], {
+        onSpriteEdit: (edit) => addSpriteEdit(edit),
+      });
     },
     bridgeOptions: options.bridgeOptions,
   });
-  main.appendChild(characteristicsContainer);
+  main.append(characteristicsContainer, spriteBrowserContainer);
   shell.appendChild(main);
 
   root.appendChild(shell);
