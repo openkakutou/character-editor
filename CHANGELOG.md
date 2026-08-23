@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now edit a character's color palette: pick and recolor any of its 256 colors, start a new palette blank or as a copy of the current one, load an existing `.act` palette file to edit, and see the change reflected live on a chosen sprite preview. Index 0 is flagged as always fully transparent in-game, so editing it is never mistaken for a real color change. The edited palette can be saved as a `.act` file. Loading a file that isn't a valid palette shows a clear error instead of corrupting the editor.
+
 ## [0.4.0] - 2026-08-19
 
 ### Added

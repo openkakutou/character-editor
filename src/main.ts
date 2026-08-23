@@ -10,6 +10,7 @@ import {
 import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
+import { renderPaletteEditor } from "./palettes/palette-editor.ts";
 import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { appVersion } from "./version.ts";
 import {
@@ -108,6 +109,7 @@ export function renderApp(
   const main = document.createElement("main");
   const characteristicsContainer = document.createElement("div");
   const spriteBrowserContainer = document.createElement("div");
+  const paletteEditorContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
@@ -117,10 +119,15 @@ export function renderApp(
       renderSpriteBrowser(spriteBrowserContainer, character, files.sff, [], {
         onSpriteEdit: (edit) => addSpriteEdit(edit),
       });
+      renderPaletteEditor(paletteEditorContainer, character, files.sff);
     },
     bridgeOptions: options.bridgeOptions,
   });
-  main.append(characteristicsContainer, spriteBrowserContainer);
+  main.append(
+    characteristicsContainer,
+    spriteBrowserContainer,
+    paletteEditorContainer,
+  );
   shell.appendChild(main);
 
   root.appendChild(shell);

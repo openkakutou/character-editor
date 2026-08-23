@@ -26,6 +26,15 @@ _Sources: `src/wasm/types.ts`_
 A collection of Sprites that share the same group index.
 _Sources: `src/wasm/types.ts`_
 
+## Palette
+A 256-color table a Sprite's pixel values index into to produce its actual on-screen colors. Stored in this app's own palette editor in **semantic MUGEN index order** — index 0 is always the color a pixel value of 0 resolves to — never in a real `.act` file's raw byte order, which reverses it. See `.vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md`.
+**Do not confuse with:** Sprite, which references a Palette by bank index but does not carry its colors itself.
+_Sources: `src/palettes/palette.ts`_
+
+## Reserved palette index
+Semantic index 0 of a Palette: the `sff` library's own decode forces it fully transparent unconditionally, on every live preview and any real MUGEN/Ikemen load — not a risk contingent on the color chosen there, an inert slot regardless of it.
+_Sources: `src/palettes/palette.ts`, `src/palettes/palette-editor.ts`_
+
 ## State
 A named mode of a character's behavior (e.g. standing, an attack, a hit reaction): a state number, its type/move-type/physics classification, and the State controllers that run while it is active.
 **Do not confuse with:** Animation, which is the visual sequence of Frames a state typically plays but is referenced separately by number, not part of the state itself.

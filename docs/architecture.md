@@ -16,11 +16,15 @@ flowchart LR
     app --> document["document\n(src/document/)"]
     app --> editors["editors\n(src/editors/)"]
     app --> sprites["sprites\n(src/sprites/)"]
+    app --> palettes["palettes\n(src/palettes/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
     sprites --> document
     sprites --> wasm
+    palettes --> document
+    palettes --> wasm
+    palettes -.->|reuses defaultDrawPixels| sprites
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -79,6 +83,18 @@ flowchart LR
   JSON contract (`CharacterData` and its nested shapes, including the full
   `.def` metadata — author, referenced file paths, state files, palettes)
   — pure data types, no parsing logic.
+- **`palettes`** (`src/palettes/`) — the palette editor. `palette.ts` is the
+  DOM-free pure logic: a 256-color palette stored in **semantic MUGEN
+  index order**, and the one `reversePaletteByteOrder` function (a
+  mathematical involution) that converts to/from a real `.act` file's raw
+  byte layout, since the `sff` Go library's own decode reverses index
+  order (raw file position `i` holds semantic index `255-i`) — see
+  `.vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md`.
+  `palette-editor.ts` is the DOM layer: a 256-swatch grid, a
+  `<wuik-color-picker>`-driven detail panel for the selected color, and a
+  live-recolored sprite preview built by passing the current palette's
+  file-order bytes as `wasm.resolveSpritePixels`'s override argument —
+  reusing `sprites`' own `defaultDrawPixels` rather than duplicating it.
 - **`scripts`** (`scripts/download-wasm.mjs`) — dev-only tooling, not part
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
@@ -154,3 +170,25 @@ and under the test suite's jsdom environment.
 4. Nothing here writes to a real `.sff` file yet — a later item does that,
    consuming `spriteEdits` once the `sff` module's own WASM build exposes
    an encode call.
+
+## Data flow: editing a palette
+
+1. `palettes` starts with no active palette; the user either starts one
+   blank (`blankPalette()`, all-black) or uploads an existing `.act` file
+   (`parseActBytes`, which normalizes both the exact 768-byte layout and
+   the common 772-byte Adobe-trailer variant, converting file order to
+   semantic order in the same step).
+2. Selecting a swatch and editing it via the `<wuik-color-picker>` updates
+   only that one color (`withColor`, an immutable update) and the one
+   affected swatch's own DOM — the picker element itself is never
+   rebuilt, so an in-progress interaction on it survives every edit.
+3. Every edit re-triggers a live preview: `serializeActBytes` (the same
+   `reversePaletteByteOrder` conversion used for real `.act` export) turns
+   the current palette into the file-order bytes `wasm.resolveSpritePixels`
+   expects as its override argument, decoding the chosen preview sprite
+   recolored with the edited palette.
+4. "Save as .act" downloads `serializeActBytes(activePalette)` via a
+   throwaway object URL — this, unlike sprite edits, is not staged into
+   `document`'s store, since the acceptance criteria only ask for a
+   standalone downloadable file, independent of the full character
+   save/export item (`009`).

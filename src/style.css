@@ -418,3 +418,93 @@ body {
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-secondary);
 }
+
+/*
+ * Palette editor (backlog item 005) — a 256-swatch grid, a detail panel
+ * for the selected color, and a live-recolored sprite preview.
+ */
+.palette-editor {
+  padding: var(--wuik-space-4);
+}
+
+.palette-editor__source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-2);
+  margin-bottom: var(--wuik-space-3);
+}
+
+.palette-editor__source-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+  border-left: 3px solid var(--wuik-color-danger);
+  padding-left: var(--wuik-space-2);
+}
+
+.palette-editor__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wuik-space-4);
+}
+
+.palette-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1.1em);
+  gap: 1px;
+  width: max-content;
+}
+
+.palette-editor__swatch {
+  width: 1.1em;
+  height: 1.1em;
+  padding: 0;
+  border: 1px solid var(--wuik-color-border);
+  cursor: pointer;
+}
+
+.palette-editor__swatch.is-selected {
+  outline: 2px solid var(--wuik-color-accent);
+  outline-offset: 1px;
+}
+
+.palette-editor__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  min-width: 14em;
+}
+
+.palette-editor__selected-index {
+  margin: 0;
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.palette-editor__reserved-note {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
+
+.palette-editor__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  min-width: 12em;
+}
+
+.palette-editor__preview-canvas {
+  image-rendering: pixelated;
+  background-color: var(--wuik-color-surface);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-2);
+}
+
+.palette-editor__preview-status {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}

@@ -51,6 +51,27 @@ image decoding are both taken as injectable options for this reason —
 separately by a real-browser pass (see "Beyond the test suite" below)
 instead of by the unit test suite.
 
+## Asserting a swatch's color via `aria-label`, not `.style.background`
+
+`jsdom`'s `CSSStyleDeclaration` re-serializes a hex color assigned to
+`background` as `rgb(r, g, b)` when read back — a test comparing
+`swatch.style.background` against the original `"#rrggbb"` string fails
+regardless of whether the real color is correct. `palette-editor.test.ts`
+instead reads each swatch's color from its `aria-label` (`"Index N: #hex"`),
+plain text jsdom never touches.
+
+## `wuik-button`'s disabled state is an attribute, not a `.disabled` property
+
+`<wuik-button>` reads `disabled` via `hasAttribute("disabled")` on the host
+custom element, not an IDL `.disabled` property (custom elements don't get
+one for free the way a native `<button>` does). `palette-editor.ts` toggles
+it with `setAttribute`/`removeAttribute` accordingly, and its own click
+handler re-checks `hasAttribute("disabled")` before acting — belt-and-braces
+since this project's test environment never registers `web-ui-kit`'s real
+custom elements, so a test's `.click()` on the host bypasses whatever
+internal disabling the real component would apply; only a real-browser pass
+exercises that part end-to-end.
+
 ## Testable-by-construction patterns
 
 Every layer that touches the outside world (network `fetch`, WASM
@@ -74,3 +95,10 @@ walking the delete confirm/cancel/confirm flow and checking the reported
 reference count, and confirming a non-image file produces a clear inline
 error. This isn't part of `npm test`; it's a manual verification step, not
 a CI gate.
+
+The palette editor got the same treatment against the real WASM build:
+loading a character, starting a blank palette (256 swatches, all black),
+selecting and recoloring one via the color picker (confirming the exact
+same picker element persists, never rebuilt), the live preview actually
+rendering the chosen sprite recolored, and the reserved-index-0 note
+showing correctly — with no console errors.

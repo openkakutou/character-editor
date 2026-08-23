@@ -9,10 +9,10 @@ This project is in early-stage development. Available now:
 - Load a character for editing by picking or dragging in its 4 required files (`.def`, `.air`, `.sff`, `.cns`), plus its `.cmd`/`.zss` files if it has them — the app reads them, clearly calls out a missing required file or an unreadable/corrupt one, and confirms once the character is loaded.
 - Edit a loaded character's name, author, referenced file paths, and its lists of state and palette files, right after loading it — a required name left empty, or a file-list entry left blank, shows a clear inline error instead of being silently accepted.
 - Browse every sprite, grouped and zoomable; import a new one, replace an existing one's image, or delete one — deleting warns how many animation frames still reference it first, and picking an unsupported file shows a clear error instead of corrupting the sprite sheet. These edits aren't saved to a file yet.
+- Edit a character's color palette: pick and recolor any of its 256 colors, start a new palette blank or as a copy of the current one, or load an existing `.act` palette file to edit, with the change reflected live on a chosen sprite preview. The color at index 0 is flagged as always fully transparent in-game, so editing it is never mistaken for a real color change. Save the edited palette as a `.act` file — loading a file that isn't a valid palette shows a clear error instead of corrupting the editor.
 
 Planned:
 
-- Edit/create palettes
 - Create/edit animations (frame timing, sprite refs, hitbox/hurtbox boxes)
 - Structured editing of state/combat logic (`.cns` StateDef/Controllers)
 - Edit command definitions (`.cmd` input sequences)

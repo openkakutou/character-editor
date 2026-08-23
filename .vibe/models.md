@@ -52,3 +52,13 @@ Defined in: `src/input/character-file-input.ts`
 Discriminated-union results instead of thrown exceptions. `CharacterResult` is the WASM bridge's own `{ok: true, character} | {ok: false, error}`. `CharacterInputResult` wraps it one layer up: `{status: "success", character, files} | {status: "read-error", error} | {status: "bridge-error", message}`.
 
 Defined in: `src/wasm/types.ts`, `src/input/character-file-input.ts`
+
+## Color
+An RGB triplet (`{r, g, b}`, 0-255 each) — a palette editor color, no alpha channel: `.act` files carry none.
+
+Defined in: `src/palettes/palette.ts`
+
+## ParseActResult
+A discriminated-union result instead of a thrown exception for `.act` file parsing: `{ok: true, palette: Uint8Array} | {ok: false, error: string}`. `palette` is 768 bytes in semantic MUGEN index order (never raw file order) — see `.vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md`.
+
+Defined in: `src/palettes/palette.ts`
