@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-23
+
 ### Added
 
 - Users can now edit a character's color palette: pick and recolor any of its 256 colors, start a new palette blank or as a copy of the current one, load an existing `.act` palette file to edit, and see the change reflected live on a chosen sprite preview. Index 0 is flagged as always fully transparent in-game, so editing it is never mistaken for a real color change. The edited palette can be saved as a `.act` file. Loading a file that isn't a valid palette shows a clear error instead of corrupting the editor.
@@ -34,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/openkakutou/character-editor/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openkakutou/character-editor/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/openkakutou/character-editor/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openkakutou/character-editor/releases/tag/v0.2.0
