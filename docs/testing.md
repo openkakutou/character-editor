@@ -72,6 +72,17 @@ custom elements, so a test's `.click()` on the host bypasses whatever
 internal disabling the real component would apply; only a real-browser pass
 exercises that part end-to-end.
 
+`state-editor.ts`'s move-up/move-down controller-reorder buttons hit the
+concrete version of this gap: real-browser verification found that a
+forced/synthetic click on a boundary row's "disabled" move button (jsdom's
+`.click()` doesn't respect the attribute either, so this is also directly
+reproducible as a unit test, not just a manual finding) crashed by swapping
+`undefined` into the controller list. The fix is the same belt-and-braces
+shape: each move handler re-checks the list-boundary condition itself
+before acting, never relying solely on the DOM attribute — see
+`state-editor.test.ts`'s own boundary-click regression test and
+`.vibe/decisions/006`.
+
 ## Testable-by-construction patterns
 
 Every layer that touches the outside world (network `fetch`, WASM
@@ -102,3 +113,12 @@ selecting and recoloring one via the color picker (confirming the exact
 same picker element persists, never rebuilt), the live preview actually
 rendering the chosen sprite recolored, and the reserved-index-0 note
 showing correctly — with no console errors.
+
+The state editor got the same treatment against a real `.cns` fixture with
+several real StateDefs/controllers: expanding a panel and confirming
+controller order and content, editing a parameter value, reordering
+controllers (this is exactly what surfaced the boundary-click crash
+described above, fixed and re-verified clean), adding a controller to
+confirm it starts editable and never flagged unsupported, and walking the
+StateDef remove confirm/cancel/confirm flow — with no console errors once
+the reorder fix landed.

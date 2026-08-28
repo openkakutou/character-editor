@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now browse a character's states and edit their combat logic: add, edit, remove, and reorder each state's controllers, along with their trigger conditions and parameters, and create brand-new states. A controller whose type is missing from the loaded file is shown clearly flagged instead of being silently dropped or crashing the editor. Removing a whole state asks for confirmation first, showing how many controllers it holds.
+
 ## [0.5.0] - 2026-08-23
 
 ### Added

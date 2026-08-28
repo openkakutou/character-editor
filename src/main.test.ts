@@ -247,4 +247,19 @@ describe("renderApp", () => {
       expect(root.querySelector(".palette-editor")).not.toBeNull();
     });
   });
+
+  it("mounts the state editor once a character loads successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".state-editor")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelector(".state-editor")).not.toBeNull();
+    });
+  });
 });

@@ -44,3 +44,8 @@ _Sources: `src/wasm/types.ts`_
 A single behavior a State can perform, stored as unevaluated data — its triggers and parameters are kept verbatim, not resolved against MUGEN/Ikemen's expression language.
 **Do not confuse with:** State, which owns an ordered list of State controllers rather than being one itself.
 _Sources: `src/wasm/types.ts`_
+
+## Unsupported controller
+A State controller loaded with a blank type — the one shape this editor's structured state-editor screen can't offer a meaningful editable view for, since a controller's type/triggers/parameters can otherwise never fail to parse. Shown flagged and read-only, but still removable; classified once when loaded, never re-evaluated as the user edits it, so clearing a type field mid-edit never locks that same field.
+**Do not confuse with:** State controller, the general concept an unsupported controller is one specific (blank-type) case of.
+_Sources: `src/editors/state-editor.ts`_

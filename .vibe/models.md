@@ -58,6 +58,21 @@ An RGB triplet (`{r, g, b}`, 0-255 each) — a palette editor color, no alpha ch
 
 Defined in: `src/palettes/palette.ts`
 
+## StateDef / Controller
+A `.cns` `[Statedef N]` block plus its ordered Controllers. `Controller`'s `type`/`triggers`/`parameters` are unevaluated data (`character/cns`'s own model) this app only edits, never interprets — none of them can ever fail to parse; a blank `type` is the one shape `state-editor.ts` flags as unsupported (see `.vibe/decisions/006`).
+
+| Type | Field | Type | Notes |
+|---|---|---|---|
+| StateDef | number | number | The `[Statedef N]` identifier |
+| StateDef | type / moveType / physics | StateType / MoveType / PhysicsType | Header classification fields; read-only in this app's editor |
+| StateDef | anim, ctrl, powerAdd, juggle, faceP2, hitDefPersist, moveHitPersist, hitCountPersist, sprPriority | various | Other header fields; read-only in this app's editor |
+| StateDef | controllers | Controller[] | In file order |
+| Controller | type | string | The controller's declared type (e.g. `"ChangeState"`); blank means unsupported (see above) |
+| Controller | triggers | string[] | Unevaluated trigger-condition strings, in file order |
+| Controller | parameters | Record\<string, string\> | Unevaluated key/value pairs |
+
+Defined in: `src/wasm/types.ts`
+
 ## ParseActResult
 A discriminated-union result instead of a thrown exception for `.act` file parsing: `{ok: true, palette: Uint8Array} | {ok: false, error: string}`. `palette` is 768 bytes in semantic MUGEN index order (never raw file order) — see `.vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md`.
 

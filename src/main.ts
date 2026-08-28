@@ -8,6 +8,7 @@ import {
   updateCharacterFields,
 } from "./document/character-document.ts";
 import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts";
+import { renderStateEditor } from "./editors/state-editor.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
 import { renderPaletteEditor } from "./palettes/palette-editor.ts";
@@ -110,6 +111,7 @@ export function renderApp(
   const characteristicsContainer = document.createElement("div");
   const spriteBrowserContainer = document.createElement("div");
   const paletteEditorContainer = document.createElement("div");
+  const stateEditorContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
@@ -120,6 +122,9 @@ export function renderApp(
         onSpriteEdit: (edit) => addSpriteEdit(edit),
       });
       renderPaletteEditor(paletteEditorContainer, character, files.sff);
+      renderStateEditor(stateEditorContainer, character, {
+        onChange: (patch) => updateCharacterFields(patch),
+      });
     },
     bridgeOptions: options.bridgeOptions,
   });
@@ -127,6 +132,7 @@ export function renderApp(
     characteristicsContainer,
     spriteBrowserContainer,
     paletteEditorContainer,
+    stateEditorContainer,
   );
   shell.appendChild(main);
 

@@ -1,5 +1,5 @@
 # Module: editors
-**Role:** Screens that edit an already-loaded character. `characteristics-editor.ts` (item 003) is the first: a form for identity, referenced-file-path, and list (state files, palettes) fields, committing every edit via an injected `onChange` callback rather than touching the document store directly.
-**Files:** `src/editors/characteristics-editor.ts`
-**Exports:** `renderCharacteristicsEditor(root, character, options): void`, `CharacteristicsEditorOptions`
-**Depends on:** `modules/wasm.md` (for `CharacterData`)
+**Role:** Screens that edit an already-loaded character. `characteristics-editor.ts` (item 003) is the first: a form for identity, referenced-file-path, and list (state files, palettes) fields. `state-editor.ts` (item 007) is the state/combat logic editor: browse StateDefs and add/edit/remove/reorder their Controllers (type, trigger expressions, parameters); a controller loaded with a blank type is flagged unsupported (read-only, still removable) rather than dropped, classified once at load time, never re-derived live — see `.vibe/decisions/006`. Both commit every edit via an injected `onChange` callback rather than touching the document store directly.
+**Files:** `src/editors/characteristics-editor.ts`, `src/editors/state-editor.ts`
+**Exports:** `renderCharacteristicsEditor(root, character, options): void`, `CharacteristicsEditorOptions`, `renderStateEditor(root, character, options): void`, `StateEditorOptions`
+**Depends on:** `modules/wasm.md` (for `CharacterData`/`StateDef`/`Controller`)

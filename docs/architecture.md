@@ -14,7 +14,7 @@ itself.
 flowchart LR
     app["app\n(src/main.ts)"] --> input["input\n(src/input/)"]
     app --> document["document\n(src/document/)"]
-    app --> editors["editors\n(src/editors/)"]
+    app --> editors["editors\n(src/editors/\ncharacteristics + state)"]
     app --> sprites["sprites\n(src/sprites/)"]
     app --> palettes["palettes\n(src/palettes/)"]
     input --> wasm["wasm\n(src/wasm/)"]
@@ -35,8 +35,8 @@ flowchart LR
   point. Builds the root layout (the org's shared `@openkakutou/web-ui-kit`
   app shell: a toolbar plus a main content region), mounts the `input`
   module's view into it, wires its load callback to `document`'s store, and
-  mounts `editors`' characteristics editor and `sprites`' sprite browser
-  once a character loads.
+  mounts `editors`' characteristics editor and state editor, `sprites`'
+  sprite browser, and `palettes`' palette editor once a character loads.
 - **`editors`** (`src/editors/`) — screens that edit an already-loaded
   character. `characteristics-editor.ts` renders the first one: a form for
   the top-level identity, referenced-file-path, and list (state files,
@@ -45,7 +45,10 @@ flowchart LR
   directly — kept decoupled and testable the same way `input` never touches
   `document` either, only `app` wires the two together. Its text fields are
   plain `<input>`s styled with `web-ui-kit` tokens, not a `web-ui-kit`
-  component — see "Native form inputs" below.
+  component — see "Native form inputs" below. `state-editor.ts` (item 007)
+  is the state/combat logic editor — see "Data flow: editing state/combat
+  logic" below and
+  `.vibe/decisions/006-state-editor-unsupported-controller-and-removal-scope.md`.
 - **`input`** (`src/input/`) — the character file input. `character-file-input.ts`
   holds the DOM-free logic: it accumulates files across any number of
   picker/drop gestures into 6 slots — 4 required (`.def`/`.air`/`.sff`/`.cns`)
@@ -192,3 +195,38 @@ and under the test suite's jsdom environment.
    `document`'s store, since the acceptance criteria only ask for a
    standalone downloadable file, independent of the full character
    save/export item (`009`).
+
+## Data flow: editing state/combat logic
+
+1. `state-editor.ts` reads `CharacterData.stateDefs` — a `character/cns`
+   `[Statedef N]` block plus its ordered `Controller` list, each controller
+   an unevaluated `{type, triggers, parameters}` this app only edits, never
+   interprets. StateDefs render as collapsible panels (mirroring the same
+   collapsed-by-default convention `sprites`' group list uses); a panel's
+   header shows its number and header fields read-only — editing those
+   fields is out of this item's scope.
+2. Each committed edit (a controller's type/trigger/parameter, an add/
+   remove/reorder, or a whole StateDef's add/remove) rebuilds that
+   StateDef's `controllers` array (or the top-level `stateDefs` array) and
+   calls `options.onChange({stateDefs})` — the same "commit a patch,
+   never touch the document store directly" convention `characteristics-editor.ts`
+   established.
+3. A controller is classified "unsupported" — read-only, flagged, but still
+   removable — only if its `type` was already blank in the data as loaded;
+   this is computed once per row and never re-derived from a live edit, so
+   editing a type field can never lock or unlock that same row out from
+   under the user. See `.vibe/decisions/006`.
+4. Removing a single controller commits immediately; removing a whole
+   StateDef shows an inline confirm/cancel step first, naming how many
+   controllers would go with it — the same "confirm a broad-blast-radius
+   delete" precedent `sprites`' delete-confirmation established, applied
+   here without that screen's reference-count computation (not requested by
+   this item's acceptance criteria).
+5. Move-up/move-down reorder a StateDef's `controllers` array directly;
+   each handler is guarded against running past the list boundary in its
+   own code, not solely via its button's `disabled` attribute — found by
+   real-browser runtime verification, where a forced/synthetic click on a
+   boundary button (never possible via genuine mouse interaction, since a
+   disabled real `<button>` inside `wuik-button`'s shadow DOM never
+   dispatches a click at all) would otherwise swap in `undefined` and
+   crash the next commit.
