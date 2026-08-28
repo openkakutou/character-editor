@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-28
+
 ### Added
 
 - Users can now browse a character's states and edit their combat logic: add, edit, remove, and reorder each state's controllers, along with their trigger conditions and parameters, and create brand-new states. A controller whose type is missing from the loaded file is shown clearly flagged instead of being silently dropped or crashing the editor. Removing a whole state asks for confirmation first, showing how many controllers it holds.
@@ -40,7 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/openkakutou/character-editor/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/openkakutou/character-editor/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openkakutou/character-editor/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/openkakutou/character-editor/compare/v0.2.0...v0.3.0
