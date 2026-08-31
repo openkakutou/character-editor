@@ -92,6 +92,24 @@ instantiation, file reads) takes its effect as an injectable option —
 implementation but overridable in tests. This is the same shape used by
 `scripts/download-wasm.mjs`'s testable `main(argv, overrides)`.
 
+`animation-editor.ts`'s playback preview takes its own timer
+(`PlaybackTimer.schedule`/`cancel`) as an injectable option too, defaulting
+to real `window.setTimeout`/`clearTimeout`. `animation-editor.test.ts`
+injects a synchronous fake (`schedule` records the callback instead of
+running it; `flush()` invokes the most recently recorded one) so playback
+advance/hold/loop behavior is asserted deterministically, with no real
+elapsed time in the test run and no `vi.useFakeTimers()` needed.
+
+## Real pointer events in tests, not `PointerEvent` construction quirks
+
+This project's pinned jsdom does not expose a global `PointerEvent`
+constructor. `animation-editor.test.ts`'s Clsn-box drag/resize tests
+dispatch a plain `MouseEvent` typed as `"pointerdown"`/`"pointermove"`/
+`"pointerup"` instead — event listeners match on the `type` string, not the
+constructor class, and `MouseEvent` carries the same `clientX`/`clientY`
+fields the drag math actually reads, so this reproduces the real
+interaction without needing a `PointerEvent` polyfill.
+
 ## Beyond the test suite: real-browser verification
 
 Passing tests are not treated as proof a UI feature works. The file input
@@ -122,3 +140,28 @@ described above, fixed and re-verified clean), adding a controller to
 confirm it starts editable and never flagged unsupported, and walking the
 StateDef remove confirm/cancel/confirm flow — with no console errors once
 the reorder fix landed.
+
+The animation editor got the same treatment against a real character
+fixture: adding an animation and frames, editing a frame's sprite
+reference/duration, reordering and removing frames, confirming a
+nonexistent sprite reference shows its inline warning without blocking
+further edits to that row, opening the Clsn editor and adding/moving/
+resizing/keyboard-nudging/numerically-editing/deleting hit and hurt boxes,
+and driving playback (play, a missing-sprite frame degrading to its
+warning instead of a blank frame mid-playback, pause, step) — with no
+console errors. This pass caught two real defects unit tests couldn't
+have: the playback status text stayed stuck on "No frames to play." after
+frames were actually added (a stale-text bug, fixed), and dragging/
+resizing a Clsn box rebuilt every box's DOM node on every `pointermove`
+(visibly janky, and invalidated any element reference held mid-drag) —
+fixed by mutating the dragged element's own style live and committing to
+the data model once, on `pointerup` (see `docs/architecture.md`'s "Data
+flow: editing animations"). It also caught that resize handles and the
+Clsn boxes themselves had no visual styling at all — functionally wired
+but invisible in a real browser — added to `src/style.css`. Real
+click/drag input via Playwright's CDP-based `page.mouse` proved unreliable
+in this headless setup specifically for the drag gestures (reporting no
+movement even though the same interaction dispatched as native
+`PointerEvent`s in-page worked correctly and matched the unit tests
+exactly) — a tooling limitation of the simulated input path, not the app;
+confirmed via direct in-page event dispatch instead.

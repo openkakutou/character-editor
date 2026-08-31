@@ -77,3 +77,21 @@ Defined in: `src/wasm/types.ts`
 A discriminated-union result instead of a thrown exception for `.act` file parsing: `{ok: true, palette: Uint8Array} | {ok: false, error: string}`. `palette` is 768 bytes in semantic MUGEN index order (never raw file order) — see `.vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md`.
 
 Defined in: `src/palettes/palette.ts`
+
+## Animation / Frame / ClsnBox
+A `.air` `[Begin Action N]` block (`Animation`), its ordered Frames, and each Frame's Clsn1/Clsn2 collision boxes — edited by `animations` (backlog item 006). Every field round-trips as-is; this app never resolves a Frame's sprite reference against real pixels except for its own live preview.
+
+| Type | Field | Type | Notes |
+|---|---|---|---|
+| Animation | number | number | The `[Begin Action N]` identifier |
+| Animation | frames | Frame[] | In file order |
+| Animation | loopStart | number | Index playback loops back to once past the last frame |
+| Frame | group, image | number | The Sprite this frame displays |
+| Frame | x, y | number | Display offset |
+| Frame | time | number | Duration in ticks; non-positive means "hold indefinitely" (MUGEN convention) — see `animation-playback.ts`'s `advanceFrame` |
+| Frame | flip | Flip (`""` \| `"H"` \| `"V"` \| `"HV"`) | Mirroring axis |
+| Frame | blend | BlendMode (string) | Blend mode token, e.g. `"A"` for additive |
+| Frame | clsn1, clsn2 | ClsnBox[] | Hit boxes / hurt boxes, editable in `animations`' Clsn editor |
+| ClsnBox | left, top, right, bottom | number | Axis-aligned box in the sprite's own pixel coordinates, always integers once committed by `animations` (see `.vibe/decisions/007`) |
+
+Defined in: `src/wasm/types.ts`

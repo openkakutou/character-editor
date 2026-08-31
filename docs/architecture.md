@@ -17,6 +17,7 @@ flowchart LR
     app --> editors["editors\n(src/editors/\ncharacteristics + state)"]
     app --> sprites["sprites\n(src/sprites/)"]
     app --> palettes["palettes\n(src/palettes/)"]
+    app --> animations["animations\n(src/animations/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -25,6 +26,8 @@ flowchart LR
     palettes --> document
     palettes --> wasm
     palettes -.->|reuses defaultDrawPixels| sprites
+    animations --> wasm
+    animations -.->|merges spriteEdits, reuses sprite-edits.ts| sprites
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -98,6 +101,19 @@ flowchart LR
   live-recolored sprite preview built by passing the current palette's
   file-order bytes as `wasm.resolveSpritePixels`'s override argument —
   reusing `sprites`' own `defaultDrawPixels` rather than duplicating it.
+- **`animations`** (`src/animations/`) — the animation editor: create/edit
+  `.air` animations, their frames (sprite reference, duration), and each
+  frame's Clsn1/Clsn2 (hit/hurt) boxes, plus a play/pause/step preview.
+  `animation-logic.ts` is the DOM-free pure logic (frame/box construction,
+  Clsn move/resize geometry, integer-pixel snapping, sprite-reference
+  existence checks against the merged `sprites` overlay);
+  `animation-playback.ts` is the equally DOM-free frame-advance/looping/
+  hold logic the playback timer drives. `animation-editor.ts` is the DOM
+  layer — see "Data flow: editing animations" below and
+  `.vibe/decisions/007-animation-editor-clsn-interaction-model.md` for why
+  Clsn boxes are numeric-input-first with drag/keyboard as equivalent
+  paths, slotted inside `<wuik-viewport>` rather than a separate overlay
+  layer.
 - **`scripts`** (`scripts/download-wasm.mjs`) — dev-only tooling, not part
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
@@ -230,3 +246,40 @@ and under the test suite's jsdom environment.
    disabled real `<button>` inside `wuik-button`'s shadow DOM never
    dispatches a click at all) would otherwise swap in `undefined` and
    crash the next commit.
+
+## Data flow: editing animations
+
+1. `animations` reads `CharacterData.animations` (each a `.air`
+   `[Begin Action N]` block: a number, an ordered `Frame` list, and a loop
+   point) and renders them the same collapsible-panel pattern `sprites`'
+   group list and `state-editor`'s StateDef list already established.
+2. A frame's sprite reference is checked against the **merged** sprite
+   list — `character.sprites` plus the sprite browser's own pending
+   `spriteEdits` overlay (`sprite-edits.ts`'s `mergeSpriteGroups`, reused
+   directly rather than reimplemented) — so a sprite added or deleted in
+   this same session is reflected immediately, not just the WASM-parsed
+   snapshot from load time. `app` re-invokes the animation editor's render
+   on every sprite-browser edit for exactly this reason; see
+   `animation-editor.ts`'s own per-`root` UI-state `WeakMap` for how
+   expand/Clsn-panel-open state survives that repeated render.
+3. Each Clsn1/Clsn2 box is editable three equivalent ways — numeric x/y/
+   width/height inputs, arrow-key nudging (1px, 10px with Shift), or
+   pointer drag-to-move/drag-to-resize — all funneling through the same
+   `moveClsnBox`/`resizeClsnBox`/`setClsnBoxBounds` pure functions, every
+   commit snapped to an integer pixel. A drag mutates the box element's
+   own inline style live (no full re-render per `pointermove` — found by
+   real-browser runtime verification to be both visibly janky and prone to
+   handle staleness with a naive per-move `renderBoxes()` call) and commits
+   to the data model once, on `pointerup`.
+4. The Clsn box overlay `<div>`s are DOM children slotted inside the same
+   `<wuik-viewport>` as the sprite preview `<canvas>`, not a separately
+   positioned layer — `wuik-viewport`'s own pan/zoom CSS transform then
+   applies to canvas and boxes alike for free, with no transform-tracking
+   code of this app's own to keep in sync.
+5. Playback schedules its own timer (real `window.setTimeout` by default,
+   injectable) via `animation-playback.ts`'s `advanceFrame`, looping back
+   to the animation's `loopStart` once past the last frame; a frame with a
+   non-positive `time` (MUGEN's "hold indefinitely" convention) reports
+   `holds: true` and stops further auto-scheduling until a manual Step or
+   edit moves past it. Starting a Clsn drag or any structural frame/
+   animation edit pauses an in-progress playback automatically.

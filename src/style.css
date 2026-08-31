@@ -508,3 +508,116 @@ body {
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-secondary);
 }
+
+/*
+ * Animation editor (backlog item 006). Clsn1 ("Hit") boxes use the danger
+ * token, Clsn2 ("Hurt") the accent token — paired with each box's own text
+ * badge (see animation-editor.ts's renderBox), never color alone, per the
+ * plan consultation's accessibility requirement (.vibe/decisions/007).
+ * Positioning (left/top/width/height) is set inline per-box in JS, not
+ * here — only the fixed visual treatment lives in CSS.
+ */
+.animation-editor__frame {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-2) 0;
+}
+
+.animation-editor__sprite-warning {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+  border-left: 3px solid var(--wuik-color-danger);
+  padding-left: var(--wuik-space-2);
+}
+
+.animation-editor__overlay-wrapper {
+  display: inline-block;
+}
+
+.animation-editor__canvas {
+  image-rendering: pixelated;
+}
+
+.animation-editor__box {
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.animation-editor__box--clsn1 {
+  border: 2px solid var(--wuik-color-danger);
+  background-color: color-mix(
+    in srgb,
+    var(--wuik-color-danger) 20%,
+    transparent
+  );
+}
+
+.animation-editor__box--clsn2 {
+  border: 2px solid var(--wuik-color-accent);
+  background-color: color-mix(
+    in srgb,
+    var(--wuik-color-accent) 20%,
+    transparent
+  );
+}
+
+.animation-editor__box:focus-visible {
+  outline: 2px solid var(--wuik-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.animation-editor__box-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.65em;
+  line-height: 1;
+  padding: 1px 3px;
+  color: var(--wuik-color-text-on-accent);
+  background-color: inherit;
+  pointer-events: none;
+}
+
+.animation-editor__box-handle {
+  box-sizing: border-box;
+  background-color: var(--wuik-color-bg);
+  border: 1px solid var(--wuik-color-text);
+  border-radius: 50%;
+  cursor: nwse-resize;
+}
+
+.animation-editor__box-handle--ne,
+.animation-editor__box-handle--sw {
+  cursor: nesw-resize;
+}
+
+.animation-editor__viewport,
+.animation-editor__playback-viewport {
+  display: block;
+  width: 100%;
+  max-width: 24em;
+  height: 16em;
+  background-color: var(--wuik-color-surface);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-2);
+}
+
+.animation-editor__clsn-status,
+.animation-editor__playback-status {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
+
+.animation-editor__box-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-1) 0;
+}

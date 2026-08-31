@@ -262,4 +262,73 @@ describe("renderApp", () => {
       expect(root.querySelector(".state-editor")).not.toBeNull();
     });
   });
+
+  it("mounts the animation editor once a character loads successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".animation-editor")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelector(".animation-editor")).not.toBeNull();
+    });
+  });
+
+  it("keeps the animation editor's sprite-existence check current after a sprite browser edit", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+    await vi.waitFor(() => {
+      expect(root.querySelector(".animation-editor")).not.toBeNull();
+    });
+
+    root
+      .querySelector<HTMLButtonElement>('[data-action="add-animation"]')
+      ?.click();
+    root
+      .querySelector<HTMLButtonElement>(
+        '[data-animation="0"] .animation-editor__animation-toggle',
+      )
+      ?.click();
+    root
+      .querySelector<HTMLButtonElement>(
+        '[data-animation="0"] [data-action="add-frame"]',
+      )
+      ?.click();
+    // A freshly added frame defaults to sprite (0, 0), which exists in the
+    // fixture `.sff` — no warning yet.
+    expect(
+      root.querySelector<HTMLElement>(".animation-editor__sprite-warning")
+        ?.hidden,
+    ).toBe(true);
+
+    // Deleting that exact sprite via the sprite browser (same flow the
+    // "reflects a sprite browser edit" test above exercises) should make
+    // the animation editor's warning for it appear, proving the two stay
+    // in sync through the shared spriteEdits overlay rather than each
+    // reading a stale snapshot.
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__group-toggle")
+      ?.click();
+    root
+      .querySelectorAll<HTMLButtonElement>(".sprite-browser__sprite")[0]
+      ?.click();
+    root.querySelector<HTMLButtonElement>(".sprite-browser__delete")?.click();
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__delete-confirm")
+      ?.click();
+
+    const warning = root.querySelector<HTMLElement>(
+      ".animation-editor__sprite-warning",
+    );
+    expect(warning?.hidden).toBe(false);
+    expect(warning?.textContent).toContain("0, 0");
+  });
 });

@@ -2,8 +2,10 @@ import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
+import { renderAnimationEditor } from "./animations/animation-editor.ts";
 import {
   addSpriteEdit,
+  getCharacterDocument,
   setCharacterDocument,
   updateCharacterFields,
 } from "./document/character-document.ts";
@@ -112,19 +114,48 @@ export function renderApp(
   const spriteBrowserContainer = document.createElement("div");
   const paletteEditorContainer = document.createElement("div");
   const stateEditorContainer = document.createElement("div");
+  const animationEditorContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
+
+      // Re-renders the animation editor against the document's latest
+      // character (so a prior animation-editor commit isn't clobbered by
+      // this closure's now-stale `character` parameter) and spriteEdits
+      // overlay — called on load and again on every sprite browser edit,
+      // so a frame's "sprite exists" check (and its live Clsn preview)
+      // reflects a sprite added/replaced/deleted in this same session, not
+      // just the WASM-parsed metadata. animation-editor.ts itself persists
+      // expand/Clsn-panel-open state across this repeated call (keyed off
+      // `animationEditorContainer` staying the same element), so this
+      // doesn't collapse the user's place the way a naive full re-render
+      // would.
+      function rerenderAnimationEditor(): void {
+        const doc = getCharacterDocument();
+        if (!doc) return;
+        renderAnimationEditor(
+          animationEditorContainer,
+          doc.character,
+          files.sff,
+          doc.spriteEdits,
+          { onChange: (patch) => updateCharacterFields(patch) },
+        );
+      }
+
       renderCharacteristicsEditor(characteristicsContainer, character, {
         onChange: (patch) => updateCharacterFields(patch),
       });
       renderSpriteBrowser(spriteBrowserContainer, character, files.sff, [], {
-        onSpriteEdit: (edit) => addSpriteEdit(edit),
+        onSpriteEdit: (edit) => {
+          addSpriteEdit(edit);
+          rerenderAnimationEditor();
+        },
       });
       renderPaletteEditor(paletteEditorContainer, character, files.sff);
       renderStateEditor(stateEditorContainer, character, {
         onChange: (patch) => updateCharacterFields(patch),
       });
+      rerenderAnimationEditor();
     },
     bridgeOptions: options.bridgeOptions,
   });
@@ -133,6 +164,7 @@ export function renderApp(
     spriteBrowserContainer,
     paletteEditorContainer,
     stateEditorContainer,
+    animationEditorContainer,
   );
   shell.appendChild(main);
 

@@ -5,17 +5,17 @@ The in-memory representation of a MUGEN/Ikemen GO fighting-game character this a
 _Sources: `src/wasm/types.ts`, `src/wasm/bridge.ts`_
 
 ## Animation
-An ordered sequence of Frames plus the point at which playback loops back once it has played through once.
+An ordered sequence of Frames plus the point at which playback loops back once it has played through once. Created, edited (add/remove/reorder its Frames), and previewed (play/pause/step) by `animations`.
 **Do not confuse with:** Frame, which is a single step of an Animation.
-_Sources: `src/wasm/types.ts`_
+_Sources: `src/wasm/types.ts`, `src/animations/animation-editor.ts`, `src/animations/animation-playback.ts`_
 
 ## Frame
-A single displayed image within an Animation: which Sprite to show, where to show it, how long to hold it, how to mirror/blend it, and the collision boxes active while it is displayed.
-_Sources: `src/wasm/types.ts`_
+A single displayed image within an Animation: which Sprite to show, where to show it, how long to hold it, how to mirror/blend it, and the collision boxes active while it is displayed. A non-positive duration means "hold indefinitely" (MUGEN's own convention) rather than an error.
+_Sources: `src/wasm/types.ts`, `src/animations/animation-editor.ts`, `src/animations/animation-logic.ts`_
 
 ## Collision box
-An axis-aligned box attached to a Frame that defines a region used for hit detection: an attack box (`clsn1`) or a vulnerability box (`clsn2`).
-_Sources: `src/wasm/types.ts`_
+An axis-aligned box attached to a Frame that defines a region used for hit detection: an attack box (`clsn1`, shown as "Hit" in `animations`' editor) or a vulnerability box (`clsn2`, shown as "Hurt"). Addable, draggable, resizable (by pointer, arrow keys, or exact numeric coordinates), and deletable, with every committed coordinate snapped to an integer pixel — see `.vibe/decisions/007-animation-editor-clsn-interaction-model.md`.
+_Sources: `src/wasm/types.ts`, `src/animations/animation-editor.ts`, `src/animations/animation-logic.ts`_
 
 ## Sprite
 A single image belonging to a character, identified by its group and image index, with a pixel width/height, an axis (pivot) point offset, and a palette bank index. A Frame's `group`/`image` fields identify the Sprite it displays.

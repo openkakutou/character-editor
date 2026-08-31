@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now create and edit animations: add, edit, remove, and reorder frames (sprite reference and duration), draw and adjust Clsn1/Clsn2 (hit/hurt) boxes on a live sprite preview by dragging, resizing, or typing exact coordinates, and preview the whole animation with play/pause/step controls. A frame referencing a sprite that no longer exists shows a clear inline warning instead of a blank frame, and removing a whole animation asks for confirmation first, showing how many frames it holds.
+
 ## [0.6.0] - 2026-08-28
 
 ### Added
