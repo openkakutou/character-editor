@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-31
+
 ### Added
 
 - Users can now create and edit animations: add, edit, remove, and reorder frames (sprite reference and duration), draw and adjust Clsn1/Clsn2 (hit/hurt) boxes on a live sprite preview by dragging, resizing, or typing exact coordinates, and preview the whole animation with play/pause/step controls. A frame referencing a sprite that no longer exists shows a clear inline warning instead of a blank frame, and removing a whole animation asks for confirmation first, showing how many frames it holds.
@@ -46,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/openkakutou/character-editor/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/openkakutou/character-editor/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/openkakutou/character-editor/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openkakutou/character-editor/compare/v0.3.0...v0.4.0
