@@ -11,7 +11,7 @@ Fetch a pinned version with:
 ```sh
 npm run wasm:download -- <version>
 # e.g.
-npm run wasm:download -- v0.7.0
+npm run wasm:download -- v0.7.1
 ```
 
 Implementation: `scripts/download-wasm.mjs`. It downloads both `character.wasm` and `wasm_exec.js` from `https://github.com/openkakutou/character/releases/download/<version>/`, writing each atomically (temp file + rename) so a failed run never leaves a truncated file in `public/wasm/`. If either asset fails to download, any asset already fetched during that same run is rolled back too — a run either fully updates `public/wasm/` or leaves it exactly as it was.

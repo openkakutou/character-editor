@@ -40,7 +40,7 @@ jobs:
       # — see this repo's own CLAUDE.md ("WASM dependency on character")
       # for where that pin lives.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.7.0
+        run: npm run wasm:download -- v0.7.1
 
       - name: Test
         run: npm test
