@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 depends_on: [007]
 ---
 # Command Editor
@@ -18,3 +18,5 @@ Cross-repo: needs `character` backlog item 036 (`.cmd` parsing) to load and roun
 
 ## Blocked
 2026-09-04: Item 036 is done, but its parsed `cmd.CommandFile` structure is not reachable from JS: `cmd/wasm/main.go` (pinned `character` v0.7.1, current HEAD) exposes `saveCmd` (serialize) but no read/parse entrypoint for `.cmd` bytes, and `.cmd` isn't wired into `load`/`character.LoadBytes` either. There is no WASM surface today to view an existing character's commands, which the first acceptance criterion requires. Filed `character` backlog item 056 (Expose `.cmd` Read/Parse Path Via WASM) to close this gap; this item is blocked until it ships and the version pin is bumped.
+
+**Unblocked 2026-09-04**: `character` backlog item 056 shipped and released as `character` v0.8.0; this app's WASM pin was bumped to v0.8.0 (`loadCmd` now available). Back to `todo`.
