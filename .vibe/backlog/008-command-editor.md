@@ -1,5 +1,5 @@
 ---
-status: todo
+status: blocked
 depends_on: [007]
 ---
 # Command Editor
@@ -15,3 +15,6 @@ Add a screen to edit `.cmd` command definitions: input sequences (directions/but
 
 ## Notes
 Cross-repo: needs `character` backlog item 036 (`.cmd` parsing) to load and round-trip existing command definitions.
+
+## Blocked
+2026-09-04: Item 036 is done, but its parsed `cmd.CommandFile` structure is not reachable from JS: `cmd/wasm/main.go` (pinned `character` v0.7.1, current HEAD) exposes `saveCmd` (serialize) but no read/parse entrypoint for `.cmd` bytes, and `.cmd` isn't wired into `load`/`character.LoadBytes` either. There is no WASM surface today to view an existing character's commands, which the first acceptance criterion requires. Filed `character` backlog item 056 (Expose `.cmd` Read/Parse Path Via WASM) to close this gap; this item is blocked until it ships and the version pin is bumped.
