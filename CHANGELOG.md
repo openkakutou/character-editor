@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now view and edit a character's input commands: their input sequence, timing windows, and (optionally) which combat state they trigger. Add new commands, edit or remove existing ones, and map one to a target state defined in the state editor. An empty input sequence, a duplicate or blank command name, or a target state that doesn't exist shows a clear inline error instead of saving an invalid command. If no `.cmd` file was supplied, or it fails to parse, the screen still starts usable for creating commands from scratch.
+
 ## [0.7.0] - 2026-08-31
 
 ### Added

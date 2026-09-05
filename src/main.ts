@@ -3,10 +3,12 @@ import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
 import { renderAnimationEditor } from "./animations/animation-editor.ts";
+import { renderCommandEditor } from "./commands/command-editor.ts";
 import {
   addSpriteEdit,
   getCharacterDocument,
   setCharacterDocument,
+  setCommandFile,
   updateCharacterFields,
 } from "./document/character-document.ts";
 import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts";
@@ -115,6 +117,7 @@ export function renderApp(
   const paletteEditorContainer = document.createElement("div");
   const stateEditorContainer = document.createElement("div");
   const animationEditorContainer = document.createElement("div");
+  const commandEditorContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
@@ -155,6 +158,15 @@ export function renderApp(
       renderStateEditor(stateEditorContainer, character, {
         onChange: (patch) => updateCharacterFields(patch),
       });
+      renderCommandEditor(
+        commandEditorContainer,
+        character,
+        files.cmd ?? null,
+        {
+          onChange: (commandFile) => setCommandFile(commandFile),
+          bridgeOptions: options.bridgeOptions,
+        },
+      );
       rerenderAnimationEditor();
     },
     bridgeOptions: options.bridgeOptions,
@@ -164,6 +176,7 @@ export function renderApp(
     spriteBrowserContainer,
     paletteEditorContainer,
     stateEditorContainer,
+    commandEditorContainer,
     animationEditorContainer,
   );
   shell.appendChild(main);

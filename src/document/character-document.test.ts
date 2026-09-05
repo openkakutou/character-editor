@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { emptyCommandFile } from "../commands/command-logic.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
-import type { CharacterData } from "../wasm/types.ts";
+import type { CharacterData, CommandFile } from "../wasm/types.ts";
 import {
   addSpriteEdit,
   getCharacterDocument,
   resetCharacterDocumentForTests,
   setCharacterDocument,
+  setCommandFile,
   updateCharacterFields,
 } from "./character-document.ts";
 
@@ -56,6 +58,7 @@ describe("setCharacterDocument / getCharacterDocument", () => {
       character,
       files,
       spriteEdits: [],
+      commandFile: emptyCommandFile(),
     });
   });
 
@@ -237,5 +240,60 @@ describe("addSpriteEdit", () => {
     setCharacterDocument({ character: minimalCharacter(), files });
 
     expect(getCharacterDocument()?.spriteEdits).toEqual([]);
+  });
+});
+
+describe("setCommandFile", () => {
+  const files = {
+    def: bytes("d"),
+    air: bytes("a"),
+    sff: bytes("s"),
+    cns: bytes("c"),
+  };
+
+  it("starts at an empty CommandFile for a freshly loaded document", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    expect(getCharacterDocument()?.commandFile).toEqual(emptyCommandFile());
+  });
+
+  it("replaces the document's commandFile wholesale", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    const commandFile: CommandFile = {
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "a", input: "a", time: 0, bufferTime: 0 }],
+      states: [],
+    };
+
+    setCommandFile(commandFile);
+
+    expect(getCharacterDocument()?.commandFile).toEqual(commandFile);
+  });
+
+  it("does nothing when no character is currently loaded, instead of throwing", () => {
+    expect(() =>
+      setCommandFile({
+        remap: {},
+        defaults: { time: 0, bufferTime: 0 },
+        commands: [],
+        states: [],
+      }),
+    ).not.toThrow();
+    expect(getCharacterDocument()).toBeNull();
+  });
+
+  it("resets to empty on a fresh load, discarding any prior document's commandFile", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    setCommandFile({
+      remap: {},
+      defaults: { time: 15, bufferTime: 1 },
+      commands: [{ name: "a", input: "a", time: 0, bufferTime: 0 }],
+      states: [],
+    });
+
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    expect(getCharacterDocument()?.commandFile).toEqual(emptyCommandFile());
   });
 });

@@ -15,9 +15,10 @@ test (`*.test.ts` next to the file it covers).
 ## Fixture-driven tests against the real WASM module
 
 Tests that touch character parsing (`src/wasm/bridge.test.ts`, including its
-`resolveSpritePixels` sprite-pixel-decoding tests, `src/input/character-file-input.test.ts`,
+`resolveSpritePixels` sprite-pixel-decoding and `loadCmd` tests,
+`src/input/character-file-input.test.ts`,
 `src/input/character-file-input-view.test.ts`, and `src/main.test.ts`'s
-file-input/sprite-browser wiring tests) run against the **real**
+file-input/sprite-browser/command-editor wiring tests) run against the **real**
 `character.wasm` module, not a mock — they read `public/wasm/character.wasm`
 + `wasm_exec.js` straight off disk via `node:fs` and inject them into the
 bridge's `fetchWasmExecSource`/`fetchWasmBytes` options, so no dev server or
@@ -27,7 +28,10 @@ first if `public/wasm/` is empty (see `docs/development.md`).
 Minimal `.air`/`.sff`/`.cns` fixtures live in `src/wasm/testdata/`, copied
 from `character-viewer-web`'s own fixtures (themselves copied from the
 `character` repo's test data) rather than depending on a sibling checkout
-at test time. Expected values in these tests are pinned from running the
+at test time; `sample.cmd` is copied directly from the `character` repo's
+own `cmd` package test data instead, since `character-viewer-web` has no
+`.cmd` fixture of its own (it never reads commands). Expected values in
+these tests are pinned from running the
 real module once against the fixtures — never derived from the same
 mapping code the test is meant to catch bugs in.
 
@@ -165,3 +169,17 @@ movement even though the same interaction dispatched as native
 `PointerEvent`s in-page worked correctly and matched the unit tests
 exactly) — a tooling limitation of the simulated input path, not the app;
 confirmed via direct in-page event dispatch instead.
+
+The command editor got the same treatment against a real `.cmd` fixture:
+loading a character with an existing `.cmd` file and confirming both its
+commands render with their input sequence, timing, and pre-filled target
+state; clearing a command's input sequence and confirming the inline error
+appears with no crash; setting a target state to a number absent from the
+loaded StateDefs and confirming its own distinct inline error; and adding a
+brand-new command, filling it in, and confirming it commits with no error —
+with no console errors throughout. This pass caught one real gap unit tests
+couldn't (`jsdom` has no visual rendering to catch it): the `is-invalid`
+class was applied correctly but had no matching CSS rule at all, so an
+invalid field showed no visible cue beyond its error text — fixed by adding
+the same danger-border/focus-ring styling `characteristics-editor.ts`'s
+fields already have.

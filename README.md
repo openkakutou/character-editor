@@ -12,10 +12,10 @@ This project is in early-stage development. Available now:
 - Edit a character's color palette: pick and recolor any of its 256 colors, start a new palette blank or as a copy of the current one, or load an existing `.act` palette file to edit, with the change reflected live on a chosen sprite preview. The color at index 0 is flagged as always fully transparent in-game, so editing it is never mistaken for a real color change. Save the edited palette as a `.act` file — loading a file that isn't a valid palette shows a clear error instead of corrupting the editor.
 - Browse a character's states and edit their combat logic: add, edit, remove, and reorder each state's controllers along with their trigger conditions and parameters, and create brand-new states. A controller type missing from the loaded file is clearly flagged instead of being silently dropped or crashing the editor. Removing a whole state asks for confirmation first.
 - Create and edit animations: add, edit, remove, and reorder each frame's sprite reference and duration, draw and adjust hit/hurt boxes on a live sprite preview by dragging, resizing, or typing exact coordinates, and preview the whole animation with play/pause/step controls. A frame pointing at a sprite that no longer exists shows a clear warning instead of a blank frame. Removing a whole animation asks for confirmation first.
+- View and edit a character's input commands: their input sequence, timing windows, and (optionally) which combat state they trigger. Add new commands, edit or remove existing ones, and map one to a target state from the state editor. An empty input sequence, a duplicate or blank command name, or a target state that doesn't exist shows a clear inline error instead of saving an invalid command. Starting without a `.cmd` file, or one that fails to read, still lets you create commands from scratch.
 
 Planned:
 
-- Edit command definitions (`.cmd` input sequences)
 - Save/export a character back to its files, format-preserving
 - Undo/redo, an unsaved-changes guard, and a new-character wizard
 <!-- vibe:end:features -->

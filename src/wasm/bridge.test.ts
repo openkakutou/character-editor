@@ -3,6 +3,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   loadCharacter,
+  loadCmd,
   resetWasmBridgeForTests,
   resolveSpritePixels,
 } from "./bridge.ts";
@@ -194,6 +195,60 @@ describe("loadCharacter", () => {
     );
 
     expect(fetchCount).toBe(1);
+  });
+});
+
+describe("loadCmd", () => {
+  it("parses a real .cmd file's remap, defaults, commands, and linked always-state controllers", async () => {
+    const result = await loadCmd(fixture("sample.cmd"), testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.commandFile.remap).toEqual({ a: "a", b: "b", x: "y" });
+    expect(result.commandFile.defaults).toEqual({ time: 15, bufferTime: 1 });
+    expect(result.commandFile.commands).toEqual([
+      { name: "a", input: "a", time: 1, bufferTime: 0 },
+      { name: "QCF_a", input: "~D, DF, F, a", time: 0, bufferTime: 0 },
+    ]);
+    expect(result.commandFile.states).toHaveLength(1);
+    expect(result.commandFile.states[0].controllers).toHaveLength(2);
+    const changeState = result.commandFile.states[0].controllers.find(
+      (c) => c.type === "ChangeState",
+    );
+    expect(changeState?.triggers).toContain('command = "QCF_a"');
+    expect(changeState?.parameters.value).toBe("1000");
+  });
+
+  it("returns an empty-but-valid CommandFile instead of throwing for an empty file", async () => {
+    const result = await loadCmd(new Uint8Array(0), testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.commandFile.commands).toEqual([]);
+    expect(result.commandFile.states).toEqual([]);
+    expect(result.commandFile.remap).toEqual({});
+  });
+
+  it("returns a typed error instead of throwing for a malformed .cmd file", async () => {
+    const result = await loadCmd(
+      textBytes("[Command\nthis is not closed"),
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+
+  it("still returns a correct result after a prior call reported an error", async () => {
+    const failed = await loadCmd(
+      textBytes("[Command\nthis is not closed"),
+      testOptions,
+    );
+    expect(failed.ok).toBe(false);
+
+    const succeeded = await loadCmd(fixture("sample.cmd"), testOptions);
+    expect(succeeded.ok).toBe(true);
   });
 });
 

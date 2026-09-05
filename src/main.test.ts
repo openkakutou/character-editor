@@ -331,4 +331,75 @@ describe("renderApp", () => {
     expect(warning?.hidden).toBe(false);
     expect(warning?.textContent).toContain("0, 0");
   });
+
+  it("mounts the command editor once a character loads successfully", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".command-editor")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelector(".command-editor")).not.toBeNull();
+    });
+  });
+
+  it("loads an existing .cmd file's commands into the shared document", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, [
+      ...requiredFiles(),
+      fileFromBytes("ryu.cmd", fixtureBytes("sample.cmd")),
+    ]);
+
+    await vi.waitFor(() => {
+      expect(root.querySelectorAll(".command-editor__row")).toHaveLength(2);
+    });
+    expect(getCharacterDocument()?.commandFile.commands).toEqual([
+      { name: "a", input: "a", time: 1, bufferTime: 0 },
+      { name: "QCF_a", input: "~D, DF, F, a", time: 0, bufferTime: 0 },
+    ]);
+  });
+
+  it("reflects a command editor edit in the shared document immediately", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+    await vi.waitFor(() => {
+      expect(root.querySelector(".command-editor")).not.toBeNull();
+    });
+
+    root
+      .querySelector<HTMLButtonElement>('[data-action="add-command"]')
+      ?.click();
+    const row = root.querySelector<HTMLElement>(".command-editor__row");
+    if (!row) throw new Error("command row not found");
+    const nameInput = row.querySelector<HTMLInputElement>(
+      'input[data-field="name"]',
+    );
+    if (!nameInput) throw new Error("name input not found");
+    nameInput.value = "NewCommand";
+    nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+    nameInput.dispatchEvent(new Event("blur", { bubbles: true }));
+    const inputInput = row.querySelector<HTMLInputElement>(
+      'input[data-field="input"]',
+    );
+    if (!inputInput) throw new Error("input field not found");
+    inputInput.value = "a";
+    inputInput.dispatchEvent(new Event("input", { bubbles: true }));
+    inputInput.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    expect(getCharacterDocument()?.commandFile.commands).toEqual([
+      { name: "NewCommand", input: "a", time: 0, bufferTime: 0 },
+    ]);
+  });
 });

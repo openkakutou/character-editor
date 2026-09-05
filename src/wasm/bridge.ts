@@ -8,7 +8,7 @@
 // character-viewer-web's own src/wasm/bridge.ts — see its
 // .vibe/decisions/002-wasm-bridge-loading-and-result-shape.md for the
 // rationale, which applies identically here.
-import type { CharacterData, CharacterResult } from "./types.ts";
+import type { CharacterData, CharacterResult, CommandFile } from "./types.ts";
 
 const DEFAULT_WASM_EXEC_URL = "./wasm/wasm_exec.js";
 const DEFAULT_WASM_BINARY_URL = "./wasm/character.wasm";
@@ -33,6 +33,12 @@ interface RawSpriteResult {
   error: string | null;
 }
 
+/** The `{commandFile, error}` shape returned synchronously by `OpenKakutouCharacter.loadCmd`. */
+interface RawLoadCmdResult {
+  commandFile: string | null;
+  error: string | null;
+}
+
 interface OpenKakutouCharacterGlobal {
   load(
     defBytes: Uint8Array,
@@ -40,6 +46,7 @@ interface OpenKakutouCharacterGlobal {
     sffBytes: Uint8Array,
     cnsBytes: Uint8Array,
   ): RawLoadResult;
+  loadCmd(cmdBytes: Uint8Array): RawLoadCmdResult;
   resolveSprites(
     sffBytes: Uint8Array,
     requests: readonly (readonly [number, number])[],
@@ -167,6 +174,42 @@ export async function loadCharacter(
 
   const character = JSON.parse(raw.character) as CharacterData;
   return { ok: true, character };
+}
+
+/** Result of the typed `loadCmd` wrapper: exactly one of `commandFile`/`error` is ever meaningful. */
+export type LoadCmdResult =
+  | { ok: true; commandFile: CommandFile }
+  | { ok: false; error: string };
+
+/**
+ * Parses a `.cmd` file's raw bytes into a typed `CommandFile` via the
+ * `character` WASM module's `loadCmd` — the read-path counterpart to a
+ * future `saveCmd` wrapper, and the command editor's (item 008) only way to
+ * see an existing character's commands: unlike `loadCharacter`, `.cmd`
+ * isn't wired into `CharacterData` at all, so this is a separate call
+ * rather than an extra argument to `loadCharacter`.
+ */
+export async function loadCmd(
+  cmdBytes: Uint8Array,
+  options: WasmBridgeOptions = {},
+): Promise<LoadCmdResult> {
+  await ensureGoRuntimeReady(options);
+
+  const raw = getOpenKakutouCharacter().loadCmd(cmdBytes);
+
+  if (raw.error !== null) {
+    return { ok: false, error: raw.error };
+  }
+  if (raw.commandFile === null) {
+    return {
+      ok: false,
+      error:
+        "OpenKakutouCharacter.loadCmd returned neither a commandFile nor an error",
+    };
+  }
+
+  const commandFile = JSON.parse(raw.commandFile) as CommandFile;
+  return { ok: true, commandFile };
 }
 
 /** One decoded sprite's pixels, or a descriptive error instead of throwing. */

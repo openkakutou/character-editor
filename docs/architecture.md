@@ -18,6 +18,7 @@ flowchart LR
     app --> sprites["sprites\n(src/sprites/)"]
     app --> palettes["palettes\n(src/palettes/)"]
     app --> animations["animations\n(src/animations/)"]
+    app --> commands["commands\n(src/commands/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -28,6 +29,9 @@ flowchart LR
     palettes -.->|reuses defaultDrawPixels| sprites
     animations --> wasm
     animations -.->|merges spriteEdits, reuses sprite-edits.ts| sprites
+    commands --> document
+    commands --> wasm
+    commands -.->|target-state numbers| editors
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -62,11 +66,12 @@ flowchart LR
   renders the file-picker + drag-and-drop UI on top of that logic.
 - **`document`** (`src/document/`) — the in-memory representation of the
   currently loaded character (`character-document.ts`): the WASM-parsed
-  data, the raw bytes of every file the user supplied, and now a pending
-  `spriteEdits` overlay (see `sprites` below). A plain module-level
-  get/set store, not a class — the single place later editor screens
-  (palettes, animations, state logic, commands) will read from and
-  eventually write back to.
+  data, the raw bytes of every file the user supplied, a pending
+  `spriteEdits` overlay (see `sprites` below), and now the command editor's
+  latest committed `commandFile` (see `commands` below) — a write-only sink
+  from that editor's own perspective, populated for a future save/export
+  item. A plain module-level get/set store, not a class — the single place
+  later editor screens read from and write back to.
 - **`sprites`** (`src/sprites/`) — the sprite browser: browse every sprite
   group/image with a zoom/pan preview (`web-ui-kit`'s `<wuik-viewport>`),
   import a new image as a sprite, replace an existing one's pixels, or
@@ -83,12 +88,15 @@ flowchart LR
   module. `bridge.ts` loads `wasm_exec.js` and instantiates `character.wasm`
   client-side (both fetched from `public/wasm/`, which is gitignored — see
   "WebAssembly dependency" below), then exposes typed wrappers around the
-  module's `OpenKakutouCharacter.load` (`loadCharacter`) and
+  module's `OpenKakutouCharacter.load` (`loadCharacter`),
   `resolveSprites` (`resolveSpritePixels`, sprite pixel decoding for
-  `sprites`) globals. `types.ts` is the TypeScript mirror of the module's
-  JSON contract (`CharacterData` and its nested shapes, including the full
-  `.def` metadata — author, referenced file paths, state files, palettes)
-  — pure data types, no parsing logic.
+  `sprites`), and `loadCmd` (`loadCmd`, parsing a `.cmd` file's bytes into a
+  typed `CommandFile` for `commands`, since `.cmd` isn't wired into `load`'s
+  own JSON contract) globals. `types.ts` is the TypeScript mirror of the
+  module's JSON contract (`CharacterData` and its nested shapes, including
+  the full `.def` metadata — author, referenced file paths, state files,
+  palettes — plus `CommandFile`/`Command`/`CommandDefaults`) — pure data
+  types, no parsing logic.
 - **`palettes`** (`src/palettes/`) — the palette editor. `palette.ts` is the
   DOM-free pure logic: a 256-color palette stored in **semantic MUGEN
   index order**, and the one `reversePaletteByteOrder` function (a
@@ -114,6 +122,18 @@ flowchart LR
   Clsn boxes are numeric-input-first with drag/keyboard as equivalent
   paths, slotted inside `<wuik-viewport>` rather than a separate overlay
   layer.
+- **`commands`** (`src/commands/`) — the command editor: view/edit a
+  character's `.cmd` commands (name, input sequence, timing), optionally
+  mapped to a target combat state. `command-logic.ts` is the DOM-free pure
+  logic (a blank `CommandFile`, per-field row validation, and
+  finding/creating/updating/removing the `ChangeState` controller that
+  actually links a command to a state in the real file format);
+  `command-editor.ts` is the DOM layer — see "Data flow: editing commands"
+  below and
+  `.vibe/decisions/008-command-editor-state-link-and-validation-scope.md`.
+  Unlike every other editor screen, this one owns its own WASM call
+  (`wasm.loadCmd`) rather than reading an already-parsed field off
+  `CharacterData`, since `.cmd` isn't wired into that type at all.
 - **`scripts`** (`scripts/download-wasm.mjs`) — dev-only tooling, not part
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
@@ -283,3 +303,33 @@ and under the test suite's jsdom environment.
    `holds: true` and stops further auto-scheduling until a manual Step or
    edit moves past it. Starting a Clsn drag or any structural frame/
    animation edit pauses an in-progress playback automatically.
+
+## Data flow: editing commands
+
+1. Unlike every other editor, `commands` isn't handed an already-parsed
+   field off `CharacterData` — `.cmd` isn't wired into that type at all.
+   `app` instead passes it the raw `.cmd` bytes captured by `input` (or
+   `null` if none were supplied), and `command-editor.ts` calls
+   `wasm.loadCmd` itself to parse them into a `CommandFile`. A parse
+   failure shows a clear inline error but still starts the screen from a
+   blank, usable `CommandFile` rather than a dead end.
+2. Each command row tracks the state-link controller it currently owns
+   (`lastLinkedName`) separately from its live `Name`/`Input`/`Target state`
+   field values. Every commit (any row's edit, add, or remove) rebuilds
+   `commandFile.states` from scratch: first removing every row's previous
+   link, then re-adding a link for every row that is currently valid and
+   has a target state set — so a rename, a newly invalid row, or a cleared
+   target state can never leave a stale `ChangeState` controller pointing
+   at a name nothing maps to anymore. See
+   `.vibe/decisions/008-command-editor-state-link-and-validation-scope.md`.
+3. A row's Name, Input sequence, and Target state are validated
+   independently (`command-logic.ts`'s `validateCommandRow`) — a blank or
+   duplicate name, a blank input sequence, or a target state number absent
+   from `CharacterData.stateDefs` each shows its own inline error. A row
+   with any error is excluded entirely from the committed `CommandFile`
+   (both its `Command` entry and its state link) until fixed; loading
+   already-invalid data from a real `.cmd` file never discards it — only a
+   later edit applies this gate.
+4. Every committed `CommandFile` is reported to `app` via `onChange`, which
+   stores it in `document`'s `commandFile` field — read by no other screen
+   today, but the future save/export item's eventual source for `.cmd`.

@@ -21,13 +21,14 @@ The full character graph returned by the `character` WASM module's `OpenKakutouC
 Defined in: `src/wasm/types.ts`
 
 ## CharacterDocument
-The in-memory representation of the currently loaded character: the parsed data, every supplied file's raw bytes, and pending sprite edits.
+The in-memory representation of the currently loaded character: the parsed data, every supplied file's raw bytes, pending sprite edits, and the command editor's latest committed `.cmd` model.
 
 | Field | Type | Notes |
 |---|---|---|
 | character | CharacterData | |
 | files | LoadedFileBytes | Raw bytes per file kind, required kinds always present |
 | spriteEdits | SpriteEdit[] | Pending sprite add/replace/delete edits (item 004); always reset to `[]` on a fresh load |
+| commandFile | CommandFile | The command editor's latest commit (item 008); write-only from that editor's own perspective, always reset to `emptyCommandFile()` on a fresh load |
 
 Defined in: `src/document/character-document.ts`
 
@@ -93,5 +94,21 @@ A `.air` `[Begin Action N]` block (`Animation`), its ordered Frames, and each Fr
 | Frame | blend | BlendMode (string) | Blend mode token, e.g. `"A"` for additive |
 | Frame | clsn1, clsn2 | ClsnBox[] | Hit boxes / hurt boxes, editable in `animations`' Clsn editor |
 | ClsnBox | left, top, right, bottom | number | Axis-aligned box in the sprite's own pixel coordinates, always integers once committed by `animations` (see `.vibe/decisions/007`) |
+
+Defined in: `src/wasm/types.ts`
+
+## CommandFile / Command / CommandDefaults
+A `.cmd` file's model, parsed separately from `CharacterData` via `wasm.loadCmd` since `.cmd` isn't wired into the `load` JSON contract (item 008). A command's link to a target state is not a dedicated field — it flows through a `ChangeState` Controller inside `states`, triggered by `command = "<name>"` (see `.vibe/decisions/008-command-editor-state-link-and-validation-scope.md`).
+
+| Type | Field | Type | Notes |
+|---|---|---|---|
+| CommandFile | remap | Record\<string, string\> | Physical button -> remapped button; empty when the file defines none |
+| CommandFile | defaults | CommandDefaults | File-level recognition-window fallback |
+| CommandFile | commands | Command[] | In file order |
+| CommandFile | states | StateDef[] | The `[Statedef -1]` block, same model as `CharacterData.stateDefs` |
+| CommandDefaults | time, bufferTime | number | Fallback recognition window a Command uses when its own is unset (0) |
+| Command | name | string | Referenced by its linked ChangeState controller's trigger; required and unique in this app's editor |
+| Command | input | string | Raw, unevaluated MUGEN input-sequence expression (e.g. `"~D, DF, F, a"`), stored verbatim |
+| Command | time, bufferTime | number | This command's own recognition-window override; 0 means "not set" |
 
 Defined in: `src/wasm/types.ts`

@@ -49,3 +49,8 @@ _Sources: `src/wasm/types.ts`_
 A State controller loaded with a blank type — the one shape this editor's structured state-editor screen can't offer a meaningful editable view for, since a controller's type/triggers/parameters can otherwise never fail to parse. Shown flagged and read-only, but still removable; classified once when loaded, never re-evaluated as the user edits it, so clearing a type field mid-edit never locks that same field.
 **Do not confuse with:** State controller, the general concept an unsupported controller is one specific (blank-type) case of.
 _Sources: `src/editors/state-editor.ts`_
+
+## Command
+A named input sequence (e.g. a fighting-game special-move motion) a player can perform, with its own optional timing-window overrides, defined in a `.cmd` file. Optionally mapped to a target State: recognizing the Command changes the character into that State. The mapping is not a dedicated field — it flows through a ChangeState State controller's trigger, keyed by the Command's name.
+**Do not confuse with:** State controller, the mechanism a Command's mapping is implemented through, not a concept of its own.
+_Sources: `src/wasm/types.ts`, `src/commands/command-editor.ts`, `src/commands/command-logic.ts`_

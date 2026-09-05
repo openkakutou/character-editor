@@ -621,3 +621,87 @@ body {
   gap: var(--wuik-space-2);
   padding: var(--wuik-space-1) 0;
 }
+
+/*
+ * Command editor (backlog item 008) — one row per command, each field
+ * reusing the exact input/invalid-state contract characteristics-editor
+ * already established (is-invalid + aria-invalid + a danger border, error
+ * text on --wuik-color-text) rather than inventing a second visual
+ * language for the same concept.
+ */
+.command-editor__empty {
+  color: var(--wuik-color-text-secondary);
+}
+
+.command-editor__status {
+  color: var(--wuik-color-text-secondary);
+}
+
+.command-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  margin-bottom: var(--wuik-space-2);
+}
+
+.command-editor__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-2);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-1);
+}
+
+.command-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+}
+
+.command-editor__label {
+  font-size: var(--wuik-font-size-sm);
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.command-editor__input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 16rem;
+  padding: var(--wuik-space-2);
+  font-family: var(--wuik-font-family-base);
+  font-size: var(--wuik-font-size-base);
+  color: var(--wuik-color-text);
+  background-color: var(--wuik-color-bg);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-1);
+}
+
+.command-editor__input:focus-visible {
+  outline: 2px solid var(--wuik-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.command-editor__input.is-invalid {
+  border-color: var(--wuik-color-danger);
+}
+
+/* See characteristics-editor's identical rule: keeps the invalid signal
+ * visible even while focused, since the inset focus ring would otherwise
+ * visually cover the danger border it sits on top of. */
+.command-editor__input.is-invalid:focus-visible {
+  outline-color: var(--wuik-color-danger);
+}
+
+.command-editor__field-error {
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+.command-editor__hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}

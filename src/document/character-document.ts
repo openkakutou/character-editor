@@ -14,15 +14,25 @@
 // simplest thing that works — the same "reset between tests" shape
 // src/wasm/bridge.ts's resetWasmBridgeForTests already established for its
 // own module-level memoization.
+import { emptyCommandFile } from "../commands/command-logic.ts";
 import type { LoadedFileBytes } from "../input/character-file-input.ts";
 import { type SpriteEdit, applySpriteEdit } from "../sprites/sprite-edits.ts";
-import type { CharacterData } from "../wasm/types.ts";
+import type { CharacterData, CommandFile } from "../wasm/types.ts";
 
 export interface CharacterDocument {
   character: CharacterData;
   files: LoadedFileBytes;
   /** Pending sprite import/replace/delete edits (item 004) — see sprite-edits.ts. */
   spriteEdits: SpriteEdit[];
+  /**
+   * The command editor's (item 008) latest committed `.cmd` model — a
+   * write-only sink from that editor's perspective (it keeps its own local
+   * copy for rendering, the same "session-only editing state reported
+   * upward" shape `spriteEdits`/`sprite-browser.ts` already established),
+   * populated for a future save/export item. Always starts at
+   * `emptyCommandFile()` on a fresh load, discarding any prior document's.
+   */
+  commandFile: CommandFile;
 }
 
 /** Everything a caller supplies to setCharacterDocument — spriteEdits always starts empty on load. */
@@ -41,7 +51,10 @@ export function getCharacterDocument(): CharacterDocument | null {
  * has no pending edits of its own yet, discarding any the previous one had.
  */
 export function setCharacterDocument(doc: LoadedCharacter | null): void {
-  current = doc === null ? null : { ...doc, spriteEdits: [] };
+  current =
+    doc === null
+      ? null
+      : { ...doc, spriteEdits: [], commandFile: emptyCommandFile() };
 }
 
 /** Resets the in-memory document to its initial (unloaded) state. Test-only. */
@@ -75,4 +88,15 @@ export function addSpriteEdit(edit: SpriteEdit): void {
     ...current,
     spriteEdits: applySpriteEdit(current.spriteEdits, edit),
   };
+}
+
+/**
+ * Replaces the currently loaded document's `commandFile` wholesale — the
+ * command editor's (item 008) own `onChange` wiring, mirroring
+ * `updateCharacterFields`'s guard: a no-op, not an error, when no character
+ * is loaded.
+ */
+export function setCommandFile(commandFile: CommandFile): void {
+  if (current === null) return;
+  current = { ...current, commandFile };
 }

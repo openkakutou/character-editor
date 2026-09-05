@@ -117,6 +117,40 @@ export interface CharacterData {
   stateDefs: StateDef[];
 }
 
+/** A `.cmd` file's file-level command-recognition defaults (`[Defaults]`). */
+export interface CommandDefaults {
+  time: number;
+  bufferTime: number;
+}
+
+/** A single `.cmd` `[Command]` section: a named input sequence a player can perform. */
+export interface Command {
+  name: string;
+  /** The raw, unevaluated MUGEN/Ikemen input-sequence expression (e.g. `"~D, DF, F, a"`), stored verbatim. */
+  input: string;
+  /** This command's own recognition-window override; 0 means "not set" (falls back to `CommandFile.defaults.time`). */
+  time: number;
+  /** This command's own recognized-duration override; 0 means "not set" (falls back to `CommandFile.defaults.bufferTime`). */
+  bufferTime: number;
+}
+
+/**
+ * A MUGEN/Ikemen GO input command (`.cmd`) file: optional button remapping,
+ * file-level recognition defaults, the input command definitions
+ * themselves, and the linked "always" state (`[Statedef -1]` and its
+ * `[State ...]` controllers) that reacts to a recognized command. `.cmd`
+ * isn't wired into `CharacterData` (see `character`'s own `ParseCmd`/
+ * `loadCmd` doc comments), so this is parsed separately via `loadCmd`.
+ */
+export interface CommandFile {
+  /** Physical button -> remapped button (e.g. `{ x: "y" }`); empty when the file defines no remapping. */
+  remap: Record<string, string>;
+  defaults: CommandDefaults;
+  commands: Command[];
+  /** The `[Statedef -1]` block's StateDefs, parsed via the same model as `CharacterData.stateDefs`. */
+  states: StateDef[];
+}
+
 /**
  * Result of the typed bridge wrapper: exactly one of `character`/`error` is
  * ever meaningful, mirroring the WASM module's own `{character, error}`
