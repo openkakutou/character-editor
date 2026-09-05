@@ -19,6 +19,7 @@ flowchart LR
     app --> palettes["palettes\n(src/palettes/)"]
     app --> animations["animations\n(src/animations/)"]
     app --> commands["commands\n(src/commands/)"]
+    app --> save["save\n(src/save/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -32,6 +33,9 @@ flowchart LR
     commands --> document
     commands --> wasm
     commands -.->|target-state numbers| editors
+    save --> document
+    save --> wasm
+    save -.->|reuses defaultTriggerDownload| palettes
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
@@ -138,6 +142,19 @@ flowchart LR
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
   don't need a Go toolchain or a sibling `character` checkout.
+- **`save`** (`src/save/`) — Save/Export (item 009). `character-export.ts`
+  is the DOM-free orchestration: calls the WASM bridge's `saveDef`/
+  `saveAir`/`saveCns`/`saveCmd` wrappers with `document`'s current
+  `CharacterData`/`CommandFile`, decides which of `.def`/`.air`/`.cns`/
+  `.cmd`/`.zss` belong in the bundle, and blocks the whole export — with a
+  precise reason — on a pending sprite edit or a `saveX` call's own error,
+  rather than ever offering a partial or silently-stale file. See "Data
+  flow: exporting a character" below and
+  `.vibe/decisions/009-export-scope-input-files-only-block-on-unwritable-sprite-edits.md`.
+  `export-panel.ts` is the DOM layer — see
+  `.vibe/decisions/010-export-panel-explicit-refresh-not-live-recompute.md`
+  for why it recomputes on its own explicit action rather than living on
+  every edit elsewhere in the app.
 
 ## Required vs. optional input files
 
@@ -331,5 +348,42 @@ and under the test suite's jsdom environment.
    already-invalid data from a real `.cmd` file never discards it — only a
    later edit applies this gate.
 4. Every committed `CommandFile` is reported to `app` via `onChange`, which
-   stores it in `document`'s `commandFile` field — read by no other screen
-   today, but the future save/export item's eventual source for `.cmd`.
+   stores it in `document`'s `commandFile` field — read by `save` as its
+   source for `.cmd` (see "Data flow: exporting a character" below).
+
+## Data flow: exporting a character
+
+1. `save`'s panel computes its file list once when it first renders (right
+   after a character loads), and again only when the user clicks its own
+   "Refresh export" action — never automatically on every edit elsewhere,
+   unlike `animations`' live re-render. Each computation reads `document`'s
+   *current* state fresh, so a click always reflects everything edited
+   since the last one.
+2. If any sprite edit is pending (`document.spriteEdits`), export is
+   blocked immediately — no `saveX` call is even attempted — with a
+   specific, per-edit reason (which sprite, add/replace/delete). The `sff`
+   Go library's own WASM build exposes no encode/save call yet, so a
+   pending sprite edit can never be honestly reflected in a re-serialized
+   `.sff` file; `save` chooses to block rather than silently drop the edit
+   or export a stale file.
+3. Otherwise `.def`/`.air`/`.cns` are always attempted, in that order,
+   via `wasm.saveDef`/`saveAir`/`saveCns` — each passed the *original*
+   file bytes `document.files` captured at load time plus the *current*
+   in-memory `CharacterData` fields (`CharacterInfoFields`/`animations`/
+   `stateDefs`). Byte-exact output for an untouched file, freshly generated
+   text otherwise, is the underlying `character` library's own guarantee,
+   not logic `save` reimplements. Any one of the three failing (e.g. a
+   value the format's own serializer rejects) stops the whole export right
+   there — nothing is offered as a partial/corrupt bundle.
+4. `.cmd` is attempted only if the character had one originally or
+   `document.commandFile.commands` is non-empty (the user added at least
+   one) — a character that never had commands doesn't gain a spurious new
+   file. `.zss` is never reserialized (this app has no `.zss` editor) —
+   it's included, byte-for-byte unchanged, only when one was originally
+   supplied.
+5. Each resulting file is compared byte-for-byte against its own original
+   (where one exists) and labeled "unchanged" or "modified" for the user.
+   `export-panel.ts` renders one row per file with its own "Download"
+   button, plus a "Download all" that triggers every file's download in
+   sequence with a short stagger between them (some browsers silently drop
+   a rapid-fire download sequence with no delay).

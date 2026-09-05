@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now export a loaded character back out as downloadable files, reflecting the characteristics, animation, state/combat logic, and command edits made across the app. Files that weren't touched download byte-for-byte identical to the original. Each file is offered individually or all at once via "Download all", and is clearly marked unchanged or modified. Sprite edits can't be saved back to a `.sff` file yet, so export is blocked with a clear list of the pending sprite edits until they're resolved; a value a file's own format rejects blocks export the same way, naming the file and the problem, rather than producing a corrupt download.
+
 ## [0.8.0] - 2026-09-05
 
 ### Added

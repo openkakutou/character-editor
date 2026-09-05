@@ -97,6 +97,16 @@ A `.air` `[Begin Action N]` block (`Animation`), its ordered Frames, and each Fr
 
 Defined in: `src/wasm/types.ts`
 
+## CharacterInfoFields
+Exactly the 9 `CharacterData` fields (`name`/`author`/`spriteFile`/`animationFile`/`soundFile`/`commandFile`/`constantsFile`/`stateFiles`/`palettes`) the WASM `saveDef` call expects — a `Pick<CharacterData, ...>`, everything except `animations`/`sprites`/`stateDefs`, which `saveAir`/`saveCns` serialize instead.
+
+Defined in: `src/wasm/types.ts`
+
+## ExportedFile / ExportResult / ExportBlockedReason
+Save/Export's (item 009) own result shapes. `ExportedFile` is one file ready to download (`kind`, `fileName`, `bytes`, `unchanged` — byte-for-byte identical to the original, or always `true` for `.zss`, which is never reserialized). `ExportResult` is a discriminated union: `{ok: true, files: ExportedFile[]} | {ok: false, reason: ExportBlockedReason}`. `ExportBlockedReason` is itself a union: `{kind: "pending-sprite-edits", edits}` (one or more sprite edits can't yet be written back to `.sff`) or `{kind: "serialize-error", fileKind, fileName, message}` (a `saveX` WASM call itself rejected the edited data). See `.vibe/decisions/009-export-scope-input-files-only-block-on-unwritable-sprite-edits.md`.
+
+Defined in: `src/save/character-export.ts`
+
 ## CommandFile / Command / CommandDefaults
 A `.cmd` file's model, parsed separately from `CharacterData` via `wasm.loadCmd` since `.cmd` isn't wired into the `load` JSON contract (item 008). A command's link to a target state is not a dedicated field — it flows through a `ChangeState` Controller inside `states`, triggered by `command = "<name>"` (see `.vibe/decisions/008-command-editor-state-link-and-validation-scope.md`).
 

@@ -402,4 +402,27 @@ describe("renderApp", () => {
       { name: "NewCommand", input: "a", time: 0, bufferTime: 0 },
     ]);
   });
+
+  it("mounts the export panel once a character loads, listing the def/air/cns files unchanged", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+
+    expect(root.querySelector(".export-panel")).toBeNull();
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+
+    await vi.waitFor(() => {
+      expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+    });
+    const names = [...root.querySelectorAll(".export-panel__file-name")].map(
+      (el) => el.textContent,
+    );
+    expect(names).toEqual([
+      "character.def (unchanged)",
+      "character.air (unchanged)",
+      "character.cns (unchanged)",
+    ]);
+  });
 });

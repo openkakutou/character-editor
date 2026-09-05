@@ -15,15 +15,25 @@ test (`*.test.ts` next to the file it covers).
 ## Fixture-driven tests against the real WASM module
 
 Tests that touch character parsing (`src/wasm/bridge.test.ts`, including its
-`resolveSpritePixels` sprite-pixel-decoding and `loadCmd` tests,
-`src/input/character-file-input.test.ts`,
+`resolveSpritePixels` sprite-pixel-decoding, `loadCmd`, and `saveDef`/
+`saveAir`/`saveCns`/`saveCmd` tests, `src/save/character-export.test.ts`'s
+own real-WASM round-trip tests, `src/input/character-file-input.test.ts`,
 `src/input/character-file-input-view.test.ts`, and `src/main.test.ts`'s
-file-input/sprite-browser/command-editor wiring tests) run against the **real**
-`character.wasm` module, not a mock — they read `public/wasm/character.wasm`
-+ `wasm_exec.js` straight off disk via `node:fs` and inject them into the
-bridge's `fetchWasmExecSource`/`fetchWasmBytes` options, so no dev server or
-real network access is needed. Run `npm run wasm:download -- <version>`
-first if `public/wasm/` is empty (see `docs/development.md`).
+file-input/sprite-browser/command-editor/export-panel wiring tests) run
+against the **real** `character.wasm` module, not a mock — they read
+`public/wasm/character.wasm` + `wasm_exec.js` straight off disk via
+`node:fs` and inject them into the bridge's
+`fetchWasmExecSource`/`fetchWasmBytes` options, so no dev server or real
+network access is needed. Run `npm run wasm:download -- <version>` first if
+`public/wasm/` is empty (see `docs/development.md`).
+
+The `saveX` tests reuse the same malformed-input error triggers `character`'s
+own parsers document (an unclosed `[Bad Section` header for `.def`, an
+invalid `[Begin Action abc]` number for `.air`, an invalid `[Statedef abc]`
+number for `.cns`, an unclosed `[Command` header for `.cmd`) to exercise the
+"original bytes are malformed" error path deterministically, rather than
+guessing at inputs that might or might not fail the (deliberately tolerant)
+real parsers.
 
 Minimal `.air`/`.sff`/`.cns` fixtures live in `src/wasm/testdata/`, copied
 from `character-viewer-web`'s own fixtures (themselves copied from the
@@ -183,3 +193,16 @@ class was applied correctly but had no matching CSS rule at all, so an
 invalid field showed no visible cue beyond its error text — fixed by adding
 the same danger-border/focus-ring styling `characteristics-editor.ts`'s
 fields already have.
+
+The Export panel got the same treatment against a real character fixture,
+loaded in a real Chromium instance: confirming the file list appears
+automatically on load with `.def`/`.air`/`.cns` all marked unchanged and a
+working "Download all" button; clicking one file's own "Download" button
+and confirming a real browser download fires with the correct file name;
+editing the character's name and clicking "Refresh export" to confirm
+`.def` flips to "modified" while the untouched files stay "unchanged";
+deleting a sprite via the sprite browser and clicking "Refresh export"
+again to confirm export blocks with a message naming that exact sprite edit
+and renders no download buttons at all; and loading the character fresh
+afterward to confirm the block clears — with no console errors related to
+the feature.

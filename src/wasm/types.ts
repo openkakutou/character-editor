@@ -117,6 +117,25 @@ export interface CharacterData {
   stateDefs: StateDef[];
 }
 
+/**
+ * Exactly the `def.CharacterInfo` fields the WASM `saveDef` call expects as
+ * its `editedInfoJSON` argument — a subset of `CharacterData` (everything
+ * except `animations`/`sprites`/`stateDefs`, which are serialized by
+ * `saveAir`/`saveCns` instead, not `saveDef`).
+ */
+export type CharacterInfoFields = Pick<
+  CharacterData,
+  | "name"
+  | "author"
+  | "spriteFile"
+  | "animationFile"
+  | "soundFile"
+  | "commandFile"
+  | "constantsFile"
+  | "stateFiles"
+  | "palettes"
+>;
+
 /** A `.cmd` file's file-level command-recognition defaults (`[Defaults]`). */
 export interface CommandDefaults {
   time: number;

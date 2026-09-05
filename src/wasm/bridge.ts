@@ -8,7 +8,14 @@
 // character-viewer-web's own src/wasm/bridge.ts — see its
 // .vibe/decisions/002-wasm-bridge-loading-and-result-shape.md for the
 // rationale, which applies identically here.
-import type { CharacterData, CharacterResult, CommandFile } from "./types.ts";
+import type {
+  Animation,
+  CharacterData,
+  CharacterInfoFields,
+  CharacterResult,
+  CommandFile,
+  StateDef,
+} from "./types.ts";
 
 const DEFAULT_WASM_EXEC_URL = "./wasm/wasm_exec.js";
 const DEFAULT_WASM_BINARY_URL = "./wasm/character.wasm";
@@ -39,6 +46,12 @@ interface RawLoadCmdResult {
   error: string | null;
 }
 
+/** The `{bytes, error}` shape returned synchronously by every `OpenKakutouCharacter.saveX` call. */
+interface RawSaveResult {
+  bytes: Uint8Array | null;
+  error: string | null;
+}
+
 interface OpenKakutouCharacterGlobal {
   load(
     defBytes: Uint8Array,
@@ -52,6 +65,19 @@ interface OpenKakutouCharacterGlobal {
     requests: readonly (readonly [number, number])[],
     overrideBytes: Uint8Array | null,
   ): RawSpriteResult[];
+  saveDef(originalDefBytes: Uint8Array, editedInfoJSON: string): RawSaveResult;
+  saveAir(
+    originalAirBytes: Uint8Array,
+    editedAnimationsJSON: string,
+  ): RawSaveResult;
+  saveCns(
+    originalCnsBytes: Uint8Array,
+    editedStateDefsJSON: string,
+  ): RawSaveResult;
+  saveCmd(
+    originalCmdBytes: Uint8Array,
+    editedCommandFileJSON: string,
+  ): RawSaveResult;
 }
 
 export interface WasmBridgeOptions {
@@ -261,4 +287,102 @@ export async function resolveSpritePixels(
       height: entry.height,
     };
   });
+}
+
+/** Result of any `saveX` wrapper: exactly one of `bytes`/`error` is ever meaningful. */
+export type SaveResult =
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; error: string };
+
+/** Maps every `saveX` call's shared `{bytes, error}` raw shape to a typed `SaveResult`, once. */
+function toSaveResult(raw: RawSaveResult, callName: string): SaveResult {
+  if (raw.error !== null) {
+    return { ok: false, error: raw.error };
+  }
+  if (raw.bytes === null) {
+    return {
+      ok: false,
+      error: `${callName} returned neither bytes nor an error`,
+    };
+  }
+  return { ok: true, bytes: raw.bytes };
+}
+
+/**
+ * Serializes `.def` character definition bytes for `info` via the
+ * `character` WASM module's `saveDef` — the write-path counterpart to
+ * `loadCharacter`'s own `.def` parsing. `originalDefBytes` is the file's
+ * previously loaded bytes (an empty array for a brand new character with no
+ * original file yet). Byte-exact to `originalDefBytes` when `info` describes
+ * no real change, freshly generated text otherwise — see `character`'s own
+ * `SerializeDef` doc comment.
+ */
+export async function saveDef(
+  originalDefBytes: Uint8Array,
+  info: CharacterInfoFields,
+  options: WasmBridgeOptions = {},
+): Promise<SaveResult> {
+  await ensureGoRuntimeReady(options);
+  const raw = getOpenKakutouCharacter().saveDef(
+    originalDefBytes,
+    JSON.stringify(info),
+  );
+  return toSaveResult(raw, "OpenKakutouCharacter.saveDef");
+}
+
+/**
+ * Serializes `.air` animation bytes for `animations` via the `character`
+ * WASM module's `saveAir` — the write-path counterpart to `loadCharacter`'s
+ * own `.air` parsing. Same original-bytes/byte-exact-when-unmodified
+ * contract as `saveDef` — see `character`'s own `SerializeAir` doc comment.
+ */
+export async function saveAir(
+  originalAirBytes: Uint8Array,
+  animations: readonly Animation[],
+  options: WasmBridgeOptions = {},
+): Promise<SaveResult> {
+  await ensureGoRuntimeReady(options);
+  const raw = getOpenKakutouCharacter().saveAir(
+    originalAirBytes,
+    JSON.stringify(animations),
+  );
+  return toSaveResult(raw, "OpenKakutouCharacter.saveAir");
+}
+
+/**
+ * Serializes `.cns` combat logic bytes for `stateDefs` via the `character`
+ * WASM module's `saveCns` — the write-path counterpart to `loadCharacter`'s
+ * own `.cns` parsing. Same original-bytes/byte-exact-when-unmodified
+ * contract as `saveDef` — see `character`'s own `SerializeCns` doc comment.
+ */
+export async function saveCns(
+  originalCnsBytes: Uint8Array,
+  stateDefs: readonly StateDef[],
+  options: WasmBridgeOptions = {},
+): Promise<SaveResult> {
+  await ensureGoRuntimeReady(options);
+  const raw = getOpenKakutouCharacter().saveCns(
+    originalCnsBytes,
+    JSON.stringify(stateDefs),
+  );
+  return toSaveResult(raw, "OpenKakutouCharacter.saveCns");
+}
+
+/**
+ * Serializes `.cmd` input command bytes for `commandFile` via the
+ * `character` WASM module's `saveCmd` — the write-path counterpart to
+ * `loadCmd`. Same original-bytes/byte-exact-when-unmodified contract as
+ * `saveDef` — see `character`'s own `SerializeCmd` doc comment.
+ */
+export async function saveCmd(
+  originalCmdBytes: Uint8Array,
+  commandFile: CommandFile,
+  options: WasmBridgeOptions = {},
+): Promise<SaveResult> {
+  await ensureGoRuntimeReady(options);
+  const raw = getOpenKakutouCharacter().saveCmd(
+    originalCmdBytes,
+    JSON.stringify(commandFile),
+  );
+  return toSaveResult(raw, "OpenKakutouCharacter.saveCmd");
 }

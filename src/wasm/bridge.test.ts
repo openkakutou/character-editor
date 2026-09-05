@@ -6,7 +6,12 @@ import {
   loadCmd,
   resetWasmBridgeForTests,
   resolveSpritePixels,
+  saveAir,
+  saveCmd,
+  saveCns,
+  saveDef,
 } from "./bridge.ts";
+import type { CharacterInfoFields } from "./types.ts";
 
 // The real WASM assets (public/wasm/, gitignored) are fetched via
 // `npm run wasm:download` before tests run in this environment. There is no
@@ -305,6 +310,336 @@ describe("resolveSpritePixels", () => {
       garbageSffBytes,
       [[0, 0]],
       null,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+});
+
+/** Picks exactly the 9 fields `saveDef`'s `editedInfoJSON` argument expects off a loaded CharacterData. */
+function infoFieldsOf(character: {
+  name: string;
+  author: string;
+  spriteFile: string;
+  animationFile: string;
+  soundFile: string;
+  commandFile: string;
+  constantsFile: string;
+  stateFiles: string[];
+  palettes: string[];
+}): CharacterInfoFields {
+  return {
+    name: character.name,
+    author: character.author,
+    spriteFile: character.spriteFile,
+    animationFile: character.animationFile,
+    soundFile: character.soundFile,
+    commandFile: character.commandFile,
+    constantsFile: character.constantsFile,
+    stateFiles: character.stateFiles,
+    palettes: character.palettes,
+  };
+}
+
+describe("saveDef", () => {
+  it("round-trips an unmodified character definition byte-for-byte", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const result = await saveDef(
+      defBytes,
+      infoFieldsOf(loaded.character),
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).toEqual(defBytes);
+  });
+
+  it("produces different bytes reflecting an edited name, loadable back with the new value", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const result = await saveDef(
+      defBytes,
+      { ...infoFieldsOf(loaded.character), name: "Renamed Character" },
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).not.toEqual(defBytes);
+
+    const reloaded = await loadCharacter(
+      result.bytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!reloaded.ok) throw new Error("expected ok result");
+    expect(reloaded.character.name).toBe("Renamed Character");
+  });
+
+  it("treats an empty originalDefBytes as a brand new file instead of erroring", async () => {
+    const result = await saveDef(
+      new Uint8Array(0),
+      {
+        name: "Brand New",
+        author: "",
+        spriteFile: "",
+        animationFile: "",
+        soundFile: "",
+        commandFile: "",
+        constantsFile: "",
+        stateFiles: [],
+        palettes: [],
+      },
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes.length).toBeGreaterThan(0);
+  });
+
+  it("returns a typed error instead of throwing when the original bytes are malformed", async () => {
+    const result = await saveDef(
+      textBytes("[Bad Section\nname = X\n"),
+      infoFieldsOf({
+        name: "X",
+        author: "",
+        spriteFile: "",
+        animationFile: "",
+        soundFile: "",
+        commandFile: "",
+        constantsFile: "",
+        stateFiles: [],
+        palettes: [],
+      }),
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("saveAir", () => {
+  it("round-trips unmodified animations byte-for-byte", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const result = await saveAir(
+      airBytes,
+      loaded.character.animations,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).toEqual(airBytes);
+  });
+
+  it("produces different bytes reflecting an added animation", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const edited = [
+      ...loaded.character.animations,
+      { number: 9999, frames: [], loopStart: 0 },
+    ];
+    const result = await saveAir(airBytes, edited, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).not.toEqual(airBytes);
+  });
+
+  it("treats an empty originalAirBytes as a brand new file instead of erroring", async () => {
+    const result = await saveAir(new Uint8Array(0), [], testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+  });
+
+  it("returns a typed error instead of throwing when the original bytes are malformed", async () => {
+    const result = await saveAir(
+      textBytes("[Begin Action abc]\n"),
+      [],
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("saveCns", () => {
+  it("round-trips unmodified StateDefs byte-for-byte", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const result = await saveCns(
+      cnsBytes,
+      loaded.character.stateDefs,
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).toEqual(cnsBytes);
+  });
+
+  it("produces different bytes reflecting an added StateDef", async () => {
+    const loaded = await loadCharacter(
+      defBytes,
+      airBytes,
+      sffBytes,
+      cnsBytes,
+      testOptions,
+    );
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const edited = [
+      ...loaded.character.stateDefs,
+      {
+        number: 9999,
+        type: "S" as const,
+        moveType: "I" as const,
+        physics: "S" as const,
+        anim: 0,
+        ctrl: false,
+        powerAdd: 0,
+        juggle: 0,
+        faceP2: false,
+        hitDefPersist: false,
+        moveHitPersist: false,
+        hitCountPersist: false,
+        sprPriority: 0,
+        controllers: [],
+      },
+    ];
+    const result = await saveCns(cnsBytes, edited, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).not.toEqual(cnsBytes);
+  });
+
+  it("treats an empty originalCnsBytes as a brand new file instead of erroring", async () => {
+    const result = await saveCns(new Uint8Array(0), [], testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+  });
+
+  it("returns a typed error instead of throwing when the original bytes are malformed", async () => {
+    const result = await saveCns(
+      textBytes("[Statedef abc]\n"),
+      [],
+      testOptions,
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected error result");
+    expect(result.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe("saveCmd", () => {
+  it("round-trips an unmodified .cmd file byte-for-byte", async () => {
+    const cmdBytes = fixture("sample.cmd");
+    const loaded = await loadCmd(cmdBytes, testOptions);
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const result = await saveCmd(cmdBytes, loaded.commandFile, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).toEqual(cmdBytes);
+  });
+
+  it("produces different bytes reflecting an added command", async () => {
+    const cmdBytes = fixture("sample.cmd");
+    const loaded = await loadCmd(cmdBytes, testOptions);
+    if (!loaded.ok) throw new Error("expected ok result");
+
+    const edited = {
+      ...loaded.commandFile,
+      commands: [
+        ...loaded.commandFile.commands,
+        { name: "new_move", input: "a", time: 0, bufferTime: 0 },
+      ],
+    };
+    const result = await saveCmd(cmdBytes, edited, testOptions);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.bytes).not.toEqual(cmdBytes);
+  });
+
+  it("treats an empty originalCmdBytes as a brand new file instead of erroring", async () => {
+    const result = await saveCmd(
+      new Uint8Array(0),
+      {
+        remap: {},
+        defaults: { time: 0, bufferTime: 0 },
+        commands: [],
+        states: [],
+      },
+      testOptions,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok result");
+  });
+
+  it("returns a typed error instead of throwing when the original bytes are malformed", async () => {
+    const result = await saveCmd(
+      textBytes("[Command\nthis is not closed"),
+      {
+        remap: {},
+        defaults: { time: 0, bufferTime: 0 },
+        commands: [],
+        states: [],
+      },
       testOptions,
     );
 

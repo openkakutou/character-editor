@@ -16,6 +16,7 @@ import { renderStateEditor } from "./editors/state-editor.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type { CharacterFileInputOptions } from "./input/character-file-input.ts";
 import { renderPaletteEditor } from "./palettes/palette-editor.ts";
+import { renderExportPanel } from "./save/export-panel.ts";
 import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { appVersion } from "./version.ts";
 import {
@@ -118,6 +119,7 @@ export function renderApp(
   const stateEditorContainer = document.createElement("div");
   const animationEditorContainer = document.createElement("div");
   const commandEditorContainer = document.createElement("div");
+  const exportPanelContainer = document.createElement("div");
   renderCharacterFileInput(main, {
     onLoaded: (character, files) => {
       setCharacterDocument({ character, files });
@@ -168,6 +170,16 @@ export function renderApp(
         },
       );
       rerenderAnimationEditor();
+
+      // Rendered once here, like every other panel above -- it does not
+      // need to be re-rendered on every subsequent edit the way the
+      // animation editor is: it recomputes its own file list on demand
+      // (an explicit "Refresh export" click reads the document store
+      // fresh) rather than living. See
+      // .vibe/decisions/010-export-panel-explicit-refresh-not-live-recompute.md.
+      renderExportPanel(exportPanelContainer, {
+        bridgeOptions: options.bridgeOptions,
+      });
     },
     bridgeOptions: options.bridgeOptions,
   });
@@ -178,6 +190,7 @@ export function renderApp(
     stateEditorContainer,
     commandEditorContainer,
     animationEditorContainer,
+    exportPanelContainer,
   );
   shell.appendChild(main);
 
