@@ -1,7 +1,7 @@
 {
   "name": "character-editor",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Read+write editor for OpenKakutou MUGEN/Ikemen GO character files — characteristics, sprites, palettes, animations, state logic, commands, save/export.",
   "type": "module",
   "engines": {
