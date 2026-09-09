@@ -20,6 +20,8 @@ flowchart LR
     app --> animations["animations\n(src/animations/)"]
     app --> commands["commands\n(src/commands/)"]
     app --> save["save\n(src/save/)"]
+    app --> wizard["wizard\n(src/wizard/)"]
+    app --> history["history\n(src/history/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -27,6 +29,7 @@ flowchart LR
     sprites --> wasm
     palettes --> document
     palettes --> wasm
+    palettes --> history
     palettes -.->|reuses defaultDrawPixels| sprites
     animations --> wasm
     animations -.->|merges spriteEdits, reuses sprite-edits.ts| sprites
@@ -35,8 +38,13 @@ flowchart LR
     commands -.->|target-state numbers| editors
     save --> document
     save --> wasm
+    save --> history
     save -.->|reuses defaultTriggerDownload| palettes
+    wizard --> wasm
+    wizard -.->|hands off {character, files} like input does| document
+    document --> history
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
+    wizard -.->|fetch| blanksff["blank-character.sff\n(public/wizard/, committed)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
 
     style module stroke-dasharray: 5 5
@@ -45,9 +53,14 @@ flowchart LR
 - **`app`** (`src/main.ts`, `src/version.ts`, `src/style.css`) — the entry
   point. Builds the root layout (the org's shared `@openkakutou/web-ui-kit`
   app shell: a toolbar plus a main content region), mounts the `input`
-  module's view into it, wires its load callback to `document`'s store, and
+  module's view into it (or `wizard`'s, as an alternative way to arrive at
+  a loaded character), wires the load callback to `document`'s store, and
   mounts `editors`' characteristics editor and state editor, `sprites`'
   sprite browser, and `palettes`' palette editor once a character loads.
+  The toolbar's Undo/Redo buttons and unsaved-changes indicator read
+  `history`'s shared state; see "Data flow: undo/redo across editors"
+  below for exactly which screens a click re-renders and which two
+  (deliberately) it doesn't.
 - **`editors`** (`src/editors/`) — screens that edit an already-loaded
   character. `characteristics-editor.ts` renders the first one: a form for
   the top-level identity, referenced-file-path, and list (state files,
@@ -138,6 +151,25 @@ flowchart LR
   Unlike every other editor screen, this one owns its own WASM call
   (`wasm.loadCmd`) rather than reading an already-parsed field off
   `CharacterData`, since `.cmd` isn't wired into that type at all.
+- **`history`** (`src/history/`) — the shared undo/redo history and the
+  unsaved-changes guard. `app-history.ts` owns a single module-level
+  `@openkakutou/web-ui-kit` `CommandStack` instance every mutating call in
+  `document`, `palettes`, and `save` pushes onto, plus a separate "dirty"
+  flag (not derived from the stack, since saving doesn't erase undo
+  history — see `.vibe/decisions/012`). `unsaved-changes-guard.ts` is the
+  `beforeunload` listener, installed once at app bootstrap, that reads that
+  flag. See "Data flow: undo/redo across editors" below.
+- **`wizard`** (`src/wizard/`) — the new-character wizard.
+  `new-character-wizard.ts` is the DOM-free logic: builds a minimal
+  `CharacterInfoFields`/`Animation[]`/`StateDef[]`/`CommandFile` for the
+  chosen template, serializes them via the same `wasm.saveDef`/`saveAir`/
+  `saveCns`/`saveCmd` calls `save` uses, pairs the result with a bundled
+  placeholder `.sff` (`public/wizard/blank-character.sff`, committed —
+  there is no `sff` WASM encode path, see `.vibe/decisions/013`), and
+  round-trips the whole thing back through `wasm.loadCharacter` so the
+  result is provably loadable, not just assumed so.
+  `new-character-wizard-view.ts` is the dialog UI (template choice, Name
+  field) — see "Data flow: creating a character via the wizard" below.
 - **`scripts`** (`scripts/download-wasm.mjs`) — dev-only tooling, not part
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
@@ -386,4 +418,107 @@ and under the test suite's jsdom environment.
    `export-panel.ts` renders one row per file with its own "Download"
    button, plus a "Download all" that triggers every file's download in
    sequence with a short stagger between them (some browsers silently drop
-   a rapid-fire download sequence with no delay).
+   a rapid-fire download sequence with no delay). "Download all" also
+   marks the document clean (`history.markClean()`) — a single per-file
+   "Download" click does not, since downloading one of several files isn't
+   a complete save. See "Data flow: undo/redo across editors" below.
+
+## Data flow: undo/redo across editors
+
+1. `document`'s three mutators (`updateCharacterFields`, `addSpriteEdit`,
+   `setCommandFile`) each push a `Command` (a `do`/`undo` pair) onto
+   `history`'s shared `CommandStack` instead of mutating state directly —
+   `push` applies `do()` immediately, so this is transparent to every
+   caller. A patch's coalesce key is derived from the field name(s) it
+   touches, so rapid same-field edits (typing into a name field) merge
+   into a single undo step instead of one per keystroke.
+2. `updateCharacterFields` snapshots the *character* before and after each
+   patch as a `structuredClone`, not a live reference — several editors
+   (`state-editor.ts`, `animation-editor.ts`) mutate a nested object (a
+   StateDef's controllers, a frame's Clsn boxes) in place before calling
+   `onChange` with the same top-level array reference, so a reference
+   snapshot would already equal the post-edit value by the time the push
+   runs. `addSpriteEdit`/`setCommandFile` snapshot by reference instead,
+   since their inputs are already rebuilt immutably everywhere else. See
+   `.vibe/decisions/011`.
+3. `palettes` doesn't route through `document` at all (its edits were
+   never part of `CharacterData`) — `palette-editor.ts` pushes its own
+   commands directly onto the same shared `CommandStack`, so palette edits
+   sit in the exact same undo/redo order as every other editor's.
+4. Clicking the toolbar's Undo/Redo button calls `history`'s
+   `CommandStack.undo()`/`redo()` directly (always safe: it's a no-op,
+   never a throw, with nothing left to undo/redo) and, only if that
+   returned `true`, `app` fully re-renders the characteristics editor,
+   sprite browser, state editor, and animation editor from the
+   now-restored `CharacterData` — the same full re-render an edit in any
+   one of those screens already causes elsewhere, just triggered
+   externally here since undo/redo mutate `document` directly, never
+   through an editor's own DOM.
+5. Three screens are deliberately **not** part of that re-render:
+   `palettes` re-renders itself (its own commands' `do`/`undo` only touch
+   local data; a `PaletteEditorHandle.refresh()` `app` calls after every
+   history change asks it to reflect the current state, and its
+   `onHistoryPush` option tells `app` a local edit just happened so the
+   toolbar can stay in sync too); `save`'s export panel only ever
+   recomputes on its own explicit "Refresh export" click
+   (`.vibe/decisions/010`); and `commands` is mounted exactly once, at the
+   initial character load, never again — see the next point for why.
+6. `command-editor.ts`'s own mount (`startReady`) unconditionally reports
+   the freshly re-parsed `.cmd` file to its caller once, to seed
+   `document`'s store the moment it's ready. That report carries a second
+   `isInitialLoad: true` argument specifically so `app` can route it
+   through `document.seedCommandFile` (no history entry, no re-render)
+   instead of `setCommandFile` (a real, undoable edit) — otherwise, this
+   one-time seed would have been indistinguishable from a genuine edit,
+   which caused two real bugs before the distinction existed: an extra
+   phantom entry at the bottom of every character's history, and, worse,
+   re-mounting the command editor on every Undo/Redo click would silently
+   re-parse the *original* `.cmd` bytes over any real command edits and
+   push a spurious history entry each time, wiping the redo stack. Both
+   are why `commands` is excluded from the re-render in point 5 above —
+   this screen has no way yet to resync its own displayed rows from an
+   externally-changed `document.commandFile` (only from re-parsing raw
+   bytes), so a command edit remains fully undoable at the data level, but
+   the currently-open command editor's own view won't visually reflect an
+   undo/redo of it until the screen is re-mounted some other way (e.g. a
+   fresh character load).
+
+## Data flow: the unsaved-changes guard
+
+1. `history`'s "dirty" flag is separate from `CommandStack.canUndo` — it
+   turns `true` on every push (any edit, in any editor, palettes included)
+   and `false` again on a fresh character load or a complete "Download
+   all". Deriving it from `canUndo` was rejected: saving doesn't erase
+   undo history, so `canUndo` alone would keep reporting "unsaved" forever
+   after the very save that was supposed to clear it. See
+   `.vibe/decisions/012`.
+2. `history/unsaved-changes-guard.ts` registers one `beforeunload`
+   listener at app bootstrap (not inside `app`'s render function, which
+   runs on every re-render in tests) that shows the browser's native
+   confirmation exactly when that flag is dirty.
+3. `app`'s own toolbar indicator reads the same flag on every history
+   change, so the unsaved state is visible before the user ever tries to
+   leave, not only as a last-resort prompt on the way out.
+
+## Data flow: creating a character via the wizard
+
+1. The user opens the wizard dialog (next to `input`'s own drop zone, an
+   alternative entry point into the same app state), picks "Blank" or
+   "Basic template" and a Name.
+2. `wizard`'s logic builds the template's `CharacterInfoFields`/
+   `Animation[]`/`StateDef[]` (empty for "Blank"; one minimal animation
+   and StateDef for "Basic template", referencing sprite group/image 0 of
+   the bundled placeholder `.sff`) and an empty `CommandFile`, then calls
+   `wasm.saveDef`/`saveAir`/`saveCns`/`saveCmd` with an empty `Uint8Array`
+   as each "original bytes" argument — a case those calls already support
+   for a brand-new character with no prior file.
+3. The four resulting byte buffers, plus the bundled `.sff`'s bytes, are
+   handed to `wasm.loadCharacter` — the exact same call `input` uses —
+   so a wizard-created character is provably loadable, not just assumed
+   so, and indistinguishable from an import everywhere else in the app.
+   Any step's failure (including fetching the bundled `.sff`) is caught
+   and reported as a typed error, never a thrown exception.
+4. On success, the wizard reports `{character, files}` through the same
+   callback shape `input`'s view uses, so `app` wires both entry points to
+   one shared "character loaded" handler rather than two parallel,
+   drift-prone code paths.

@@ -27,6 +27,17 @@ body {
 }
 
 /*
+ * The unsaved-changes indicator (backlog item 010): visible feedback about
+ * dirty state that doesn't rely solely on the browser's own beforeunload
+ * prompt on the way out. Empty (and so invisible) when clean -- see
+ * .vibe/decisions/012-unsaved-changes-dirty-flag-not-undo-stack-derived.md.
+ */
+.app-unsaved-indicator {
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+/*
  * The "web-ui-kit is too old" error state deliberately avoids every
  * `--wuik-*` token and component: it is the one screen guaranteed to
  * render when the design system itself failed to load or is outdated, so
@@ -704,4 +715,73 @@ body {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-secondary);
+}
+
+/*
+ * New-character wizard (backlog item 010) -- the "or" divider between the
+ * file-input drop zone and the wizard's own trigger button, since they are
+ * two alternative, equal-weight entry points into the same app state, not
+ * a primary/secondary pair.
+ */
+.new-character-wizard__divider {
+  margin: var(--wuik-space-2) 0;
+  text-align: center;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
+
+.new-character-wizard__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-4);
+}
+
+.new-character-wizard__name-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+  font-size: var(--wuik-font-size-sm);
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+/* Same token contract as characteristics-editor.ts's own plain `<input>`
+ * stopgap (.vibe/decisions/003) -- no dedicated text-input component
+ * exists in web-ui-kit yet. */
+.new-character-wizard__input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--wuik-space-2);
+  font-family: var(--wuik-font-family-base);
+  font-size: var(--wuik-font-size-base);
+  color: var(--wuik-color-text);
+  background-color: var(--wuik-color-bg);
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-1);
+}
+
+.new-character-wizard__input:focus-visible {
+  outline: 2px solid var(--wuik-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.new-character-wizard__error {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  /* Matches the app's own convention: an error's non-verbal signal is the
+   * invalid border/state on the field itself, never this text's color --
+   * see .vibe/decisions/009 (web-ui-kit) / the characteristics-editor rule
+   * above. */
+  color: var(--wuik-color-text);
+}
+
+.new-character-wizard__status {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+}
+
+.new-character-wizard__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--wuik-space-2);
 }

@@ -206,3 +206,32 @@ again to confirm export blocks with a message naming that exact sprite edit
 and renders no download buttons at all; and loading the character fresh
 afterward to confirm the block clears — with no console errors related to
 the feature.
+
+Undo/redo, the unsaved-changes guard, and the new-character wizard got the
+same treatment against a real character fixture in a real Chromium
+instance: editing the characteristics-editor name, then adding a StateDef
+in the state editor, then undoing and redoing each in turn via the toolbar
+buttons; confirming Undo/Redo are disabled with nothing to act on and that
+clicking them anyway never crashes; confirming the unsaved-changes
+indicator tracks edits; and walking the wizard (blank-name validation
+error, then a real "Basic template" character all the way through to
+populated editors). This pass caught two real defects unit tests had
+missed, both invisible to a single-editor scenario: (1)
+`command-editor.ts`'s own mount unconditionally re-reported its freshly
+re-parsed `.cmd` file as if it were a genuine edit, which is harmless when
+that screen only ever mounts once — but item 010 re-renders every
+document-backed editor on each Undo/Redo click, so this fired on *every*
+click too, silently discarding any real command edits and pushing a
+spurious history entry that wiped the redo stack; a two-edit,
+two-different-editor sequence (rename, then add a StateDef) surfaces it
+immediately, while a single-edit scenario coincidentally keeps re-merging
+into the same first entry and never shows the corruption at all — exactly
+why the regression test added for this (`main.test.ts`) deliberately edits
+two different editors, not one. (2) The palette editor manages its own
+undo/redo internally, but had no way to tell the toolbar a local edit had
+happened, so the Undo button's enabled state silently lagged behind
+palette edits specifically — fixed by an `onHistoryPush` callback the
+palette editor now calls after every local push. See
+`docs/architecture.md`'s "Data flow: undo/redo across editors" for the
+resulting design (`document.seedCommandFile`, and the command editor's
+exclusion from the undo/redo re-render).

@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getAppHistory,
+  isDirty,
+  resetAppHistoryForTests,
+} from "../history/app-history.ts";
 import type { SpritePixelResult } from "../wasm/bridge.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import { renderPaletteEditor } from "./palette-editor.ts";
@@ -102,6 +107,9 @@ async function upload(root: HTMLElement, file: File): Promise<void> {
 }
 
 describe("renderPaletteEditor", () => {
+  beforeEach(() => {
+    resetAppHistoryForTests();
+  });
   afterEach(() => {
     document.body.innerHTML = "";
   });
@@ -267,5 +275,183 @@ describe("renderPaletteEditor", () => {
     expect(fileNameArg).toMatch(/\.act$/);
     const expected = withColor(blankPalette(), 9, { r: 1, g: 2, b: 3 });
     expect(bytesArg).toEqual(serializeActBytes(expected));
+  });
+
+  describe("undo/redo (backlog item 010)", () => {
+    it("records an undoable/redoable entry and marks the document dirty when a color changes, restoring it via the returned handle's refresh", () => {
+      const root = document.createElement("div");
+      expect(isDirty()).toBe(false);
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+        {
+          resolveSpritePixels: stubResolve(),
+        },
+      );
+      newBlankButton(root).click();
+      // "New blank palette" is itself an undoable, dirtying action.
+      expect(isDirty()).toBe(true);
+      resetAppHistoryForTests();
+      expect(isDirty()).toBe(false);
+
+      swatches(root)[3].click();
+      colorPicker(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "#112233" } }),
+      );
+
+      expect(isDirty()).toBe(true);
+      expect(getAppHistory().canUndo).toBe(true);
+
+      getAppHistory().undo();
+      handle.refresh();
+      expect(swatchHex(swatches(root)[3])).toBe(
+        colorToHex({ r: 0, g: 0, b: 0 }),
+      );
+
+      getAppHistory().redo();
+      handle.refresh();
+      expect(swatchHex(swatches(root)[3])).toBe("#112233");
+    });
+
+    it("records an undoable entry for starting a new blank palette", () => {
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+        {
+          resolveSpritePixels: stubResolve(),
+        },
+      );
+
+      newBlankButton(root).click();
+
+      expect(getAppHistory().canUndo).toBe(true);
+      getAppHistory().undo();
+      handle.refresh();
+      expect(swatches(root)).toHaveLength(0);
+      expect(duplicateButton(root).hasAttribute("disabled")).toBe(true);
+    });
+
+    it("records an undoable entry for duplicating the current palette", () => {
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+        {
+          resolveSpritePixels: stubResolve(),
+        },
+      );
+      newBlankButton(root).click();
+      swatches(root)[7].click();
+      colorPicker(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "#abcdef" } }),
+      );
+
+      duplicateButton(root).click();
+      expect(getAppHistory().canUndo).toBe(true);
+      // One undo reverts the duplicate action; the color-edit entry
+      // underneath it is still there.
+      getAppHistory().undo();
+      handle.refresh();
+      expect(getAppHistory().canUndo).toBe(true);
+    });
+
+    it("records an undoable entry for a successful .act upload", async () => {
+      let palette = blankPalette();
+      palette = withColor(palette, 254, { r: 9, g: 8, b: 7 });
+      const bytes = serializeActBytes(palette);
+      const file = new File([bytes as Uint8Array<ArrayBuffer>], "test.act");
+
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+        {
+          readFileBytes: async () => bytes,
+          resolveSpritePixels: stubResolve(),
+        },
+      );
+
+      await upload(root, file);
+      expect(getAppHistory().canUndo).toBe(true);
+
+      getAppHistory().undo();
+      handle.refresh();
+      expect(swatches(root)).toHaveLength(0);
+    });
+
+    it("coalesces rapid successive edits to the same swatch into a single undo step", () => {
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+        {
+          resolveSpritePixels: stubResolve(),
+        },
+      );
+      newBlankButton(root).click();
+      swatches(root)[3].click();
+      // Isolate the color-edit entries from the "new blank" entry above.
+      resetAppHistoryForTests();
+
+      colorPicker(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "#111111" } }),
+      );
+      colorPicker(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "#222222" } }),
+      );
+
+      getAppHistory().undo();
+      handle.refresh();
+
+      expect(swatchHex(swatches(root)[3])).toBe(
+        colorToHex({ r: 0, g: 0, b: 0 }),
+      );
+      expect(getAppHistory().canUndo).toBe(false);
+    });
+
+    it("a no-op refresh call before any palette is started does not throw", () => {
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(
+        root,
+        makeCharacter(),
+        new Uint8Array(),
+      );
+
+      expect(() => handle.refresh()).not.toThrow();
+    });
+
+    it("returns a no-op refresh handle when nothing is rendered (no character/sffBytes)", () => {
+      const root = document.createElement("div");
+      const handle = renderPaletteEditor(root, null, null);
+
+      expect(() => handle.refresh()).not.toThrow();
+    });
+
+    it("calls onHistoryPush every time a local edit records a history entry, so an external toolbar can stay in sync", () => {
+      const onHistoryPush = vi.fn();
+      const root = document.createElement("div");
+      renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+        resolveSpritePixels: stubResolve(),
+        onHistoryPush,
+      });
+
+      newBlankButton(root).click();
+      expect(onHistoryPush).toHaveBeenCalledTimes(1);
+
+      swatches(root)[3].click();
+      colorPicker(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "#112233" } }),
+      );
+      expect(onHistoryPush).toHaveBeenCalledTimes(2);
+
+      duplicateButton(root).click();
+      expect(onHistoryPush).toHaveBeenCalledTimes(3);
+    });
   });
 });

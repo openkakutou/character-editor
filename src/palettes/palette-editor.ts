@@ -5,6 +5,7 @@
 // effect rather than duplicating it. See palette.ts's own doc comment and
 // .vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md
 // for the semantic-vs-file-order model this screen edits against.
+import { pushHistoryCommand } from "../history/app-history.ts";
 import { defaultDrawPixels } from "../sprites/sprite-browser.ts";
 import {
   type SpritePixelResult,
@@ -71,6 +72,18 @@ export function defaultTriggerDownload(
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Handed back by `renderPaletteEditor` so an external undo/redo click (item
+ * 010) can ask this screen to reflect a history change. `refresh()` is a
+ * full rebuild of the palette body -- acceptable for this discrete,
+ * infrequent trigger, unlike the fine-grained in-place updates every normal
+ * edit inside this screen already uses (never rebuilding the color picker
+ * element mid-interaction). See .vibe/decisions/011.
+ */
+export interface PaletteEditorHandle {
+  refresh(): void;
+}
+
 export interface PaletteEditorOptions {
   /** Batch-decodes sprite pixels. Defaults to the real WASM bridge; injectable for testing. */
   resolveSpritePixels?: (
@@ -92,6 +105,15 @@ export interface PaletteEditorOptions {
   readFileBytes?: (file: File) => Promise<Uint8Array>;
   /** Triggers the "Save as .act" download. Defaults to the real browser download; injectable for testing. */
   triggerDownload?: (bytes: Uint8Array, fileName: string) => void;
+  /**
+   * Called every time a local edit records an entry on the shared undo/redo
+   * history (item 010) -- since this screen manages that history itself
+   * rather than through a caller-supplied `onChange` (see
+   * `PaletteEditorHandle`'s own doc comment), an external toolbar has no
+   * other way to learn a push just happened and refresh its own
+   * Undo/Redo-button/dirty-indicator state to match.
+   */
+  onHistoryPush?: () => void;
 }
 
 function firstSprite(
@@ -104,21 +126,26 @@ function firstSprite(
   return null;
 }
 
+const NOOP_HANDLE: PaletteEditorHandle = { refresh() {} };
+
 /**
  * Renders the palette editor into `root`, replacing its previous content.
  * `character === null` or `sffBytes === null` renders nothing, mirroring
- * the sprite browser's own convention. Called once, from `main.ts`'s
- * character-load callback — like the sprite browser, this screen never
- * needs a full external re-render to reflect its own edits.
+ * the sprite browser's own convention (and returns a no-op handle). Called
+ * once, from `main.ts`'s character-load callback — like the sprite browser,
+ * this screen never needs a full external re-render to reflect its *own*
+ * edits, but the returned handle's `refresh()` lets an external undo/redo
+ * click (item 010) reflect a *history* change instead — see
+ * `PaletteEditorHandle`'s own doc comment.
  */
 export function renderPaletteEditor(
   root: HTMLElement,
   character: CharacterData | null,
   sffBytes: Uint8Array | null,
   options: PaletteEditorOptions = {},
-): void {
+): PaletteEditorHandle {
   root.replaceChildren();
-  if (character === null || sffBytes === null) return;
+  if (character === null || sffBytes === null) return NOOP_HANDLE;
   const characterNonNull = character;
   const sffBytesNonNull = sffBytes;
 
@@ -131,6 +158,40 @@ export function renderPaletteEditor(
   let activePalette: Uint8Array | null = null;
   let selectedIndex = 0;
   let previewSprite = firstSprite(characterNonNull);
+
+  /** A snapshot of everything an undo/redo entry needs to restore. */
+  function snapshotState(): { palette: Uint8Array | null; index: number } {
+    return { palette: activePalette, index: selectedIndex };
+  }
+
+  /**
+   * Records an undo/redo entry (item 010) for a data change already applied
+   * (and already reflected in the DOM by the caller's own in-place update or
+   * `renderBody()` call, exactly as before this feature). The pushed
+   * `do`/`undo` only ever touch `activePalette`/`selectedIndex` data, never
+   * the DOM themselves — reapplying the DOM side is the returned handle's
+   * `refresh()`'s job, so a normal edit here never risks rebuilding the
+   * color picker element mid-interaction the way `refresh()`'s full rebuild
+   * would.
+   */
+  function recordChange(
+    before: { palette: Uint8Array | null; index: number },
+    coalesceKey?: string,
+  ): void {
+    const after = snapshotState();
+    pushHistoryCommand({
+      coalesceKey,
+      do: () => {
+        activePalette = after.palette;
+        selectedIndex = after.index;
+      },
+      undo: () => {
+        activePalette = before.palette;
+        selectedIndex = before.index;
+      },
+    });
+    options.onHistoryPush?.();
+  }
 
   const panel = document.createElement("wuik-panel");
   panel.className = "palette-editor";
@@ -179,16 +240,20 @@ export function renderPaletteEditor(
   root.appendChild(panel);
 
   newBlankButton.addEventListener("click", () => {
+    const before = snapshotState();
     activePalette = blankPalette();
     selectedIndex = 0;
     sourceErrorEl.hidden = true;
     renderBody();
+    recordChange(before);
   });
 
   duplicateButtonEl.addEventListener("click", () => {
     if (!activePalette || duplicateButtonEl.hasAttribute("disabled")) return;
+    const before = snapshotState();
     activePalette = duplicatePalette(activePalette);
     renderBody();
+    recordChange(before);
   });
 
   uploadInputEl.addEventListener("change", () => {
@@ -207,9 +272,11 @@ export function renderPaletteEditor(
       return;
     }
     sourceErrorEl.hidden = true;
+    const before = snapshotState();
     activePalette = result.palette;
     selectedIndex = 0;
     renderBody();
+    recordChange(before);
   }
 
   function renderBody(): void {
@@ -287,6 +354,7 @@ export function renderPaletteEditor(
       const value = (event as CustomEvent<{ value: string }>).detail.value;
       const color = hexToColor(value);
       if (!color) return;
+      const before = snapshotState();
       activePalette = withColor(
         activePalette as Uint8Array,
         selectedIndex,
@@ -294,6 +362,11 @@ export function renderPaletteEditor(
       );
       updateSwatch(swatchButtons[selectedIndex], selectedIndex);
       renderPreview();
+      // Coalesced per swatch index, not globally — repeatedly adjusting the
+      // *same* swatch within the coalesce window merges into one undo step
+      // (matching a slider-drag); switching to a different swatch never
+      // merges into the previous swatch's edit.
+      recordChange(before, `palette-color:${selectedIndex}`);
     });
 
     body.append(grid, detail);
@@ -378,4 +451,6 @@ export function renderPaletteEditor(
     updateDetail();
     renderPreview();
   }
+
+  return { refresh: renderBody };
 }

@@ -32,8 +32,15 @@ import {
 } from "./command-logic.ts";
 
 export interface CommandEditorOptions {
-  /** Called with the full, updated CommandFile on every committed edit (add/edit/remove). */
-  onChange: (commandFile: CommandFile) => void;
+  /**
+   * Called with the full, updated CommandFile on every committed edit
+   * (add/edit/remove), and once more at mount to seed the caller with the
+   * freshly parsed `.cmd` file (or an empty one) before any edit -- `isInitialLoad`
+   * is `true` only for that one seeding call, `undefined` for every real
+   * edit, so a caller that must treat the two differently (e.g. not
+   * recording the initial seed as an undoable history entry) can.
+   */
+  onChange: (commandFile: CommandFile, isInitialLoad?: boolean) => void;
   /** Parses raw `.cmd` bytes. Defaults to the real WASM bridge; injectable for testing. */
   loadCmd?: (
     cmdBytes: Uint8Array,
@@ -396,7 +403,9 @@ export function renderCommandEditor(
     // Hands the parsed data to the caller as-is, before any edit, so the
     // shared document reflects the loaded commands right away rather than
     // staying at its empty placeholder until the user touches something.
-    options.onChange(commandFile);
+    // `isInitialLoad: true` tells the caller this is that one-time seed,
+    // not a user edit -- see this option's own doc comment.
+    options.onChange(commandFile, true);
     renderList();
   }
 

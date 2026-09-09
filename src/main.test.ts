@@ -5,17 +5,28 @@ import {
   getCharacterDocument,
   resetCharacterDocumentForTests,
 } from "./document/character-document.ts";
+import { getAppHistory, isDirty } from "./history/app-history.ts";
 import { renderApp } from "./main.ts";
 import { resetWasmBridgeForTests } from "./wasm/bridge.ts";
 import type { WasmBridgeOptions } from "./wasm/bridge.ts";
 import { MIN_SUPPORTED_WEB_UI_KIT_VERSION } from "./web-ui-kit-version.ts";
 
 const publicWasmDir = path.resolve(import.meta.dirname, "..", "public", "wasm");
-const bridgeOptions: WasmBridgeOptions = {
+const blankSffPath = path.resolve(
+  import.meta.dirname,
+  "..",
+  "public",
+  "wizard",
+  "blank-character.sff",
+);
+const bridgeOptions: WasmBridgeOptions & {
+  fetchBlankSffBytes: () => Promise<Uint8Array>;
+} = {
   fetchWasmExecSource: async () =>
     readFileSync(path.join(publicWasmDir, "wasm_exec.js"), "utf-8"),
   fetchWasmBytes: async () =>
     new Uint8Array(readFileSync(path.join(publicWasmDir, "character.wasm"))),
+  fetchBlankSffBytes: async () => new Uint8Array(readFileSync(blankSffPath)),
 };
 
 const testdataDir = path.resolve(import.meta.dirname, "wasm", "testdata");
@@ -60,7 +71,7 @@ describe("renderApp", () => {
   it("mounts a wuik-app-shell root frame with a toolbar showing the title and version, plus a theme toggle button", () => {
     const root = document.createElement("div");
 
-    renderApp(root, "0.1.0", "0.5.0");
+    renderApp(root, "0.1.0", "0.13.0");
 
     const shell = root.querySelector("wuik-app-shell");
     expect(shell).not.toBeNull();
@@ -69,16 +80,18 @@ describe("renderApp", () => {
     expect(toolbar?.tagName.toLowerCase()).toBe("wuik-toolbar");
     expect(toolbar?.textContent).toContain("Character Editor — v0.1.0");
 
-    const toggle = toolbar?.querySelector("wuik-button");
+    const toggle = toolbar?.querySelector('[data-action="theme-toggle"]');
     expect(toggle).not.toBeNull();
     expect(toggle?.textContent).toBe("Switch to dark mode");
   });
 
   it("toggles the page theme to dark, then back to light, when the theme button is activated", () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0");
+    renderApp(root, "0.1.0", "0.13.0");
 
-    const toggle = root.querySelector<HTMLElement>("wuik-button");
+    const toggle = root.querySelector<HTMLElement>(
+      '[data-action="theme-toggle"]',
+    );
     if (!toggle) throw new Error("theme toggle not found");
 
     toggle.click();
@@ -93,8 +106,8 @@ describe("renderApp", () => {
   it("replaces previous content instead of appending on repeated renders", () => {
     const root = document.createElement("div");
 
-    renderApp(root, "0.1.0", "0.5.0");
-    renderApp(root, "0.2.0", "0.5.0");
+    renderApp(root, "0.1.0", "0.13.0");
+    renderApp(root, "0.2.0", "0.13.0");
 
     expect(root.querySelectorAll("wuik-app-shell")).toHaveLength(1);
     expect(root.querySelector('[slot="toolbar"]')?.textContent).toContain(
@@ -108,7 +121,7 @@ describe("renderApp", () => {
     renderApp(root, "0.1.0", "0.3.0");
 
     expect(root.querySelector("wuik-app-shell")).toBeNull();
-    const alert = root.querySelector('[role="alert"]');
+    const alert = root.querySelector('.web-ui-kit-version-error[role="alert"]');
     expect(alert).not.toBeNull();
     expect(alert?.getAttribute("aria-live")).toBe("assertive");
     expect(alert?.textContent).toContain(MIN_SUPPORTED_WEB_UI_KIT_VERSION);
@@ -119,24 +132,97 @@ describe("renderApp", () => {
     const root = document.createElement("div");
 
     renderApp(root, "0.1.0", "0.3.0");
-    renderApp(root, "0.1.0", "0.5.0");
+    renderApp(root, "0.1.0", "0.13.0");
 
-    expect(root.querySelector('[role="alert"]')).toBeNull();
+    expect(
+      root.querySelector('.web-ui-kit-version-error[role="alert"]'),
+    ).toBeNull();
     expect(root.querySelector("wuik-app-shell")).not.toBeNull();
   });
 
   it("mounts the character file input into the shell's main content", () => {
     const root = document.createElement("div");
 
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     expect(dropZone).not.toBeNull();
   });
 
+  describe("new-character wizard (backlog item 010)", () => {
+    it("mounts a New Character trigger alongside the file input", () => {
+      const root = document.createElement("div");
+
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      expect(root.querySelector('[data-action="open-wizard"]')).not.toBeNull();
+    });
+
+    it("creates a valid blank character through the wizard and wires it up exactly like an import", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      root.querySelector<HTMLElement>('[data-action="open-wizard"]')?.click();
+      const nameField = root.querySelector<HTMLInputElement>(
+        '[data-field="wizard-name"]',
+      );
+      if (!nameField) throw new Error("wizard name field not found");
+      nameField.value = "Wizard Fighter";
+      nameField.dispatchEvent(new Event("input", { bubbles: true }));
+
+      root
+        .querySelector<HTMLElement>('[data-action="create-character"]')
+        ?.click();
+
+      await vi.waitFor(() => {
+        expect(root.querySelector(".characteristics-editor")).not.toBeNull();
+      });
+      expect(getCharacterDocument()?.character.name).toBe("Wizard Fighter");
+      expect(
+        root.querySelector<HTMLInputElement>('[data-field="name"]')?.value,
+      ).toBe("Wizard Fighter");
+      // The dialog closes once the character is created.
+      expect(
+        root
+          .querySelector(".new-character-wizard__dialog")
+          ?.hasAttribute("open"),
+      ).toBe(false);
+    });
+
+    it("creates a basic-template character with real content in the state and animation editors", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      root.querySelector<HTMLElement>('[data-action="open-wizard"]')?.click();
+      root
+        .querySelector(".new-character-wizard__template")
+        ?.dispatchEvent(
+          new CustomEvent("wuik-change", { detail: { value: "basic" } }),
+        );
+      const nameField = root.querySelector<HTMLInputElement>(
+        '[data-field="wizard-name"]',
+      );
+      if (!nameField) throw new Error("wizard name field not found");
+      nameField.value = "Templated Fighter";
+      nameField.dispatchEvent(new Event("input", { bubbles: true }));
+
+      root
+        .querySelector<HTMLElement>('[data-action="create-character"]')
+        ?.click();
+
+      await vi.waitFor(() => {
+        expect(getCharacterDocument()?.character.name).toBe(
+          "Templated Fighter",
+        );
+      });
+      expect(getCharacterDocument()?.character.animations).toHaveLength(1);
+      expect(getCharacterDocument()?.character.stateDefs).toHaveLength(1);
+    });
+  });
+
   it("stores the loaded character and raw file bytes in the in-memory document once the 4 required files load successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -153,7 +239,7 @@ describe("renderApp", () => {
 
   it("mounts the characteristics editor once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".characteristics-editor")).toBeNull();
 
@@ -172,7 +258,7 @@ describe("renderApp", () => {
 
   it("reflects a characteristics-editor edit in the in-memory document immediately", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -191,9 +277,186 @@ describe("renderApp", () => {
     expect(getCharacterDocument()?.character.name).toBe("Renamed");
   });
 
+  describe("undo/redo (backlog item 010)", () => {
+    async function loadAndRename(root: HTMLElement): Promise<HTMLInputElement> {
+      const dropZone = root.querySelector(".file-input__dropzone");
+      if (!dropZone) throw new Error("dropzone not found");
+      dispatchDrop(dropZone, requiredFiles());
+      await vi.waitFor(() => {
+        expect(root.querySelector(".characteristics-editor")).not.toBeNull();
+      });
+      const nameInput = root.querySelector<HTMLInputElement>(
+        '[data-field="name"]',
+      );
+      if (!nameInput) throw new Error("name field not found");
+      return nameInput;
+    }
+
+    function requireButton(root: HTMLElement, action: string): HTMLElement {
+      const button = root.querySelector<HTMLElement>(
+        `[data-action="${action}"]`,
+      );
+      if (!button) throw new Error(`${action} button not found`);
+      return button;
+    }
+
+    it("renders Undo and Redo buttons in the toolbar, disabled while there is nothing to undo/redo", () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      expect(requireButton(root, "undo").hasAttribute("disabled")).toBe(true);
+      expect(requireButton(root, "redo").hasAttribute("disabled")).toBe(true);
+    });
+
+    it("enables Undo after an edit, reverts the edit and enables Redo when Undo is clicked", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      const nameInput = await loadAndRename(root);
+      nameInput.value = "Renamed";
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      expect(requireButton(root, "undo").hasAttribute("disabled")).toBe(false);
+
+      requireButton(root, "undo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+
+      expect(getCharacterDocument()?.character.name).toBe(
+        "Main Wiring Test Character",
+      );
+      expect(requireButton(root, "redo").hasAttribute("disabled")).toBe(false);
+      const nameInputAfterUndo = root.querySelector<HTMLInputElement>(
+        '[data-field="name"]',
+      );
+      if (!nameInputAfterUndo) throw new Error("name field not found");
+      expect(nameInputAfterUndo.value).toBe("Main Wiring Test Character");
+    });
+
+    it("re-applies the edit when Redo is clicked after an Undo", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      const nameInput = await loadAndRename(root);
+      nameInput.value = "Renamed";
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      requireButton(root, "undo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+      expect(getCharacterDocument()?.character.name).toBe(
+        "Main Wiring Test Character",
+      );
+
+      requireButton(root, "redo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+
+      expect(getCharacterDocument()?.character.name).toBe("Renamed");
+    });
+
+    it("undoes edits across two different editors in the correct order, without the command editor's own mount re-seeding corrupting the redo stack", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+      const nameInput = await loadAndRename(root);
+      nameInput.value = "Renamed";
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const addStateDefButton = requireButton(root, "add-statedef");
+      const statedefCountBefore = root.querySelectorAll(
+        ".state-editor__statedef",
+      ).length;
+      addStateDefButton.click();
+      expect(root.querySelectorAll(".state-editor__statedef")).toHaveLength(
+        statedefCountBefore + 1,
+      );
+
+      // Undo the state-editor edit: only the statedef count reverts, the
+      // characteristics-editor rename is untouched.
+      requireButton(root, "undo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+      expect(root.querySelectorAll(".state-editor__statedef")).toHaveLength(
+        statedefCountBefore,
+      );
+      expect(getCharacterDocument()?.character.name).toBe("Renamed");
+      expect(requireButton(root, "redo").hasAttribute("disabled")).toBe(false);
+
+      // Undo the characteristics-editor rename too.
+      requireButton(root, "undo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+      expect(getCharacterDocument()?.character.name).toBe(
+        "Main Wiring Test Character",
+      );
+      expect(requireButton(root, "undo").hasAttribute("disabled")).toBe(true);
+
+      // Redo both back in order.
+      requireButton(root, "redo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+      expect(getCharacterDocument()?.character.name).toBe("Renamed");
+      requireButton(root, "redo").dispatchEvent(
+        new Event("click", { bubbles: true }),
+      );
+      expect(root.querySelectorAll(".state-editor__statedef")).toHaveLength(
+        statedefCountBefore + 1,
+      );
+      expect(requireButton(root, "redo").hasAttribute("disabled")).toBe(true);
+    });
+
+    it("clicking Undo or Redo when there is nothing to undo/redo is a safe no-op", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+      await loadAndRename(root);
+
+      expect(() =>
+        requireButton(root, "undo").dispatchEvent(
+          new Event("click", { bubbles: true }),
+        ),
+      ).not.toThrow();
+      expect(() =>
+        requireButton(root, "redo").dispatchEvent(
+          new Event("click", { bubbles: true }),
+        ),
+      ).not.toThrow();
+      expect(getCharacterDocument()?.character.name).toBe(
+        "Main Wiring Test Character",
+      );
+    });
+
+    it("shows an unsaved-changes indicator once an edit is made, and none beforehand", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+      expect(isDirty()).toBe(false);
+      expect(root.querySelector(".app-unsaved-indicator")?.textContent).toBe(
+        "",
+      );
+
+      const nameInput = await loadAndRename(root);
+      nameInput.value = "Renamed";
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      expect(isDirty()).toBe(true);
+      expect(
+        root.querySelector(".app-unsaved-indicator")?.textContent,
+      ).not.toBe("");
+    });
+
+    it("keeps the shared history usable directly, not just through the toolbar buttons", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+      const nameInput = await loadAndRename(root);
+      nameInput.value = "Renamed";
+      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      expect(getAppHistory().canUndo).toBe(true);
+    });
+  });
+
   it("mounts the sprite browser once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".sprite-browser")).toBeNull();
 
@@ -208,7 +471,7 @@ describe("renderApp", () => {
 
   it("reflects a sprite browser edit in the in-memory document's spriteEdits", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -235,7 +498,7 @@ describe("renderApp", () => {
 
   it("mounts the palette editor once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".palette-editor")).toBeNull();
 
@@ -248,9 +511,35 @@ describe("renderApp", () => {
     });
   });
 
+  it("undoes a palette-editor edit through the shared toolbar Undo button, not just the palette editor's own history", async () => {
+    const root = document.createElement("div");
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+
+    const dropZone = root.querySelector(".file-input__dropzone");
+    if (!dropZone) throw new Error("dropzone not found");
+    dispatchDrop(dropZone, requiredFiles());
+    await vi.waitFor(() => {
+      expect(root.querySelector(".palette-editor")).not.toBeNull();
+    });
+
+    const newBlank = root.querySelector<HTMLElement>(
+      ".palette-editor__new-blank",
+    );
+    if (!newBlank) throw new Error("new-blank button not found");
+    newBlank.click();
+
+    const undoButton = root.querySelector<HTMLElement>('[data-action="undo"]');
+    if (!undoButton) throw new Error("undo button not found");
+    expect(undoButton.hasAttribute("disabled")).toBe(false);
+
+    undoButton.dispatchEvent(new Event("click", { bubbles: true }));
+
+    expect(root.querySelectorAll(".palette-editor__swatch").length).toBe(0);
+  });
+
   it("mounts the state editor once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".state-editor")).toBeNull();
 
@@ -265,7 +554,7 @@ describe("renderApp", () => {
 
   it("mounts the animation editor once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".animation-editor")).toBeNull();
 
@@ -280,7 +569,7 @@ describe("renderApp", () => {
 
   it("keeps the animation editor's sprite-existence check current after a sprite browser edit", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -334,7 +623,7 @@ describe("renderApp", () => {
 
   it("mounts the command editor once a character loads successfully", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".command-editor")).toBeNull();
 
@@ -349,7 +638,7 @@ describe("renderApp", () => {
 
   it("loads an existing .cmd file's commands into the shared document", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -369,7 +658,7 @@ describe("renderApp", () => {
 
   it("reflects a command editor edit in the shared document immediately", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
@@ -405,7 +694,7 @@ describe("renderApp", () => {
 
   it("mounts the export panel once a character loads, listing the def/air/cns files unchanged", async () => {
     const root = document.createElement("div");
-    renderApp(root, "0.1.0", "0.5.0", { bridgeOptions });
+    renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
     expect(root.querySelector(".export-panel")).toBeNull();
 

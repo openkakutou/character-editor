@@ -151,7 +151,7 @@ describe("renderCommandEditor", () => {
     expect(field(row, "name").value).toBe("QCF_a");
     expect(field(row, "input").value).toBe("~D, DF, F, a");
     expect(field(row, "targetState").value).toBe("1000");
-    expect(onChange).toHaveBeenCalledWith(loadedCommandFile());
+    expect(onChange).toHaveBeenCalledWith(loadedCommandFile(), true);
   });
 
   it("clears an existing command's input sequence and shows an inline error instead of committing an invalid command", async () => {

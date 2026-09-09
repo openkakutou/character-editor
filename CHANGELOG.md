@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now undo and redo edits made across any editor screen — characteristics, sprites, palettes, animations, state/combat logic, and commands — from two new toolbar buttons, in the correct order regardless of which screen an edit was made in. Rapid successive edits to the same field (like typing a name) merge into a single undo step. Undo/redo never errors, even with nothing left to undo or redo.
+- Closing the tab or navigating away with unsaved changes now shows the browser's own confirmation prompt; with no unsaved changes, it doesn't. A toolbar indicator also shows "Unsaved changes" whenever there's something not yet saved, clearing once "Download all" is used in Export.
+- A "New character" button next to the file import now opens a wizard to start a character from scratch instead of only ever editing an imported one — a blank template, or a "basic" template pre-populated with one starting animation and state. The created character loads into every editor exactly like an imported one.
+
 ## [0.9.0] - 2026-09-05
 
 ### Added

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyCommandFile } from "../commands/command-logic.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
+import {
+  isDirty,
+  pushHistoryCommand,
+  resetAppHistoryForTests,
+} from "../history/app-history.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { ExportResult, ExportedFile } from "./character-export.ts";
 import { renderExportPanel } from "./export-panel.ts";
@@ -76,6 +81,7 @@ describe("renderExportPanel", () => {
 
   beforeEach(() => {
     root = document.createElement("div");
+    resetAppHistoryForTests();
   });
 
   it("renders nothing when no character document is loaded", () => {
@@ -168,6 +174,48 @@ describe("renderExportPanel", () => {
     ]);
     // Staggered between files, not before the first one.
     expect(wait).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks the document clean when Download all is clicked (backlog item 010)", async () => {
+    pushHistoryCommand({ do: () => {}, undo: () => {} });
+    expect(isDirty()).toBe(true);
+
+    renderExportPanel(root, {
+      getDocument: () => baseDocument(),
+      exportCharacterFiles: async () => ({ ok: true, files: fileList() }),
+      triggerDownload: vi.fn(),
+      wait: vi.fn().mockResolvedValue(undefined),
+    });
+    await vi.waitFor(() => {
+      expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+    });
+
+    root
+      .querySelector<HTMLButtonElement>('[data-action="download-all"]')
+      ?.click();
+    await vi.waitFor(() => {
+      expect(isDirty()).toBe(false);
+    });
+  });
+
+  it("does not mark the document clean for an individual per-file Download click", async () => {
+    pushHistoryCommand({ do: () => {}, undo: () => {} });
+    expect(isDirty()).toBe(true);
+
+    renderExportPanel(root, {
+      getDocument: () => baseDocument(),
+      exportCharacterFiles: async () => ({ ok: true, files: fileList() }),
+      triggerDownload: vi.fn(),
+    });
+    await vi.waitFor(() => {
+      expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+    });
+
+    root
+      .querySelectorAll<HTMLButtonElement>('[data-action="download-file"]')[0]
+      .click();
+
+    expect(isDirty()).toBe(true);
   });
 
   it("renders the blocked state for pending sprite edits, listing each one, with no download buttons", async () => {

@@ -14,10 +14,11 @@ This project is in early-stage development. Available now:
 - Create and edit animations: add, edit, remove, and reorder each frame's sprite reference and duration, draw and adjust hit/hurt boxes on a live sprite preview by dragging, resizing, or typing exact coordinates, and preview the whole animation with play/pause/step controls. A frame pointing at a sprite that no longer exists shows a clear warning instead of a blank frame. Removing a whole animation asks for confirmation first.
 - View and edit a character's input commands: their input sequence, timing windows, and (optionally) which combat state they trigger. Add new commands, edit or remove existing ones, and map one to a target state from the state editor. An empty input sequence, a duplicate or blank command name, or a target state that doesn't exist shows a clear inline error instead of saving an invalid command. Starting without a `.cmd` file, or one that fails to read, still lets you create commands from scratch.
 - Export the character back out as downloadable files, reflecting the characteristics, animation, state/combat logic, and command edits made across the app. A file that wasn't touched downloads byte-for-byte identical to the original. Download each file individually or all at once, each one clearly marked unchanged or modified. Pending sprite edits can't be saved to a file yet, so export is blocked with a clear list of them until resolved; a value a file's own format rejects blocks export the same way, naming the file and the problem, instead of producing a corrupt download.
+- Undo and redo edits made across any editor screen, in the order they were actually made regardless of which screen they came from. Rapid successive edits to the same field, like typing a name, merge into a single undo step. Undo/redo is always safe, even with nothing left to undo or redo.
+- Closing the tab or navigating away with unsaved changes shows a confirmation prompt; with nothing unsaved, it doesn't. A toolbar indicator also shows when there's something not yet saved, clearing once everything is downloaded via "Download all".
+- Start a new character from scratch instead of only ever editing an imported one: a blank template, or a "basic" template pre-populated with one starting animation and state, both loading into every editor exactly like an imported character would.
 
-Planned:
-
-- Undo/redo, an unsaved-changes guard, and a new-character wizard
+Planned: remappable keyboard shortcuts, multiple languages, and uploading a whole character folder at once.
 <!-- vibe:end:features -->
 
 <!-- vibe:begin:install -->

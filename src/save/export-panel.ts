@@ -8,6 +8,7 @@
 // for what Export can and can't produce.
 import { getCharacterDocument } from "../document/character-document.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
+import { markClean } from "../history/app-history.ts";
 import { defaultTriggerDownload } from "../palettes/palette-editor.ts";
 import type { WasmBridgeOptions } from "../wasm/bridge.ts";
 import {
@@ -36,6 +37,8 @@ export interface ExportPanelOptions {
   ) => Promise<ExportResult>;
   /** Triggers a browser download. Defaults to the real download; injectable for testing. */
   triggerDownload?: (bytes: Uint8Array, fileName: string) => void;
+  /** Called after a successful "Download all" (backlog item 010's complete-save signal). Optional -- a caller with no interest in dirty-state UI can omit it. */
+  onSaved?: () => void;
   /** Forwarded to the default exportCharacterFiles's own WASM bridge calls; ignored if exportCharacterFiles is overridden. */
   bridgeOptions?: WasmBridgeOptions;
   /** Delay between each staggered download in "Download all". Defaults to a real timer; injectable for testing. */
@@ -83,6 +86,7 @@ function renderFileList(
   files: readonly ExportedFile[],
   triggerDownload: (bytes: Uint8Array, fileName: string) => void,
   wait: (ms: number) => Promise<void>,
+  onSaved: () => void,
 ): HTMLElement {
   const container = document.createElement("div");
   container.className = "export-panel__files";
@@ -112,11 +116,17 @@ function renderFileList(
   }
   container.appendChild(list);
 
+  // "Download all" is treated as the complete, deliberate save action that
+  // clears the unsaved-changes guard (item 010) -- an individual per-file
+  // Download does not, since downloading one of several files isn't a full
+  // save. See .vibe/decisions/012-unsaved-changes-dirty-flag-not-undo-stack-derived.md.
   async function downloadAll(): Promise<void> {
     for (const [index, file] of files.entries()) {
       if (index > 0) await wait(DOWNLOAD_ALL_STAGGER_MS);
       triggerDownload(file.bytes, file.fileName);
     }
+    markClean();
+    onSaved();
   }
 
   const downloadAllButton = document.createElement("wuik-button");
@@ -151,6 +161,7 @@ export function renderExportPanel(
   const exportFn = options.exportCharacterFiles ?? defaultExportCharacterFiles;
   const triggerDownload = options.triggerDownload ?? defaultTriggerDownload;
   const wait = options.wait ?? defaultWait;
+  const onSaved = options.onSaved ?? (() => {});
 
   const panel = document.createElement("wuik-panel");
   panel.className = "export-panel";
@@ -184,7 +195,7 @@ export function renderExportPanel(
       return;
     }
     bodyContainer.appendChild(
-      renderFileList(result.files, triggerDownload, wait),
+      renderFileList(result.files, triggerDownload, wait, onSaved),
     );
   }
 
