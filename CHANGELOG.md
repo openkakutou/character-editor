@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-09
+
 ### Added
 
 - Users can now undo and redo edits made across any editor screen — characteristics, sprites, palettes, animations, state/combat logic, and commands — from two new toolbar buttons, in the correct order regardless of which screen an edit was made in. Rapid successive edits to the same field (like typing a name) merge into a single undo step. Undo/redo never errors, even with nothing left to undo or redo.
@@ -66,7 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/openkakutou/character-editor/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openkakutou/character-editor/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/openkakutou/character-editor/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/openkakutou/character-editor/compare/v0.6.0...v0.7.0
