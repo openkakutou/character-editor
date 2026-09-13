@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-13
+
 ### Added
 
 - Users can now see and rebind this app's keyboard shortcuts (Undo, Redo, Save/export, Add animation, Add StateDef, Add command) from a new "Keyboard shortcuts" panel, visible even before a character is loaded. Rebound keys persist across reloads, and trying to bind a key already used by another action offers to swap the two instead of silently overwriting it. Shortcuts never fire while typing in a text field.
@@ -72,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/openkakutou/character-editor/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/openkakutou/character-editor/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openkakutou/character-editor/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/openkakutou/character-editor/compare/v0.7.0...v0.8.0
