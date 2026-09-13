@@ -2,8 +2,9 @@
  * `@openkakutou/web-ui-kit` ships no type declarations of its own (its
  * components are registered as side-effecting custom-element definitions).
  * This app needs a few typed named imports from it -- the package's own
- * exported `version` string (for the version-guard check), and its
- * `CommandStack` undo/redo history primitive (backlog item 010) -- rather
+ * exported `version` string (for the version-guard check), its
+ * `CommandStack` undo/redo history primitive (backlog item 010), and its
+ * `ShortcutManager` keyboard-shortcut primitive (backlog item 011) -- rather
  * than a side-effect-only import, so this minimal ambient declaration
  * exists here until the package publishes its own types.
  */
@@ -31,6 +32,45 @@ declare module "@openkakutou/web-ui-kit" {
     undo(): boolean;
     redo(): boolean;
     clear(): void;
+  }
+
+  /** Mirrors the package's own headless keyboard-shortcut manager. */
+  export interface ShortcutAction {
+    id: string;
+    label: string;
+    defaultKey: string;
+  }
+
+  export interface ShortcutBinding {
+    id: string;
+    label: string;
+    key: string;
+    isDefault: boolean;
+  }
+
+  export type RebindResult =
+    | { ok: true }
+    | { ok: false; reason: "conflict"; conflictWith: string }
+    | { ok: false; reason: "unknown-action" };
+
+  export interface RebindOptions {
+    swap?: boolean;
+  }
+
+  export interface ShortcutManagerOptions {
+    storageKey?: string;
+    storage?: Storage;
+  }
+
+  export type ShortcutChangeDetail = { id: string; key: string };
+
+  export class ShortcutManager extends EventTarget {
+    constructor(options?: ShortcutManagerOptions);
+    register(action: ShortcutAction): void;
+    list(): ShortcutBinding[];
+    getBinding(id: string): string | undefined;
+    rebind(id: string, key: string, options?: RebindOptions): RebindResult;
+    resetToDefault(id: string): RebindResult;
   }
 }
 

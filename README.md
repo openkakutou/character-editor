@@ -17,8 +17,9 @@ This project is in early-stage development. Available now:
 - Undo and redo edits made across any editor screen, in the order they were actually made regardless of which screen they came from. Rapid successive edits to the same field, like typing a name, merge into a single undo step. Undo/redo is always safe, even with nothing left to undo or redo.
 - Closing the tab or navigating away with unsaved changes shows a confirmation prompt; with nothing unsaved, it doesn't. A toolbar indicator also shows when there's something not yet saved, clearing once everything is downloaded via "Download all".
 - Start a new character from scratch instead of only ever editing an imported one: a blank template, or a "basic" template pre-populated with one starting animation and state, both loading into every editor exactly like an imported character would.
+- See and rebind this app's keyboard shortcuts (Undo, Redo, Save/export, Add animation, Add StateDef, Add command) from a "Keyboard shortcuts" panel, visible even before a character is loaded. Rebound keys persist across reloads, and trying to bind a key already used by another action offers to swap the two instead of silently overwriting it. Shortcuts never fire while typing in a text field.
 
-Planned: remappable keyboard shortcuts, multiple languages, and uploading a whole character folder at once.
+Planned: multiple languages, and uploading a whole character folder at once.
 <!-- vibe:end:features -->
 
 <!-- vibe:begin:install -->

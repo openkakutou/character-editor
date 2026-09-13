@@ -24,6 +24,8 @@ import type {
 import type { PaletteEditorHandle } from "./palettes/palette-editor.ts";
 import { renderPaletteEditor } from "./palettes/palette-editor.ts";
 import { renderExportPanel } from "./save/export-panel.ts";
+import { installGlobalShortcutListener } from "./shortcuts/global-shortcut-listener.ts";
+import { renderShortcutsScreen } from "./shortcuts/shortcuts-screen.ts";
 import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { appVersion } from "./version.ts";
 import type { CharacterData } from "./wasm/types.ts";
@@ -203,6 +205,7 @@ export function renderApp(
   shell.appendChild(toolbar);
 
   const main = document.createElement("main");
+  const shortcutsScreenContainer = document.createElement("div");
   const characteristicsContainer = document.createElement("div");
   const spriteBrowserContainer = document.createElement("div");
   const paletteEditorContainer = document.createElement("div");
@@ -384,7 +387,16 @@ export function renderApp(
   });
   main.append(wizardDivider, wizardContainer);
 
+  // Rendered here (after the file input's own `root.replaceChildren()` call
+  // above, which would otherwise wipe out anything appended to `main`
+  // before it runs) and unconditionally -- unlike every other screen below,
+  // its actions (Undo/Redo/Save chief among them) are relevant before a
+  // character is even loaded, so it is not gated behind
+  // `handleCharacterLoaded` the way they are. See .vibe/decisions/014.
+  renderShortcutsScreen(shortcutsScreenContainer);
+
   main.append(
+    shortcutsScreenContainer,
     characteristicsContainer,
     spriteBrowserContainer,
     paletteEditorContainer,
@@ -407,3 +419,8 @@ if (app) {
 // runs on every re-render in tests, which would otherwise stack up a fresh
 // `beforeunload` listener on `window` each time. See .vibe/decisions/012.
 installUnsavedChangesGuard();
+
+// Same "install once at bootstrap" reasoning as the guard above -- otherwise
+// every `renderApp` call in tests would stack up another `keydown` listener
+// on `window`. See .vibe/decisions/014.
+installGlobalShortcutListener();

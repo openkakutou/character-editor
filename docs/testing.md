@@ -65,6 +65,16 @@ image decoding are both taken as injectable options for this reason —
 separately by a real-browser pass (see "Beyond the test suite" below)
 instead of by the unit test suite.
 
+## `isContentEditable` is unimplemented in jsdom
+
+`jsdom` never computes `HTMLElement.isContentEditable` — it stays
+`undefined` even after `setAttribute("contenteditable", "true")`, the same
+"browser effect this jsdom version doesn't implement at all" category as
+`HTMLCanvasElement.getContext` and `DataTransfer`.
+`global-shortcut-listener.ts`'s `shouldIgnoreGlobalShortcut` checks the raw
+`contenteditable` attribute directly instead, which behaves identically
+under jsdom and in a real browser.
+
 ## Asserting a swatch's color via `aria-label`, not `.style.background`
 
 `jsdom`'s `CSSStyleDeclaration` re-serializes a hex color assigned to
@@ -206,6 +216,26 @@ again to confirm export blocks with a message naming that exact sprite edit
 and renders no download buttons at all; and loading the character fresh
 afterward to confirm the block clears — with no console errors related to
 the feature.
+
+The keyboard-shortcuts feature got the same treatment in a real Chromium
+instance: confirming the "Keyboard shortcuts" panel and its six actions are
+visible before any character is loaded; creating a character via the
+wizard, then pressing each default combo (`Ctrl+Z`/`Ctrl+Y` for Undo/Redo
+after an edit, `Alt+Shift+A`/`Alt+Shift+S`/`Alt+Shift+C` for Add
+animation/StateDef/command) and confirming each produces the exact same
+DOM change as clicking its button, including `Ctrl+Z` with an empty undo
+history staying a safe no-op; confirming `Ctrl+Z` does nothing while
+focused in the character Name text field; rebinding Undo to `F2` via the
+panel, reloading, and confirming it persisted; and rebinding Redo to the
+same `F2` to confirm a conflict is surfaced (swap or cancel) rather than
+silently overwritten — with no console errors throughout. This pass caught
+one real defect unit tests couldn't (no DOM layout to catch it): the
+shortcuts screen's container was appended to `main` *before*
+`renderCharacterFileInput(main, ...)` ran, and that call's own
+`root.replaceChildren()` (called with `main` itself as `root`, not a
+dedicated sub-container) wiped it straight back out — fixed by rendering
+the shortcuts screen after that call instead. See `docs/architecture.md`'s
+"Data flow: keyboard shortcuts".
 
 Undo/redo, the unsaved-changes guard, and the new-character wizard got the
 same treatment against a real character fixture in a real Chromium

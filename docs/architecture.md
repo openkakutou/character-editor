@@ -22,6 +22,7 @@ flowchart LR
     app --> save["save\n(src/save/)"]
     app --> wizard["wizard\n(src/wizard/)"]
     app --> history["history\n(src/history/)"]
+    app --> shortcuts["shortcuts\n(src/shortcuts/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -43,6 +44,7 @@ flowchart LR
     wizard --> wasm
     wizard -.->|hands off {character, files} like input does| document
     document --> history
+    shortcuts -.->|button.click() on the matching data-action| app
     wasm -.->|fetch + WebAssembly.instantiate| module["character.wasm\n(public/wasm/, gitignored)"]
     wizard -.->|fetch| blanksff["blank-character.sff\n(public/wizard/, committed)"]
     scripts["scripts\n(scripts/download-wasm.mjs)"] -.->|fetches at dev-setup time| module
@@ -174,6 +176,18 @@ flowchart LR
   of the shipped app bundle. Fetches a pinned `character` release's
   `character.wasm` + `wasm_exec.js` into `public/wasm/` so contributors
   don't need a Go toolchain or a sibling `character` checkout.
+- **`shortcuts`** (`src/shortcuts/`) — the keyboard-shortcut layer (item
+  011), built on `@openkakutou/web-ui-kit`'s `ShortcutManager`/
+  `<wuik-shortcuts-panel>`. `app-shortcuts.ts` registers this app's fixed
+  set of actions (Undo, Redo, Save/export, Add animation, Add StateDef, Add
+  command) on a shared singleton manager; `global-shortcut-listener.ts` is
+  the one `window` `keydown` listener, installed once at bootstrap, that
+  resolves the pressed combo to a registered action and clicks the exact
+  DOM button that action's own toolbar/panel control already renders — no
+  action logic is duplicated in this module. `shortcuts-screen.ts` mounts
+  the shared `<wuik-shortcuts-panel>` as an always-visible screen. See "Data
+  flow: keyboard shortcuts" below and
+  `.vibe/decisions/014-shortcut-manager-scope-and-wiring.md`.
 - **`save`** (`src/save/`) — Save/Export (item 009). `character-export.ts`
   is the DOM-free orchestration: calls the WASM bridge's `saveDef`/
   `saveAir`/`saveCns`/`saveCmd` wrappers with `document`'s current
@@ -499,6 +513,43 @@ and under the test suite's jsdom environment.
 3. `app`'s own toolbar indicator reads the same flag on every history
    change, so the unsaved state is visible before the user ever tries to
    leave, not only as a last-resort prompt on the way out.
+
+## Data flow: keyboard shortcuts
+
+1. `app-shortcuts.ts` registers exactly six actions on one shared
+   `ShortcutManager` singleton — `undo`, `redo`, `download-all`,
+   `add-animation`, `add-statedef`, `add-command` — each id chosen to equal
+   the `data-action` attribute already present on the one existing button
+   that performs it. "Import sprite" and a generic "delete selection" are
+   deliberately out of scope: the former always needs a file picked first
+   (no single-step action a key press could complete), the latter has no
+   selection concept anywhere in this app to hang a key on. See
+   `.vibe/decisions/014`.
+2. `global-shortcut-listener.ts` installs one `keydown` listener on
+   `window` at bootstrap. On each keydown it normalizes the combo (the same
+   `"Ctrl+Shift+S"`-style format the shared manager stores — re-implemented
+   locally since it's an internal detail of `@openkakutou/web-ui-kit`, not
+   part of its exported API), skips it entirely while the event's target is
+   a text-editable control or the `<wuik-shortcuts-panel>` itself (its own
+   rebind-capture keydown, retargeted to the host across the shadow
+   boundary, must not also fire the action being rebound), then — if the
+   combo matches a registered binding — calls `.click()` on
+   `document.querySelector('[data-action="<id>"]')`.
+3. Because the shortcut always triggers the *same* button a manual click
+   would, it inherits that button's own behavior for free: Undo/Redo stay
+   safe no-ops with nothing left to undo/redo (`CommandStack`'s own
+   contract, `history/app-history.ts`), and the visible outcome of an "Add"
+   shortcut is identical to clicking "Add animation"/"Add StateDef"/"Add
+   command" by hand.
+4. `shortcuts-screen.ts` mounts `<wuik-shortcuts-panel>` bound to the same
+   shared manager as an always-visible screen in `app` — rendered after
+   `input`'s own `renderCharacterFileInput` call (which replaces all of
+   `main`'s children) rather than before it, so it isn't wiped out by that
+   call, and not gated behind a loaded character at all, since its actions
+   (Undo/Redo/Save chief among them) are relevant from the moment the app
+   opens. Rebinding, conflict swap/cancel, and `localStorage` persistence
+   are entirely `<wuik-shortcuts-panel>`'s own behavior — this app only
+   supplies the manager instance and the action list.
 
 ## Data flow: creating a character via the wizard
 
