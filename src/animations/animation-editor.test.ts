@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { SpritePixelResult } from "../wasm/bridge.ts";
 import type { CharacterData, Frame, SpriteGroup } from "../wasm/types.ts";
@@ -699,5 +700,42 @@ describe("renderAnimationEditor — playback preview", () => {
     click(action(frameRows(root, 0)[0], "move-down"));
     expect(timer.pending).toBe(0);
     expect(pause.hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("renderAnimationEditor — localization (backlog item 012)", () => {
+  afterEach(async () => {
+    await getI18n()?.changeLanguage("en");
+    window.localStorage.clear();
+  });
+
+  it("renders in French, with an expanded animation's state preserved across a re-render triggered by a locale change", async () => {
+    await initAppI18n();
+    await getI18n()?.changeLanguage("fr");
+
+    const root = document.createElement("div");
+    const character = fixtureCharacter({
+      animations: [{ number: 0, frames: [frame()], loopStart: 0 }],
+    });
+    renderAnimationEditor(root, character, null, [], { onChange: vi.fn() });
+    toggleAnimation(root, 0);
+
+    // Re-invoking the same render (what main.ts's own locale-change
+    // subscription does) reuses the `root`-keyed expand state -- the
+    // animation stays expanded, exactly as it already does for any other
+    // trigger (a sprite-browser edit, an Undo/Redo click).
+    renderAnimationEditor(root, character, null, [], { onChange: vi.fn() });
+
+    expect(root.querySelector("h2")?.textContent).toBe("Animations");
+    expect(root.querySelector('[data-action="add-frame"]')?.textContent).toBe(
+      "Ajouter une image",
+    );
+    expect(
+      root
+        .querySelector(
+          '[data-animation="0"] .animation-editor__animation-toggle',
+        )
+        ?.getAttribute("aria-expanded"),
+    ).toBe("true");
   });
 });

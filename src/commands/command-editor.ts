@@ -18,6 +18,7 @@
 // `resolveSpritePixels`. A missing or unparseable `.cmd` file degrades to a
 // visible message plus a blank starting point, never a silent crash or a
 // dead end -- the user can still create new commands from scratch.
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import {
   type LoadCmdResult,
   type WasmBridgeOptions,
@@ -69,6 +70,13 @@ function emptyState(text: string): HTMLElement {
   return el;
 }
 
+// `main.ts` can call `renderCommandEditor` more than once per page (e.g. the
+// new-character wizard replacing an already-loaded character) -- unsubscribed
+// at the top of every call, before a fresh one is registered, so a
+// locale-change subscription from a previous mount never accumulates. See
+// .vibe/decisions/015-i18n-integration-approach.md.
+let currentUnsubscribeLocaleChange: (() => void) | undefined;
+
 /**
  * Renders the command editor into `root`, replacing its previous content.
  * `cmdBytes` is the raw `.cmd` file bytes captured at input time (item
@@ -82,6 +90,8 @@ export function renderCommandEditor(
   options: CommandEditorOptions,
 ): void {
   root.replaceChildren();
+  currentUnsubscribeLocaleChange?.();
+  currentUnsubscribeLocaleChange = undefined;
 
   const loadCmdFn = options.loadCmd ?? defaultLoadCmd;
 
@@ -89,7 +99,7 @@ export function renderCommandEditor(
   container.className = "command-editor";
 
   const heading = document.createElement("h2");
-  heading.textContent = "Commands";
+  heading.textContent = t("commands.heading", "Commands");
   container.appendChild(heading);
 
   const statusEl = document.createElement("p");
@@ -104,10 +114,38 @@ export function renderCommandEditor(
   const addCommandButton = document.createElement("wuik-button");
   addCommandButton.setAttribute("variant", "secondary");
   addCommandButton.dataset.action = "add-command";
-  addCommandButton.textContent = "Add command";
+  addCommandButton.textContent = t("commands.addCommand", "Add command");
   container.appendChild(addCommandButton);
 
   root.appendChild(container);
+
+  // A tagged description of what `statusEl` currently shows (or `null` for
+  // "loaded, no status to show" -- see the `startReady` success path) so a
+  // locale change can reformat it without re-parsing `.cmd` bytes. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  let currentStatus:
+    | { kind: "loading" }
+    | { kind: "error"; message: string }
+    | null = null;
+  function renderStatus(): void {
+    if (currentStatus === null) {
+      statusEl.hidden = true;
+      statusEl.textContent = "";
+      return;
+    }
+    statusEl.hidden = false;
+    if (currentStatus.kind === "loading") {
+      statusEl.setAttribute("role", "status");
+      statusEl.textContent = t("commands.loadingCommands", "Loading commands…");
+    } else {
+      statusEl.setAttribute("role", "alert");
+      statusEl.textContent = t(
+        "commands.loadError",
+        "Could not read the .cmd file: {{message}}. You can still create new commands below.",
+        { message: currentStatus.message },
+      );
+    }
+  }
 
   let commandFile: CommandFile = emptyCommandFile();
   let rows: CommandRow[] = [];
@@ -237,28 +275,50 @@ export function renderCommandEditor(
     rowEl.className = "command-editor__row";
     rowEl.dataset.commandRow = String(row.id);
 
-    const name = buildField(rowEl, "name", "Name", "text");
+    const name = buildField(
+      rowEl,
+      "name",
+      t("commands.nameLabel", "Name"),
+      "text",
+    );
     name.input.value = row.command.name;
 
-    const input = buildField(rowEl, "input", "Input sequence", "text");
+    const input = buildField(
+      rowEl,
+      "input",
+      t("commands.inputSequenceLabel", "Input sequence"),
+      "text",
+    );
     input.input.value = row.command.input;
 
     const hint = document.createElement("p");
     hint.className = "command-editor__hint";
-    hint.textContent =
-      'Stored as-is (e.g. "~D, DF, F, a") -- not validated against MUGEN/Ikemen input syntax.';
+    hint.textContent = t(
+      "commands.inputHint",
+      'Stored as-is (e.g. "~D, DF, F, a") -- not validated against MUGEN/Ikemen input syntax.',
+    );
     rowEl.appendChild(hint);
 
-    const time = buildField(rowEl, "time", "Time", "number");
+    const time = buildField(
+      rowEl,
+      "time",
+      t("commands.timeLabel", "Time"),
+      "number",
+    );
     time.input.value = String(row.command.time);
 
-    const bufferTime = buildField(rowEl, "bufferTime", "Buffer time", "number");
+    const bufferTime = buildField(
+      rowEl,
+      "bufferTime",
+      t("commands.bufferTimeLabel", "Buffer time"),
+      "number",
+    );
     bufferTime.input.value = String(row.command.bufferTime);
 
     const targetState = buildField(
       rowEl,
       "targetState",
-      "Target state",
+      t("commands.targetStateLabel", "Target state"),
       "number",
     );
     targetState.input.value = row.targetStateText;
@@ -268,9 +328,11 @@ export function renderCommandEditor(
     removeButton.dataset.action = "remove-command";
     removeButton.setAttribute(
       "aria-label",
-      `Remove command ${row.command.name || "(unnamed)"}`,
+      t("commands.removeCommandAriaLabel", "Remove command {{name}}", {
+        name: row.command.name || t("commands.unnamed", "(unnamed)"),
+      }),
     );
-    removeButton.textContent = "Remove";
+    removeButton.textContent = t("commands.remove", "Remove");
     rowEl.appendChild(removeButton);
 
     name.input.addEventListener("input", () => {
@@ -359,7 +421,9 @@ export function renderCommandEditor(
   function renderList(): void {
     rowRefreshers = new Map();
     if (rows.length === 0) {
-      listEl.replaceChildren(emptyState("No commands yet."));
+      listEl.replaceChildren(
+        emptyState(t("commands.noCommandsYet", "No commands yet.")),
+      );
       return;
     }
     listEl.replaceChildren(
@@ -409,24 +473,36 @@ export function renderCommandEditor(
     renderList();
   }
 
+  // This screen is only ever mounted once per loaded character (see
+  // main.ts's `mountCommandEditor`) -- unsubscribed at the top of every
+  // call above, so a locale-change subscription from a previous mount
+  // never accumulates. Retranslates the heading/add-button/status in place
+  // and every row's own already-shown validation messages, never
+  // re-parsing the `.cmd` bytes or resetting a row's data.
+  currentUnsubscribeLocaleChange = onLocaleChange(() => {
+    heading.textContent = t("commands.heading", "Commands");
+    addCommandButton.textContent = t("commands.addCommand", "Add command");
+    renderStatus();
+    renderList();
+  });
+
   if (cmdBytes === null) {
     startReady(emptyCommandFile());
     return;
   }
 
-  statusEl.hidden = false;
-  statusEl.setAttribute("role", "status");
-  statusEl.textContent = "Loading commands…";
+  currentStatus = { kind: "loading" };
+  renderStatus();
 
   loadCmdFn(cmdBytes, options.bridgeOptions).then((result) => {
     if (result.ok) {
-      statusEl.hidden = true;
+      currentStatus = null;
+      renderStatus();
       startReady(result.commandFile);
       return;
     }
-    statusEl.hidden = false;
-    statusEl.setAttribute("role", "alert");
-    statusEl.textContent = `Could not read the .cmd file: ${result.error}. You can still create new commands below.`;
+    currentStatus = { kind: "error", message: result.error };
+    renderStatus();
     startReady(emptyCommandFile());
   });
 }

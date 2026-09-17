@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyCommandFile } from "../commands/command-logic.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
 import {
@@ -6,6 +6,7 @@ import {
   pushHistoryCommand,
   resetAppHistoryForTests,
 } from "../history/app-history.ts";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { ExportResult, ExportedFile } from "./character-export.ts";
 import { renderExportPanel } from "./export-panel.ts";
@@ -328,5 +329,64 @@ describe("renderExportPanel", () => {
     await Promise.resolve();
 
     expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the heading and the already-computed file list, without recomputing the export", async () => {
+      const exportCharacterFiles = vi
+        .fn()
+        .mockResolvedValue({ ok: true, files: fileList() });
+      renderExportPanel(root, {
+        getDocument: () => baseDocument(),
+        exportCharacterFiles,
+      });
+      await vi.waitFor(() => {
+        expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+      });
+      expect(exportCharacterFiles).toHaveBeenCalledTimes(1);
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector("h3")?.textContent).toBe("Exportation");
+      expect(root.querySelector(".export-panel__refresh")?.textContent).toBe(
+        "Actualiser l'exportation",
+      );
+      expect(root.querySelectorAll(".export-panel__file")).toHaveLength(3);
+      expect(
+        root.querySelector(".export-panel__file-name")?.textContent,
+      ).toContain("inchangé");
+      expect(exportCharacterFiles).toHaveBeenCalledTimes(1);
+    });
+
+    it("retranslates a blocked-export reason in place", async () => {
+      const edit: SpriteEdit = { kind: "delete", group: 2, image: 3 };
+      renderExportPanel(root, {
+        getDocument: () => ({ ...baseDocument(), spriteEdits: [edit] }),
+        exportCharacterFiles: () =>
+          Promise.resolve({
+            ok: false,
+            reason: { kind: "pending-sprite-edits", edits: [edit] },
+          }),
+      });
+      await vi.waitFor(() => {
+        expect(root.querySelector(".export-panel__blocked")).not.toBeNull();
+      });
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(
+        root.querySelector(".export-panel__blocked-message")?.textContent,
+      ).toContain("L'exportation est bloquée");
+      expect(
+        root.querySelector(".export-panel__blocked-list")?.textContent,
+      ).toContain("supprimé");
+    });
   });
 });

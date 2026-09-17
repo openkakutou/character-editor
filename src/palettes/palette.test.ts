@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import {
   PALETTE_BYTE_LENGTH,
   PALETTE_COLOR_COUNT,
@@ -130,6 +131,25 @@ describe("parseActBytes", () => {
   it("rejects an empty buffer", () => {
     const result = parseActBytes(new Uint8Array(0));
     expect(result.ok).toBe(false);
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("translates the length-mismatch error under an active French locale, with the byte counts unchanged", async () => {
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const result = parseActBytes(new Uint8Array(700));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain("700 octets reçus");
+        expect(result.error).toContain("768");
+      }
+    });
   });
 });
 

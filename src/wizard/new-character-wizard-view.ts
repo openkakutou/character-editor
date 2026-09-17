@@ -8,6 +8,7 @@
 // `.vibe/index.md`'s "never assume a `<wuik-*>` element's own methods are
 // present" convention), and `<wuik-dialog>`'s own doc comment states `open`
 // is its single source of truth regardless of how it's set.
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import type {
   CharacterInputResult,
   LoadedFileBytes,
@@ -35,7 +36,7 @@ export interface NewCharacterWizardOptions {
 function describeFailure(result: CharacterInputResult): string {
   if (result.status === "bridge-error") return result.message;
   if (result.status === "read-error") return result.error.message;
-  return "Could not create the character.";
+  return t("wizard.genericFailure", "Could not create the character.");
 }
 
 /**
@@ -59,35 +60,34 @@ export function renderNewCharacterWizard(
   trigger.className = "new-character-wizard__trigger";
   trigger.setAttribute("variant", "secondary");
   trigger.dataset.action = "open-wizard";
-  trigger.textContent = "New character";
 
   const dialogEl = document.createElement("wuik-dialog");
   dialogEl.className = "new-character-wizard__dialog";
 
   const heading = document.createElement("span");
   heading.slot = "heading";
-  heading.textContent = "New Character";
   dialogEl.appendChild(heading);
 
   const templateGroup = document.createElement("wuik-radio-group");
   templateGroup.className = "new-character-wizard__template";
-  templateGroup.setAttribute("label", "Start from");
   templateGroup.setAttribute("value", "blank");
 
   const blankOption = document.createElement("wuik-radio-option");
   blankOption.setAttribute("value", "blank");
-  blankOption.textContent = "Blank — no animations or states yet";
 
   const basicOption = document.createElement("wuik-radio-option");
   basicOption.setAttribute("value", "basic");
-  basicOption.textContent = "Basic template — one starting animation and state";
 
   templateGroup.append(blankOption, basicOption);
   dialogEl.appendChild(templateGroup);
 
   const nameLabel = document.createElement("label");
   nameLabel.className = "new-character-wizard__name-label";
-  nameLabel.textContent = "Name";
+  // A text node (not `nameLabel.textContent`) so the label's own visible
+  // text can be retranslated in place without wiping out the nested
+  // `<input>` appended right after it -- see `renderNameLabel` below.
+  const nameLabelText = document.createTextNode("");
+  nameLabel.appendChild(nameLabelText);
   const nameField = document.createElement("input");
   nameField.type = "text";
   nameField.className = "new-character-wizard__input";
@@ -115,12 +115,10 @@ export function renderNewCharacterWizard(
   const cancelButton = document.createElement("wuik-button");
   cancelButton.setAttribute("variant", "secondary");
   cancelButton.dataset.action = "cancel-wizard";
-  cancelButton.textContent = "Cancel";
 
   const createButton = document.createElement("wuik-button");
   createButton.setAttribute("variant", "primary");
   createButton.dataset.action = "create-character";
-  createButton.textContent = "Create";
 
   actions.append(cancelButton, createButton);
   dialogEl.appendChild(actions);
@@ -129,6 +127,44 @@ export function renderNewCharacterWizard(
   root.appendChild(wrapper);
 
   let selectedTemplate: WizardTemplate = "blank";
+  // Whatever the error/status lines currently show, kept as a small raw
+  // description rather than a pre-formatted string, so a locale change can
+  // retranslate them in place without touching the open dialog's other
+  // state (the entered name, the selected template). See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  type WizardError =
+    | { kind: "required" }
+    | { kind: "failure"; message: string };
+  let currentError: WizardError | null = null;
+  let currentStatus: "creating" | null = null;
+
+  function renderStaticText(): void {
+    trigger.textContent = t("wizard.trigger", "New character");
+    heading.textContent = t("wizard.heading", "New Character");
+    templateGroup.setAttribute("label", t("wizard.startFrom", "Start from"));
+    blankOption.textContent = t(
+      "wizard.blankOption",
+      "Blank — no animations or states yet",
+    );
+    basicOption.textContent = t(
+      "wizard.basicOption",
+      "Basic template — one starting animation and state",
+    );
+    cancelButton.textContent = t("wizard.cancel", "Cancel");
+    createButton.textContent = t("wizard.create", "Create");
+    nameLabelText.textContent = t("wizard.nameLabel", "Name");
+  }
+
+  function renderErrorAndStatus(): void {
+    errorEl.textContent =
+      currentError === null
+        ? ""
+        : currentError.kind === "required"
+          ? t("wizard.nameRequired", "A name is required.")
+          : currentError.message;
+    statusEl.textContent =
+      currentStatus === "creating" ? t("wizard.creating", "Creating…") : "";
+  }
 
   function refreshCreateEnabled(): void {
     if (nameField.value.trim() === "") {
@@ -142,8 +178,9 @@ export function renderNewCharacterWizard(
     nameField.value = "";
     templateGroup.setAttribute("value", "blank");
     selectedTemplate = "blank";
-    errorEl.textContent = "";
-    statusEl.textContent = "";
+    currentError = null;
+    currentStatus = null;
+    renderErrorAndStatus();
     refreshCreateEnabled();
   }
 
@@ -175,7 +212,8 @@ export function renderNewCharacterWizard(
   });
 
   nameField.addEventListener("input", () => {
-    errorEl.textContent = "";
+    currentError = null;
+    renderErrorAndStatus();
     refreshCreateEnabled();
   });
 
@@ -189,12 +227,14 @@ export function renderNewCharacterWizard(
   async function handleCreate(): Promise<void> {
     const name = nameField.value.trim();
     if (name === "") {
-      errorEl.textContent = "A name is required.";
+      currentError = { kind: "required" };
+      renderErrorAndStatus();
       return;
     }
 
-    errorEl.textContent = "";
-    statusEl.textContent = "Creating…";
+    currentError = null;
+    currentStatus = "creating";
+    renderErrorAndStatus();
     setBusy(true);
 
     const result = await createCharacter(
@@ -205,13 +245,29 @@ export function renderNewCharacterWizard(
 
     setBusy(false);
     if (result.status !== "success") {
-      statusEl.textContent = "";
-      errorEl.textContent = describeFailure(result);
+      currentStatus = null;
+      currentError = { kind: "failure", message: describeFailure(result) };
+      renderErrorAndStatus();
       return;
     }
 
-    statusEl.textContent = "";
+    currentStatus = null;
+    renderErrorAndStatus();
     close();
     options.onCreated(result.character, result.files);
   }
+
+  // This view is only ever mounted once per app session (see main.ts's
+  // renderApp) -- one subscription for its whole lifetime never
+  // accumulates. Never touches `dialogEl`'s `open` attribute, the entered
+  // name, or the selected template, so an in-progress wizard interaction
+  // survives a locale switch untouched. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  onLocaleChange(() => {
+    renderStaticText();
+    renderErrorAndStatus();
+  });
+
+  renderStaticText();
+  renderErrorAndStatus();
 }

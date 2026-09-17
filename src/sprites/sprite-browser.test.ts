@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { SpritePixelResult } from "../wasm/bridge.ts";
 import type { Animation, CharacterData } from "../wasm/types.ts";
 import type { DecodedImage, ImageDecodeResult } from "./image-decode.ts";
@@ -386,5 +387,58 @@ describe("renderSpriteBrowser", () => {
     renderSpriteBrowser(root, characterWithSprites(), sffBytes, []);
 
     expect(root.querySelector(".sprite-browser__unsaved")).toBeNull();
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the heading and group toggle without collapsing an already-expanded group", async () => {
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, []);
+      expandFirstGroup(root);
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector("h3")?.textContent).toBe("Sprites (2)");
+      expect(
+        root
+          .querySelector(".sprite-browser__group-toggle")
+          ?.getAttribute("aria-expanded"),
+      ).toBe("true");
+      expect(root.querySelectorAll(".sprite-browser__sprite")).toHaveLength(2);
+      expect(
+        root.querySelector(".sprite-browser__import-submit")?.textContent,
+      ).toBe("Importer un sprite");
+    });
+
+    it("re-opens the previously selected preview after a locale change", async () => {
+      const resolveSpritePixels = vi
+        .fn()
+        .mockResolvedValue([okPixelResult(10, 20)]);
+      const drawPixels = vi.fn();
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        resolveSpritePixels,
+        drawPixels,
+      });
+      expandFirstGroup(root);
+      selectSprite(root, 0);
+      await vi.waitFor(() => expect(drawPixels).toHaveBeenCalled());
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      await vi.waitFor(() => {
+        expect(
+          root
+            .querySelectorAll<HTMLButtonElement>(".sprite-browser__sprite")[0]
+            ?.getAttribute("aria-current"),
+        ).toBe("true");
+      });
+    });
   });
 });

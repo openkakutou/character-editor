@@ -18,8 +18,9 @@ This project is in early-stage development. Available now:
 - Closing the tab or navigating away with unsaved changes shows a confirmation prompt; with nothing unsaved, it doesn't. A toolbar indicator also shows when there's something not yet saved, clearing once everything is downloaded via "Download all".
 - Start a new character from scratch instead of only ever editing an imported one: a blank template, or a "basic" template pre-populated with one starting animation and state, both loading into every editor exactly like an imported character would.
 - See and rebind this app's keyboard shortcuts (Undo, Redo, Save/export, Add animation, Add StateDef, Add command) from a "Keyboard shortcuts" panel, visible even before a character is loaded. Rebound keys persist across reloads, and trying to bind a key already used by another action offers to swap the two instead of silently overwriting it. Shortcuts never fire while typing in a text field.
+- Switch the app's language between English and French from a selector in the toolbar. The switch applies immediately, with no page reload, and the choice is remembered on later visits. On first visit, the app matches the browser's own language when it's supported, English otherwise. Switching language never loses an in-progress edit, a loaded character, or an expanded panel.
 
-Planned: multiple languages, and uploading a whole character folder at once.
+Planned: uploading a whole character folder at once.
 <!-- vibe:end:features -->
 
 <!-- vibe:begin:install -->

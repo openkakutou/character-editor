@@ -9,6 +9,7 @@
 // - a missing optional slot reads as a neutral "Not provided", never an error
 // - a duplicate on an optional slot never blocks auto-loading an otherwise-
 //   complete required set
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import {
   ALL_FILE_KINDS,
@@ -41,6 +42,28 @@ function isOptional(kind: FileKind): boolean {
 }
 
 /**
+ * A slot's error, kept as a small tagged description plus its raw
+ * parameters rather than a pre-formatted string, so a locale change can
+ * re-format it in the new language without re-processing the file that
+ * produced it. `"read"` carries the underlying `FileReadError`'s own
+ * message verbatim -- a technical, browser/OS-originated string with no
+ * static wrapper text around it, so it is never itself translated. See
+ * .vibe/decisions/015-i18n-integration-approach.md.
+ */
+type SlotError =
+  | { kind: "duplicate"; extension: string; fileNames: string }
+  | { kind: "read"; message: string };
+
+function formatSlotError(error: SlotError): string {
+  if (error.kind === "read") return error.message;
+  return t(
+    "input.duplicateError",
+    "Two files given for {{extension}}: {{fileNames}} — pick one and try again.",
+    { extension: error.extension, fileNames: error.fileNames },
+  );
+}
+
+/**
  * Renders the character file input into `root`, replacing its previous
  * content. The native file input stays a first-class, fully keyboard- and
  * screen-reader-operable control alongside the drag-and-drop zone — not a
@@ -53,7 +76,7 @@ export function renderCharacterFileInput(
   root.replaceChildren();
 
   let slots: FileSlots = {};
-  const slotErrors: Partial<Record<FileKind, string>> = {};
+  const slotErrors: Partial<Record<FileKind, SlotError>> = {};
   let ignored: string[] = [];
   let phase: "collecting" | "loading" | "success" = "collecting";
   let bridgeErrorMessage: string | null = null;
@@ -68,8 +91,6 @@ export function renderCharacterFileInput(
   const label = document.createElement("label");
   label.className = "file-input__label";
   label.htmlFor = "character-file-picker";
-  label.textContent =
-    "Select the character files: .def, .air, .sff, .cns (required), .cmd, .zss (optional)";
 
   const picker = document.createElement("input");
   picker.type = "file";
@@ -81,7 +102,6 @@ export function renderCharacterFileInput(
 
   const hint = document.createElement("p");
   hint.className = "file-input__hint";
-  hint.textContent = "…or drag and drop them here";
 
   dropZone.append(label, picker, hint);
 
@@ -100,6 +120,14 @@ export function renderCharacterFileInput(
 
   panel.append(dropZone, slotList, ignoredNotice, status);
   root.appendChild(panel);
+
+  function renderStaticText(): void {
+    label.textContent = t(
+      "input.label",
+      "Select the character files: .def, .air, .sff, .cns (required), .cmd, .zss (optional)",
+    );
+    hint.textContent = t("input.dropHint", "…or drag and drop them here");
+  }
 
   function render(): void {
     dropZone.classList.toggle(
@@ -126,7 +154,9 @@ export function renderCharacterFileInput(
         const kindLabel = document.createElement("span");
         kindLabel.className = "file-input__slot-kind";
         kindLabel.textContent = optional
-          ? `${EXTENSION_BY_KIND[kind]} (optional)`
+          ? t("input.optionalSuffix", "{{extension}} (optional)", {
+              extension: EXTENSION_BY_KIND[kind],
+            })
           : EXTENSION_BY_KIND[kind];
 
         const value = document.createElement("span");
@@ -134,15 +164,15 @@ export function renderCharacterFileInput(
         value.textContent = file
           ? file.name
           : optional
-            ? "Not provided"
-            : "Missing";
+            ? t("input.notProvided", "Not provided")
+            : t("input.missing", "Missing");
 
         item.append(kindLabel, value);
 
         if (error) {
           const errorEl = document.createElement("span");
           errorEl.className = "file-input__slot-error-text";
-          errorEl.textContent = error;
+          errorEl.textContent = formatSlotError(error);
           item.appendChild(errorEl);
         }
 
@@ -151,7 +181,11 @@ export function renderCharacterFileInput(
     );
 
     if (ignored.length > 0) {
-      ignoredNotice.textContent = `Ignored (unrecognized file type): ${ignored.join(", ")}`;
+      ignoredNotice.textContent = t(
+        "input.ignoredNotice",
+        "Ignored (unrecognized file type): {{fileNames}}",
+        { fileNames: ignored.join(", ") },
+      );
       ignoredNotice.hidden = false;
     } else {
       ignoredNotice.textContent = "";
@@ -159,7 +193,7 @@ export function renderCharacterFileInput(
     }
 
     if (phase === "loading") {
-      status.textContent = "Loading character…";
+      status.textContent = t("input.loading", "Loading character…");
     } else if (phase === "success") {
       const suppliedOptional = OPTIONAL_FILE_KINDS.filter(
         (kind) => slots[kind] !== undefined,
@@ -167,17 +201,34 @@ export function renderCharacterFileInput(
       const omittedOptional = OPTIONAL_FILE_KINDS.filter(
         (kind) => slots[kind] === undefined,
       );
-      const optionalNote =
+      status.textContent =
         omittedOptional.length > 0
-          ? ` No ${omittedOptional
-              .map((kind) => EXTENSION_BY_KIND[kind])
-              .join("/")} supplied.`
-          : ` Also loaded ${suppliedOptional
-              .map((kind) => EXTENSION_BY_KIND[kind])
-              .join(", ")}.`;
-      status.textContent = `Character loaded: ${loadedCharacterName}.${optionalNote}`;
+          ? t(
+              "input.loadedNoOptional",
+              "Character loaded: {{name}}. No {{extensions}} supplied.",
+              {
+                name: loadedCharacterName ?? "",
+                extensions: omittedOptional
+                  .map((kind) => EXTENSION_BY_KIND[kind])
+                  .join("/"),
+              },
+            )
+          : t(
+              "input.loadedWithOptional",
+              "Character loaded: {{name}}. Also loaded {{extensions}}.",
+              {
+                name: loadedCharacterName ?? "",
+                extensions: suppliedOptional
+                  .map((kind) => EXTENSION_BY_KIND[kind])
+                  .join(", "),
+              },
+            );
     } else if (bridgeErrorMessage) {
-      status.textContent = `Could not load character: ${bridgeErrorMessage}`;
+      status.textContent = t(
+        "input.loadError",
+        "Could not load character: {{message}}",
+        { message: bridgeErrorMessage },
+      );
     } else {
       status.textContent = "";
     }
@@ -204,7 +255,10 @@ export function renderCharacterFileInput(
       // Drop just the offending slot so the user can re-supply that one
       // file without losing the others already gathered.
       delete slots[result.error.kind];
-      slotErrors[result.error.kind] = result.error.message;
+      slotErrors[result.error.kind] = {
+        kind: "read",
+        message: result.error.message,
+      };
       phase = "collecting";
       render();
       return;
@@ -228,9 +282,11 @@ export function renderCharacterFileInput(
     bridgeErrorMessage = null;
 
     for (const duplicate of merged.duplicates) {
-      slotErrors[duplicate.kind] =
-        `Two files given for ${EXTENSION_BY_KIND[duplicate.kind]}: ` +
-        `${duplicate.fileNames.join(", ")} — pick one and try again.`;
+      slotErrors[duplicate.kind] = {
+        kind: "duplicate",
+        extension: EXTENSION_BY_KIND[duplicate.kind],
+        fileNames: duplicate.fileNames.join(", "),
+      };
     }
 
     // Only a slot actually resupplied in this gesture clears its previous
@@ -280,5 +336,17 @@ export function renderCharacterFileInput(
     handleIncomingFiles(dataTransfer ? Array.from(dataTransfer.files) : []);
   });
 
+  // This view is only ever mounted once per app session (see main.ts's
+  // renderApp) -- one subscription for its whole lifetime never
+  // accumulates. Re-formats whatever is currently shown from the state
+  // already held above -- never re-reading a file or re-running the WASM
+  // bridge -- so an already-gathered slot/error/status survives a locale
+  // switch untouched. See .vibe/decisions/015-i18n-integration-approach.md.
+  onLocaleChange(() => {
+    renderStaticText();
+    render();
+  });
+
+  renderStaticText();
   render();
 }

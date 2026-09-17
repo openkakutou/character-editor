@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { StateDef } from "../wasm/types.ts";
 import {
   emptyCommandFile,
@@ -105,6 +106,25 @@ describe("validateCommandRow", () => {
     expect(result.nameError).not.toBeNull();
     expect(result.inputError).not.toBeNull();
     expect(result.targetStateError).not.toBeNull();
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("translates validation messages under an active French locale", async () => {
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const result = validateCommandRow("", "", "99", [], [0]);
+      expect(result.nameError).toBe("Le nom ne peut pas être vide.");
+      expect(result.inputError).toBe(
+        "La séquence d'entrée ne peut pas être vide.",
+      );
+      expect(result.targetStateError).toBe("Aucun état 99 n'existe.");
+    });
   });
 });
 

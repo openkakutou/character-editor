@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getCharacterDocument,
   resetCharacterDocumentForTests,
 } from "./document/character-document.ts";
 import { getAppHistory, isDirty } from "./history/app-history.ts";
+import { getI18n, initAppI18n } from "./i18n/i18n.ts";
 import { renderApp } from "./main.ts";
 import { resetWasmBridgeForTests } from "./wasm/bridge.ts";
 import type { WasmBridgeOptions } from "./wasm/bridge.ts";
@@ -713,5 +714,68 @@ describe("renderApp", () => {
       "character.air (unchanged)",
       "character.cns (unchanged)",
     ]);
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("renders a language switcher in the toolbar", () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0");
+
+      const switcher = root.querySelector("wuik-locale-switcher");
+      expect(switcher).not.toBeNull();
+      expect(switcher?.getAttribute("label")).toBe("Language");
+    });
+
+    it("retranslates the toolbar's title, indicator and buttons in place when the locale changes, without resetting the loaded character", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
+      const dropZone = root.querySelector(".file-input__dropzone");
+      if (!dropZone) throw new Error("dropzone not found");
+      dispatchDrop(dropZone, requiredFiles());
+      await vi.waitFor(() => {
+        expect(root.querySelector(".characteristics-editor")).not.toBeNull();
+      });
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(
+        root.querySelector("wuik-locale-switcher")?.getAttribute("label"),
+      ).toBe("Langue");
+      expect(root.querySelector('[slot="toolbar"]')?.textContent).toContain(
+        "Character Editor — v0.1.0",
+      );
+      expect(
+        root.querySelector<HTMLElement>('[data-action="undo"]')?.textContent,
+      ).toBe("Annuler");
+      expect(
+        root.querySelector<HTMLElement>('[data-action="redo"]')?.textContent,
+      ).toBe("Rétablir");
+      // The already-loaded character survives the locale switch untouched.
+      expect(getCharacterDocument()?.character.name).toBe(
+        "Main Wiring Test Character",
+      );
+      expect(
+        root.querySelector<HTMLInputElement>('[data-field="name"]')?.value,
+      ).toBe("Main Wiring Test Character");
+
+      await getI18n()?.changeLanguage("en");
+    });
+
+    it("sets the document's lang attribute to the resolved locale", async () => {
+      const root = document.createElement("div");
+      renderApp(root, "0.1.0", "0.13.0");
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+      expect(document.documentElement.lang).toBe("fr");
+
+      await getI18n()?.changeLanguage("en");
+      expect(document.documentElement.lang).toBe("en");
+    });
   });
 });

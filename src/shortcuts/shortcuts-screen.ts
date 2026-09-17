@@ -6,6 +6,7 @@
 // Undo/Redo/Save chief among them, are relevant before one is even loaded)
 // and not a modal, per .vibe/decisions/014.
 import type { ShortcutManager } from "@openkakutou/web-ui-kit";
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { getAppShortcuts } from "./app-shortcuts.ts";
 
 export interface ShortcutsScreenOptions {
@@ -26,7 +27,7 @@ export function renderShortcutsScreen(
   container.className = "shortcuts-screen";
 
   const heading = document.createElement("h2");
-  heading.textContent = "Keyboard shortcuts";
+  heading.textContent = t("shortcuts.heading", "Keyboard shortcuts");
   container.appendChild(heading);
 
   const panel = document.createElement(
@@ -38,4 +39,15 @@ export function renderShortcutsScreen(
   container.appendChild(panel);
 
   root.appendChild(container);
+
+  // This screen is only ever mounted once per app session (see main.ts's
+  // renderApp) -- one subscription for its whole lifetime never
+  // accumulates. Retranslates only this screen's own heading -- the
+  // `<wuik-shortcuts-panel>` itself already retranslates its own text
+  // internally (`web-ui-kit`'s own i18n layer), and re-touching it here
+  // would collide with its own guard against re-rendering mid-rebind. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  onLocaleChange(() => {
+    heading.textContent = t("shortcuts.heading", "Keyboard shortcuts");
+  });
 }

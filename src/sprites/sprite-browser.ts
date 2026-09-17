@@ -5,6 +5,7 @@
 // sprite, all against the in-memory edit overlay documented in
 // sprite-edits.ts. Persisting these edits into a real `.sff` file is out of
 // scope here — see .vibe/decisions/004-sprite-edits-in-memory-overlay-not-persisted.md.
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import {
   type SpritePixelResult,
   type WasmBridgeOptions,
@@ -61,6 +62,20 @@ function resetViewportToFit(viewport: HTMLElement): void {
   (viewport as unknown as { resetToFit?: () => void }).resetToFit?.();
 }
 
+/** The short bracketed badge word for a pending edit's own kind -- UI
+ * chrome describing app state, not raw file data, so unlike a sprite's own
+ * group/image index this is translated. */
+function describeEditKind(kind: "add" | "replace" | "delete"): string {
+  switch (kind) {
+    case "add":
+      return t("sprites.editKindAdd", "add");
+    case "replace":
+      return t("sprites.editKindReplace", "replace");
+    case "delete":
+      return t("sprites.editKindDelete", "delete");
+  }
+}
+
 export interface SpriteBrowserOptions {
   /** Called with every committed sprite edit (add/replace/delete). */
   onSpriteEdit?: (edit: SpriteEdit) => void;
@@ -105,6 +120,14 @@ interface DeletedEntry {
  * edits, the same decoupling the characteristics editor already
  * established for its own onChange callback.
  */
+// `main.ts` re-mounts this screen (a fresh `renderSpriteBrowser` call) on
+// every sprite edit and on every Undo/Redo, unlike the screens `main.ts`
+// mounts exactly once -- unsubscribed at the top of every call, before a
+// fresh one is registered, so a locale-change subscription from a previous
+// mount never accumulates or fires against content no longer on the page.
+// See .vibe/decisions/015-i18n-integration-approach.md.
+let currentUnsubscribeLocaleChange: (() => void) | undefined;
+
 export function renderSpriteBrowser(
   root: HTMLElement,
   character: CharacterData | null,
@@ -113,6 +136,8 @@ export function renderSpriteBrowser(
   options: SpriteBrowserOptions = {},
 ): void {
   root.replaceChildren();
+  currentUnsubscribeLocaleChange?.();
+  currentUnsubscribeLocaleChange = undefined;
   if (character === null || sffBytes === null) return;
   const sffBytesNonNull: Uint8Array = sffBytes;
   const characterNonNull: CharacterData = character;
@@ -125,6 +150,14 @@ export function renderSpriteBrowser(
 
   let edits: SpriteEdit[] = [...spriteEdits];
   const deletedLog: DeletedEntry[] = [];
+  // Which groups are currently expanded, and which sprite (if any) is
+  // currently shown in the preview -- lifted out of each group's own
+  // render closure (unlike the original per-closure `expanded` boolean)
+  // specifically so a locale change can rebuild the whole list and restore
+  // both without the user losing their place. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  const expandedGroups = new Set<number>();
+  let currentPreview: { group: number; image: number } | null = null;
 
   function commitEdit(edit: SpriteEdit): void {
     edits = applySpriteEdit(edits, edit);
@@ -144,6 +177,7 @@ export function renderSpriteBrowser(
   let importGroupInput: HTMLInputElement;
   let importFileInput: HTMLInputElement;
   let importError: HTMLParagraphElement;
+  let retranslateImportSection: () => void = () => {};
 
   const importSection = renderImportSection();
   const listContainer = document.createElement("div");
@@ -162,7 +196,12 @@ export function renderSpriteBrowser(
       unsavedBanner.remove();
       return;
     }
-    unsavedBanner.textContent = `${edits.length} unsaved sprite change${edits.length === 1 ? "" : "s"}.`;
+    const suffix = edits.length === 1 ? "" : "s";
+    unsavedBanner.textContent = t(
+      "sprites.unsavedBanner",
+      "{{count}} unsaved sprite change{{suffix}}.",
+      { count: String(edits.length), suffix },
+    );
     panel.insertBefore(unsavedBanner, importSection);
   }
 
@@ -170,15 +209,29 @@ export function renderSpriteBrowser(
     deletedSection.replaceChildren();
     if (deletedLog.length === 0) return;
     const title = document.createElement("h4");
-    title.textContent = "Deleted sprites";
+    title.textContent = t("sprites.deletedHeading", "Deleted sprites");
     deletedSection.appendChild(title);
     const list = document.createElement("ul");
     for (const entry of deletedLog) {
       const item = document.createElement("li");
+      const suffix = entry.referencedByFrames === 1 ? "" : "s";
       item.textContent =
         entry.referencedByFrames > 0
-          ? `${entry.group}, ${entry.image} — referenced by ${entry.referencedByFrames} frame${entry.referencedByFrames === 1 ? "" : "s"}`
-          : `${entry.group}, ${entry.image} — not referenced by any animation frame`;
+          ? t(
+              "sprites.deletedReferenced",
+              "{{group}}, {{image}} — referenced by {{count}} frame{{suffix}}",
+              {
+                group: String(entry.group),
+                image: String(entry.image),
+                count: String(entry.referencedByFrames),
+                suffix,
+              },
+            )
+          : t(
+              "sprites.deletedUnreferenced",
+              "{{group}}, {{image}} — not referenced by any animation frame",
+              { group: String(entry.group), image: String(entry.image) },
+            );
       list.appendChild(item);
     }
     deletedSection.appendChild(list);
@@ -186,7 +239,9 @@ export function renderSpriteBrowser(
 
   function renderList(): void {
     const mergedGroups = mergeSpriteGroups(characterNonNull.sprites, edits);
-    heading.textContent = `Sprites (${totalSpriteCount(mergedGroups)})`;
+    heading.textContent = t("sprites.browserHeading", "Sprites ({{count}})", {
+      count: String(totalSpriteCount(mergedGroups)),
+    });
     refreshUnsavedBanner();
     updateImportDefaultGroup(mergedGroups);
 
@@ -194,7 +249,7 @@ export function renderSpriteBrowser(
     if (mergedGroups.length === 0) {
       const empty = document.createElement("p");
       empty.className = "sprite-browser__empty";
-      empty.textContent = "No sprites found.";
+      empty.textContent = t("sprites.empty", "No sprites found.");
       listContainer.appendChild(empty);
       return;
     }
@@ -229,7 +284,12 @@ export function renderSpriteBrowser(
     section.className = "sprite-browser__import";
 
     const groupLabel = document.createElement("label");
-    groupLabel.textContent = "Group";
+    // A text node (not `groupLabel.textContent`) so its own visible text
+    // can be retranslated in place without wiping out the nested `<input>`
+    // appended right after it -- see `retranslateImportSection` below, the
+    // same trick `new-character-wizard-view.ts`'s `nameLabelText` uses.
+    const groupLabelText = document.createTextNode("");
+    groupLabel.appendChild(groupLabelText);
     importGroupInput = document.createElement("input");
     importGroupInput.type = "number";
     importGroupInput.min = "0";
@@ -247,7 +307,6 @@ export function renderSpriteBrowser(
     importFileInput.className = "sprite-browser__import-file";
 
     const submit = document.createElement("wuik-button");
-    submit.textContent = "Import sprite";
     submit.className = "sprite-browser__import-submit";
 
     importError = document.createElement("p");
@@ -259,6 +318,12 @@ export function renderSpriteBrowser(
       void handleImport();
     });
 
+    retranslateImportSection = () => {
+      groupLabelText.textContent = t("sprites.groupLabel", "Group");
+      submit.textContent = t("sprites.importSprite", "Import sprite");
+    };
+    retranslateImportSection();
+
     section.append(groupLabel, importFileInput, submit, importError);
     return section;
   }
@@ -268,7 +333,12 @@ export function renderSpriteBrowser(
     if (!file) return;
     const groupNumber = Number.parseInt(importGroupInput.value, 10);
     if (!Number.isInteger(groupNumber) || groupNumber < 0) {
-      showImportError("Enter a valid, non-negative group number.");
+      showImportError(
+        t(
+          "sprites.invalidGroupNumber",
+          "Enter a valid, non-negative group number.",
+        ),
+      );
       return;
     }
 
@@ -307,20 +377,42 @@ export function renderSpriteBrowser(
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "sprite-browser__group-toggle";
-    toggle.setAttribute("aria-expanded", "false");
     toggle.dataset.groupIndex = String(group.index);
-    toggle.textContent = `Group ${group.index} (${group.sprites.length})`;
+    toggle.textContent = t(
+      "sprites.groupToggle",
+      "Group {{index}} ({{count}})",
+      {
+        index: String(group.index),
+        count: String(group.sprites.length),
+      },
+    );
 
     const spriteList = document.createElement("div");
     spriteList.className = "sprite-browser__sprites";
-    spriteList.hidden = true;
 
-    let expanded = false;
+    // Restored from `expandedGroups`, lifted out of this closure -- see
+    // .vibe/decisions/015-i18n-integration-approach.md -- rather than a
+    // fresh `false` on every rebuild, so a locale-change rebuild of the
+    // whole list doesn't collapse a group the user already had open.
+    const isExpanded = expandedGroups.has(group.index);
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    spriteList.hidden = !isExpanded;
+    if (isExpanded) {
+      spriteList.replaceChildren(
+        ...group.sprites.map((sprite) => renderSpriteRow(sprite, preview)),
+      );
+    }
+
     toggle.addEventListener("click", () => {
-      expanded = !expanded;
-      toggle.setAttribute("aria-expanded", String(expanded));
-      spriteList.hidden = !expanded;
-      if (expanded) {
+      const nowExpanded = !expandedGroups.has(group.index);
+      if (nowExpanded) {
+        expandedGroups.add(group.index);
+      } else {
+        expandedGroups.delete(group.index);
+      }
+      toggle.setAttribute("aria-expanded", String(nowExpanded));
+      spriteList.hidden = !nowExpanded;
+      if (nowExpanded) {
         spriteList.replaceChildren(
           ...group.sprites.map((sprite) => renderSpriteRow(sprite, preview)),
         );
@@ -338,8 +430,24 @@ export function renderSpriteBrowser(
     button.dataset.group = String(sprite.group);
     button.dataset.image = String(sprite.image);
     const pending = spriteEditFor(edits, sprite);
-    const badge = pending ? ` [${pending.kind}]` : "";
-    button.textContent = `${sprite.group}, ${sprite.image} — ${sprite.width}×${sprite.height}${badge}`;
+    button.textContent = pending
+      ? t(
+          "sprites.rowLabelWithBadge",
+          "{{group}}, {{image}} — {{width}}×{{height}} [{{badge}}]",
+          {
+            group: String(sprite.group),
+            image: String(sprite.image),
+            width: String(sprite.width),
+            height: String(sprite.height),
+            badge: describeEditKind(pending.kind),
+          },
+        )
+      : t("sprites.rowLabel", "{{group}}, {{image}} — {{width}}×{{height}}", {
+          group: String(sprite.group),
+          image: String(sprite.image),
+          width: String(sprite.width),
+          height: String(sprite.height),
+        });
     button.addEventListener("click", () =>
       renderPreview(sprite, preview, button),
     );
@@ -354,13 +462,14 @@ export function renderSpriteBrowser(
    * `renderList()` would.
    */
   function rerenderList(reselect?: { group: number; image: number }): void {
+    // `renderGroup` now restores each group's expanded/collapsed state from
+    // `expandedGroups` directly (see .vibe/decisions/015), so a group that
+    // must be opened for `reselect` is added to that set *before*
+    // `renderList()` rebuilds it -- clicking its already-expanded toggle
+    // afterwards would just collapse it again.
+    if (reselect) expandedGroups.add(reselect.group);
     renderList();
     if (!reselect) return;
-    listContainer
-      .querySelector<HTMLButtonElement>(
-        `.sprite-browser__group-toggle[data-group-index="${reselect.group}"]`,
-      )
-      ?.click();
     listContainer
       .querySelector<HTMLButtonElement>(
         `.sprite-browser__sprite[data-group="${reselect.group}"][data-image="${reselect.image}"]`,
@@ -381,6 +490,7 @@ export function renderSpriteBrowser(
       btn.removeAttribute("aria-current");
     }
     selectedButton.setAttribute("aria-current", "true");
+    currentPreview = { group: sprite.group, image: sprite.image };
 
     preview.replaceChildren();
 
@@ -415,7 +525,7 @@ export function renderSpriteBrowser(
       return;
     }
 
-    status.textContent = "Loading…";
+    status.textContent = t("sprites.loading", "Loading…");
     resolvePixels(
       sffBytesNonNull,
       [[sprite.group, sprite.image]],
@@ -442,7 +552,7 @@ export function renderSpriteBrowser(
     actions.replaceChildren();
 
     const replaceLabel = document.createElement("label");
-    replaceLabel.textContent = "Replace";
+    replaceLabel.textContent = t("sprites.replace", "Replace");
     const replaceFile = document.createElement("input");
     replaceFile.type = "file";
     replaceFile.accept = "image/*";
@@ -459,7 +569,7 @@ export function renderSpriteBrowser(
     });
 
     const deleteButton = document.createElement("wuik-button");
-    deleteButton.textContent = "Delete";
+    deleteButton.textContent = t("sprites.delete", "Delete");
     deleteButton.className = "sprite-browser__delete";
     deleteButton.addEventListener("click", () =>
       renderActionsConfirmingDelete(actions, sprite, preview),
@@ -510,11 +620,22 @@ export function renderSpriteBrowser(
     warning.setAttribute("role", "status");
     warning.textContent =
       count > 0
-        ? `Referenced by ${count} animation frame${count === 1 ? "" : "s"}.`
-        : "Not referenced by any animation frame.";
+        ? t(
+            "sprites.referencedByFrames",
+            "Referenced by {{count}} animation frame{{suffix}}.",
+            { count: String(count), suffix: count === 1 ? "" : "s" },
+          )
+        : t("sprites.notReferenced", "Not referenced by any animation frame.");
 
     const confirm = document.createElement("wuik-button");
-    confirm.textContent = `Confirm delete${count > 0 ? ` (referenced by ${count} frame${count === 1 ? "" : "s"})` : ""}`;
+    confirm.textContent =
+      count > 0
+        ? t(
+            "sprites.confirmDeleteWithCount",
+            "Confirm delete (referenced by {{count}} frame{{suffix}})",
+            { count: String(count), suffix: count === 1 ? "" : "s" },
+          )
+        : t("sprites.confirmDelete", "Confirm delete");
     confirm.className = "sprite-browser__delete-confirm";
     confirm.addEventListener("click", () => {
       commitEdit({ kind: "delete", group: sprite.group, image: sprite.image });
@@ -523,13 +644,19 @@ export function renderSpriteBrowser(
         image: sprite.image,
         referencedByFrames: count,
       });
+      if (
+        currentPreview?.group === sprite.group &&
+        currentPreview?.image === sprite.image
+      ) {
+        currentPreview = null;
+      }
       rerenderList();
       refreshDeletedSection();
     });
 
     const cancel = document.createElement("wuik-button");
     cancel.setAttribute("variant", "secondary");
-    cancel.textContent = "Cancel";
+    cancel.textContent = t("sprites.cancel", "Cancel");
     cancel.className = "sprite-browser__delete-cancel";
     cancel.addEventListener("click", () =>
       renderActionsIdle(actions, sprite, preview),
@@ -540,4 +667,18 @@ export function renderSpriteBrowser(
 
   renderList();
   refreshDeletedSection();
+
+  // This screen is only ever mounted once per app session (see main.ts's
+  // renderApp, which calls it directly rather than through
+  // retranslateSimpleEditors) -- one subscription for its whole lifetime
+  // never accumulates. Rebuilds the list and deleted-sprites section from
+  // the exact same state already held above (`edits`, `deletedLog`,
+  // `expandedGroups`, `currentPreview`), never re-decoding pixels or
+  // resetting which group is expanded or which sprite is previewed. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  currentUnsubscribeLocaleChange = onLocaleChange(() => {
+    retranslateImportSection();
+    rerenderList(currentPreview ?? undefined);
+    refreshDeletedSection();
+  });
 }

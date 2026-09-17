@@ -10,6 +10,7 @@
 // for that definition, why it's frozen at load time rather than
 // re-evaluated live, and why only removing a whole StateDef (not a single
 // Controller) requires a confirm step.
+import { t } from "../i18n/i18n.ts";
 import type { CharacterData, Controller, StateDef } from "../wasm/types.ts";
 
 export interface StateEditorOptions {
@@ -38,6 +39,16 @@ interface ParameterRow {
   value: string;
 }
 
+/** Which StateDefs are currently expanded, keyed off `root` itself via a
+ * WeakMap so it survives a full re-render of the same `root` -- main.ts
+ * re-invokes this on every Undo/Redo click (`renderDocumentBackedEditors`)
+ * and on every locale change (`retranslateSimpleEditors`), and neither
+ * should collapse a panel the user already had open. Mirrors
+ * `animation-editor.ts`'s own `uiStateByRoot`, the same "reset only for an
+ * independently rendered instance (e.g. this module's own tests)" shape.
+ * See .vibe/decisions/015-i18n-integration-approach.md. */
+const expandedByRoot = new WeakMap<HTMLElement, Set<number>>();
+
 /**
  * Renders the state/combat logic editor into `root`, replacing its
  * previous content, pre-filled from `character.stateDefs`. Edits are
@@ -56,7 +67,7 @@ export function renderStateEditor(
   container.className = "state-editor";
 
   const heading = document.createElement("h2");
-  heading.textContent = "State/Combat Logic";
+  heading.textContent = t("stateEditor.heading", "State/Combat Logic");
   container.appendChild(heading);
 
   const list = document.createElement("div");
@@ -66,11 +77,16 @@ export function renderStateEditor(
   const addStateDefButton = document.createElement("wuik-button");
   addStateDefButton.setAttribute("variant", "secondary");
   addStateDefButton.dataset.action = "add-statedef";
-  addStateDefButton.textContent = "Add StateDef";
+  addStateDefButton.textContent = t("stateEditor.addStateDef", "Add StateDef");
   container.appendChild(addStateDefButton);
 
   let stateDefs: StateDef[] = character.stateDefs;
-  const expanded = new Set<number>();
+  let expandedState = expandedByRoot.get(root);
+  if (!expandedState) {
+    expandedState = new Set();
+    expandedByRoot.set(root, expandedState);
+  }
+  const expanded = expandedState;
 
   function commit(): void {
     options.onChange({ stateDefs });
@@ -78,7 +94,9 @@ export function renderStateEditor(
 
   function renderList(): void {
     if (stateDefs.length === 0) {
-      list.replaceChildren(emptyState("No StateDefs yet."));
+      list.replaceChildren(
+        emptyState(t("stateEditor.noStateDefsYet", "No StateDefs yet.")),
+      );
       return;
     }
     list.replaceChildren(
@@ -96,7 +114,16 @@ export function renderStateEditor(
     toggleButton.className = "state-editor__statedef-toggle";
     const isExpanded = expanded.has(def.number);
     toggleButton.setAttribute("aria-expanded", String(isExpanded));
-    toggleButton.textContent = `Statedef ${def.number} (type: ${def.type || "?"}, moveType: ${def.moveType || "?"}, physics: ${def.physics || "?"})`;
+    toggleButton.textContent = t(
+      "stateEditor.statedefSummary",
+      "Statedef {{number}} (type: {{type}}, moveType: {{moveType}}, physics: {{physics}})",
+      {
+        number: String(def.number),
+        type: def.type || "?",
+        moveType: def.moveType || "?",
+        physics: def.physics || "?",
+      },
+    );
 
     const body = document.createElement("div");
     body.className = "state-editor__statedef-body";
@@ -132,11 +159,17 @@ export function renderStateEditor(
     const addControllerButton = document.createElement("wuik-button");
     addControllerButton.setAttribute("variant", "secondary");
     addControllerButton.dataset.action = "add-controller";
-    addControllerButton.textContent = "Add controller";
+    addControllerButton.textContent = t(
+      "stateEditor.addController",
+      "Add controller",
+    );
 
     const removeStateDefButton = document.createElement("wuik-button");
     removeStateDefButton.dataset.action = "remove-statedef";
-    removeStateDefButton.textContent = "Remove StateDef";
+    removeStateDefButton.textContent = t(
+      "stateEditor.removeStateDef",
+      "Remove StateDef",
+    );
 
     const removeConfirmArea = document.createElement("div");
     removeConfirmArea.className = "state-editor__statedef-remove-confirm";
@@ -148,7 +181,9 @@ export function renderStateEditor(
 
     function renderControllers(): void {
       if (rows.length === 0) {
-        controllersList.replaceChildren(emptyState("No controllers yet."));
+        controllersList.replaceChildren(
+          emptyState(t("stateEditor.noControllersYet", "No controllers yet.")),
+        );
         return;
       }
       controllersList.replaceChildren(
@@ -240,16 +275,26 @@ export function renderStateEditor(
     if (row.unsupported) {
       const badge = document.createElement("span");
       badge.className = "state-editor__unsupported-badge";
-      badge.textContent = "Unsupported (from file)";
+      badge.textContent = t(
+        "stateEditor.unsupportedBadge",
+        "Unsupported (from file)",
+      );
       rowEl.appendChild(badge);
 
+      const none = t("stateEditor.none", "(none)");
       const readOnly = document.createElement("p");
       readOnly.className = "state-editor__controller-readonly";
-      readOnly.textContent = `triggers: ${row.controller.triggers.join(", ") || "(none)"}; parameters: ${
-        Object.entries(row.controller.parameters)
-          .map(([k, v]) => `${k}=${v}`)
-          .join(", ") || "(none)"
-      }`;
+      readOnly.textContent = t(
+        "stateEditor.controllerReadonlySummary",
+        "triggers: {{triggers}}; parameters: {{parameters}}",
+        {
+          triggers: row.controller.triggers.join(", ") || none,
+          parameters:
+            Object.entries(row.controller.parameters)
+              .map(([k, v]) => `${k}=${v}`)
+              .join(", ") || none,
+        },
+      );
       rowEl.appendChild(readOnly);
     } else {
       const typeInput = document.createElement("input");
@@ -269,20 +314,20 @@ export function renderStateEditor(
     const moveUp = document.createElement("wuik-button");
     moveUp.setAttribute("variant", "secondary");
     moveUp.dataset.action = "move-up";
-    moveUp.textContent = "Move up";
+    moveUp.textContent = t("stateEditor.moveUp", "Move up");
     if (index === 0) moveUp.setAttribute("disabled", "");
     moveUp.addEventListener("click", handlers.onMoveUp);
 
     const moveDown = document.createElement("wuik-button");
     moveDown.setAttribute("variant", "secondary");
     moveDown.dataset.action = "move-down";
-    moveDown.textContent = "Move down";
+    moveDown.textContent = t("stateEditor.moveDown", "Move down");
     if (index === total - 1) moveDown.setAttribute("disabled", "");
     moveDown.addEventListener("click", handlers.onMoveDown);
 
     const remove = document.createElement("wuik-button");
     remove.dataset.action = "remove-controller";
-    remove.textContent = "Remove";
+    remove.textContent = t("stateEditor.remove", "Remove");
     remove.addEventListener("click", handlers.onRemove);
 
     rowEl.append(moveUp, moveDown, remove);
@@ -305,7 +350,7 @@ export function renderStateEditor(
     function commitTriggers(): void {
       row.controller = {
         ...row.controller,
-        triggers: triggerRows.map((t) => t.value),
+        triggers: triggerRows.map((triggerRow) => triggerRow.value),
       };
       onCommit();
     }
@@ -314,18 +359,18 @@ export function renderStateEditor(
     const addButton = document.createElement("wuik-button");
     addButton.setAttribute("variant", "secondary");
     addButton.dataset.action = "add-trigger";
-    addButton.textContent = "Add trigger";
+    addButton.textContent = t("stateEditor.addTrigger", "Add trigger");
 
     function render(): void {
       list.replaceChildren(
-        ...triggerRows.map((t, i) => {
+        ...triggerRows.map((triggerRow, i) => {
           const rowEl = document.createElement("div");
           const input = document.createElement("input");
           input.type = "text";
           input.dataset.triggerIndex = String(i);
-          input.value = t.value;
+          input.value = triggerRow.value;
           input.addEventListener("blur", () => {
-            t.value = input.value;
+            triggerRow.value = input.value;
             commitTriggers();
           });
 
@@ -333,10 +378,22 @@ export function renderStateEditor(
           removeButton.setAttribute("variant", "secondary");
           removeButton.dataset.action = "remove-trigger";
           removeButton.dataset.removeTriggerIndex = String(i);
-          removeButton.setAttribute("aria-label", `Remove trigger #${i + 1}`);
-          removeButton.textContent = "Remove trigger";
+          removeButton.setAttribute(
+            "aria-label",
+            t(
+              "stateEditor.removeTriggerAriaLabel",
+              "Remove trigger #{{index}}",
+              {
+                index: String(i + 1),
+              },
+            ),
+          );
+          removeButton.textContent = t(
+            "stateEditor.removeTrigger",
+            "Remove trigger",
+          );
           removeButton.addEventListener("click", () => {
-            triggerRows = triggerRows.filter((r) => r.id !== t.id);
+            triggerRows = triggerRows.filter((r) => r.id !== triggerRow.id);
             commitTriggers();
             render();
           });
@@ -384,7 +441,7 @@ export function renderStateEditor(
     const addButton = document.createElement("wuik-button");
     addButton.setAttribute("variant", "secondary");
     addButton.dataset.action = "add-parameter";
-    addButton.textContent = "Add parameter";
+    addButton.textContent = t("stateEditor.addParameter", "Add parameter");
 
     function render(): void {
       list.replaceChildren(
@@ -415,8 +472,18 @@ export function renderStateEditor(
           removeButton.setAttribute("variant", "secondary");
           removeButton.dataset.action = "remove-parameter";
           removeButton.dataset.removeParameterIndex = String(i);
-          removeButton.setAttribute("aria-label", `Remove parameter #${i + 1}`);
-          removeButton.textContent = "Remove parameter";
+          removeButton.setAttribute(
+            "aria-label",
+            t(
+              "stateEditor.removeParameterAriaLabel",
+              "Remove parameter #{{index}}",
+              { index: String(i + 1) },
+            ),
+          );
+          removeButton.textContent = t(
+            "stateEditor.removeParameter",
+            "Remove parameter",
+          );
           removeButton.addEventListener("click", () => {
             paramRows = paramRows.filter((r) => r.id !== p.id);
             commitParameters();
@@ -446,19 +513,29 @@ export function renderStateEditor(
   ): HTMLElement {
     const wrapper = document.createElement("div");
 
+    const suffix = controllerCount === 1 ? "" : "s";
+
     const warning = document.createElement("p");
     warning.setAttribute("role", "status");
-    warning.textContent = `This state has ${controllerCount} controller${controllerCount === 1 ? "" : "s"}. Other controllers may target this state number.`;
+    warning.textContent = t(
+      "stateEditor.removeStateDefWarning",
+      "This state has {{count}} controller{{suffix}}. Other controllers may target this state number.",
+      { count: String(controllerCount), suffix },
+    );
 
     const confirmButton = document.createElement("wuik-button");
     confirmButton.dataset.action = "confirm-remove-statedef";
-    confirmButton.textContent = `Confirm remove (${controllerCount} controller${controllerCount === 1 ? "" : "s"})`;
+    confirmButton.textContent = t(
+      "stateEditor.confirmRemoveStateDef",
+      "Confirm remove ({{count}} controller{{suffix}})",
+      { count: String(controllerCount), suffix },
+    );
     confirmButton.addEventListener("click", handlers.onConfirm);
 
     const cancelButton = document.createElement("wuik-button");
     cancelButton.setAttribute("variant", "secondary");
     cancelButton.dataset.action = "cancel-remove-statedef";
-    cancelButton.textContent = "Cancel";
+    cancelButton.textContent = t("stateEditor.cancel", "Cancel");
     cancelButton.addEventListener("click", handlers.onCancel);
 
     wrapper.append(warning, confirmButton, cancelButton);

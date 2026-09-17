@@ -265,3 +265,30 @@ palette editor now calls after every local push. See
 `docs/architecture.md`'s "Data flow: undo/redo across editors" for the
 resulting design (`document.seedCommandFile`, and the command editor's
 exclusion from the undo/redo re-render).
+
+Localization (item 012) got the same treatment in a real Chromium instance:
+confirming the app starts in English with the browser locale forced to
+`en-US`, and separately confirmed it auto-detects the browser's own French
+locale when nothing is forced; creating a character via the wizard so every
+editor screen mounts; expanding a StateDef panel and an Animation panel;
+switching to French from the toolbar switcher and confirming every screen's
+heading/button/label text updates immediately, `<html lang>` flips to `fr`,
+and the loaded character's data, the expanded panels, and an in-progress
+Name-field edit all survive untouched; clearing the Name field to see a
+translated inline validation error, and opening (then cancelling) a
+StateDef's remove-confirm dialog to see its translated warning and button
+text, both with the character's own raw data (e.g. a StateDef's `type`)
+left untranslated inside the surrounding French sentence; reloading the
+page to confirm the French choice persisted from `localStorage` before any
+interaction; and switching back to English to confirm every piece of text
+reverts — with no console errors throughout. This pass caught one real
+defect unit tests had missed: `state-editor.ts` gave each StateDef's
+expand/collapsed state a fresh, closure-local `Set` on every render, unlike
+`animation-editor.ts`'s own per-`root` `WeakMap` — an already-expanded
+StateDef collapsed the moment `app`'s locale-change subscription
+re-invoked `renderStateEditor` (the same re-render an Undo/Redo click
+already triggers, so this was a latent, pre-existing gap, not new to this
+feature). Fixed by giving `state-editor.ts` the identical `WeakMap`
+persistence shape `animation-editor.ts` already established, closing the
+gap for both triggers at once. See `docs/architecture.md`'s "Data flow:
+switching locale" and `.vibe/decisions/015-i18n-integration-approach.md`.

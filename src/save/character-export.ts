@@ -14,6 +14,7 @@
 // editor) -- it is passed through byte-for-byte when supplied, omitted
 // otherwise. See .vibe/decisions/009-export-scope-input-files-only-block-on-unwritable-sprite-edits.md.
 import type { CharacterDocument } from "../document/character-document.ts";
+import { t } from "../i18n/i18n.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import {
   type SaveResult,
@@ -124,15 +125,28 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
-const SPRITE_EDIT_VERBS: Readonly<Record<SpriteEdit["kind"], string>> = {
-  add: "added",
-  replace: "replaced",
-  delete: "deleted",
-};
+function spriteEditVerb(kind: SpriteEdit["kind"]): string {
+  switch (kind) {
+    case "add":
+      return t("save.spriteEditAdded", "added");
+    case "replace":
+      return t("save.spriteEditReplaced", "replaced");
+    case "delete":
+      return t("save.spriteEditDeleted", "deleted");
+  }
+}
 
 /** A short, human-readable description of one pending sprite edit, for the blocked-export message. */
 export function describeSpriteEdit(edit: SpriteEdit): string {
-  return `sprite (group ${edit.group}, image ${edit.image}) ${SPRITE_EDIT_VERBS[edit.kind]}`;
+  return t(
+    "save.spriteEditDescription",
+    "sprite (group {{group}}, image {{image}}) {{verb}}",
+    {
+      group: String(edit.group),
+      image: String(edit.image),
+      verb: spriteEditVerb(edit.kind),
+    },
+  );
 }
 
 function toCharacterInfoFields(character: CharacterData): CharacterInfoFields {

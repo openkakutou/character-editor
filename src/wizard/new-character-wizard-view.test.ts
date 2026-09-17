@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { CharacterInputResult } from "../input/character-file-input.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import { renderNewCharacterWizard } from "./new-character-wizard-view.ts";
@@ -214,5 +215,40 @@ describe("renderNewCharacterWizard", () => {
 
     expect(nameInput(root).value).toBe("");
     expect(errorText(root)).toBe("");
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the trigger/dialog text without closing an open dialog or clearing the entered name", async () => {
+      renderNewCharacterWizard(root, { onCreated: vi.fn() });
+      openTrigger(root).click();
+      nameInput(root).value = "Ryu";
+      nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(openTrigger(root).textContent).toBe("Nouveau personnage");
+      expect(dialog(root).hasAttribute("open")).toBe(true);
+      expect(nameInput(root).value).toBe("Ryu");
+      expect(createButton(root).textContent).toBe("Créer");
+      expect(cancelButton(root).textContent).toBe("Annuler");
+    });
+
+    it("retranslates a currently shown validation error in place", async () => {
+      renderNewCharacterWizard(root, { onCreated: vi.fn() });
+      openTrigger(root).click();
+      createButton(root).click();
+      expect(errorText(root)).toBe("A name is required.");
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(errorText(root)).toBe("Un nom est requis.");
+    });
   });
 });

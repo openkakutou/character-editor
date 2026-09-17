@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { CharacterData, StateDef } from "../wasm/types.ts";
 import { renderStateEditor } from "./state-editor.ts";
 
@@ -580,5 +581,65 @@ describe("renderStateEditor", () => {
     expect(root.querySelector('[data-statedef="0"]')).toBeNull();
     const lastPatch = onChange.mock.calls.at(-1)?.[0] as Partial<CharacterData>;
     expect(lastPatch.stateDefs).toEqual([]);
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("renders in French, with the StateDef's raw domain values untranslated, once initialized under an active French locale", async () => {
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const root = document.createElement("div");
+      renderStateEditor(
+        root,
+        fixtureCharacter({ stateDefs: [stateDef({ number: 5, type: "A" })] }),
+        { onChange: vi.fn() },
+      );
+
+      expect(root.querySelector("h2")?.textContent).toBe(
+        "Logique d'état et de combat",
+      );
+      const toggle = root.querySelector(
+        '[data-statedef="5"] .state-editor__statedef-toggle',
+      );
+      // "type: A" (the raw domain value) survives untranslated inside the
+      // otherwise-French summary.
+      expect(toggle?.textContent).toContain("Statedef 5");
+      expect(toggle?.textContent).toContain("type : A");
+    });
+
+    it("keeps an already-expanded StateDef expanded across a re-render of the same root triggered by a locale change", async () => {
+      const root = document.createElement("div");
+      const character = fixtureCharacter({
+        stateDefs: [stateDef({ number: 0 })],
+      });
+      renderStateEditor(root, character, { onChange: vi.fn() });
+      click(
+        root.querySelector(
+          '[data-statedef="0"] .state-editor__statedef-toggle',
+        ),
+      );
+      expect(
+        root
+          .querySelector('[data-statedef="0"] .state-editor__statedef-body')
+          ?.hasAttribute("hidden"),
+      ).toBe(false);
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+      // Re-invoking the same render (what main.ts's own locale-change
+      // subscription does) must not collapse the panel back to hidden.
+      renderStateEditor(root, character, { onChange: vi.fn() });
+
+      expect(
+        root
+          .querySelector('[data-statedef="0"] .state-editor__statedef-body')
+          ?.hasAttribute("hidden"),
+      ).toBe(false);
+    });
   });
 });

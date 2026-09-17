@@ -4,6 +4,7 @@ import {
   isDirty,
   resetAppHistoryForTests,
 } from "../history/app-history.ts";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { SpritePixelResult } from "../wasm/bridge.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import { renderPaletteEditor } from "./palette-editor.ts";
@@ -452,6 +453,33 @@ describe("renderPaletteEditor", () => {
 
       duplicateButton(root).click();
       expect(onHistoryPush).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the static chrome and a rebuilt body, keeping the active palette and selection", async () => {
+      const root = document.createElement("div");
+      renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+        resolveSpritePixels: stubResolve(),
+      });
+      newBlankButton(root).click();
+      swatches(root)[3].click();
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector("h3")?.textContent).toBe("Éditeur de palette");
+      expect(newBlankButton(root).textContent).toBe("Nouvelle palette vierge");
+      expect(swatches(root)).toHaveLength(256);
+      expect(
+        root.querySelector(".palette-editor__selected-index")?.textContent,
+      ).toBe("Index 3");
+      expect(swatches(root)[3].classList.contains("is-selected")).toBe(true);
     });
   });
 });

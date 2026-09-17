@@ -13,6 +13,8 @@
 // override for the live preview, and serializing a downloadable `.act`
 // file) so the two can never drift into subtly different reversals. See
 // .vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md.
+import { t } from "../i18n/i18n.ts";
+
 export const PALETTE_COLOR_COUNT = 256;
 export const PALETTE_BYTE_LENGTH = PALETTE_COLOR_COUNT * 3; // 768
 
@@ -107,7 +109,15 @@ export function parseActBytes(raw: Uint8Array): ParseActResult {
   } else {
     return {
       ok: false,
-      error: `expected a ${PALETTE_BYTE_LENGTH}-byte .act palette file (or ${PALETTE_BYTE_LENGTH + 4} bytes with a trailing footer), got ${raw.length} bytes`,
+      error: t(
+        "palettes.invalidActLength",
+        "expected a {{expected}}-byte .act palette file (or {{withFooter}} bytes with a trailing footer), got {{actual}} bytes",
+        {
+          expected: String(PALETTE_BYTE_LENGTH),
+          withFooter: String(PALETTE_BYTE_LENGTH + 4),
+          actual: String(raw.length),
+        },
+      ),
     };
   }
   return { ok: true, palette: reversePaletteByteOrder(body) };

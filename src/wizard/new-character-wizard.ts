@@ -1,4 +1,5 @@
 import { emptyCommandFile } from "../commands/command-logic.ts";
+import { t } from "../i18n/i18n.ts";
 // The new-character wizard's DOM-free logic (backlog item 010): builds a
 // minimal character from scratch -- either a blank template or the "basic"
 // preset (one animation, one state) -- and produces the exact same
@@ -140,7 +141,10 @@ export async function createCharacterFromWizard(
   if (trimmedName === "") {
     return {
       status: "bridge-error",
-      message: "A name is required to create a new character.",
+      message: t(
+        "wizard.nameRequiredToCreate",
+        "A name is required to create a new character.",
+      ),
     };
   }
 

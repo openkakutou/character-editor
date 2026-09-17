@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { LoadCmdResult } from "../wasm/bridge.ts";
 import type { CharacterData, CommandFile, StateDef } from "../wasm/types.ts";
 import { renderCommandEditor } from "./command-editor.ts";
@@ -293,5 +294,52 @@ describe("renderCommandEditor", () => {
 
     addButton(root).click();
     expect(rows(root)).toHaveLength(1);
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the heading and a currently shown validation error, keeping the row's data", async () => {
+      const root = document.createElement("div");
+      renderCommandEditor(root, fixtureCharacter(), null, {
+        onChange: vi.fn(),
+      });
+      addButton(root).click();
+      blur(field(rows(root)[0], "name"));
+      expect(fieldError(rows(root)[0], "name").textContent).toBe(
+        "Name cannot be empty.",
+      );
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector("h2")?.textContent).toBe("Commandes");
+      expect(fieldError(rows(root)[0], "name").textContent).toBe(
+        "Le nom ne peut pas être vide.",
+      );
+    });
+
+    it("retranslates a shown load-error status in place", async () => {
+      const root = document.createElement("div");
+      renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+        onChange: vi.fn(),
+        loadCmd: stubLoadCmd({ ok: false, error: "malformed .cmd file" }),
+      });
+      await vi.waitFor(() => {
+        expect(root.querySelector('[role="alert"]')).not.toBeNull();
+      });
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const alert = root.querySelector('[role="alert"]');
+      expect(alert?.textContent).toContain(
+        "Impossible de lire le fichier .cmd",
+      );
+      expect(alert?.textContent).toContain("malformed .cmd file");
+    });
   });
 });

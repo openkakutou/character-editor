@@ -1,6 +1,7 @@
 import "@openkakutou/web-ui-kit/tokens.css";
 import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
+import type { WuikLocaleSwitcherElement } from "@openkakutou/web-ui-kit";
 import "./style.css";
 import { renderAnimationEditor } from "./animations/animation-editor.ts";
 import { renderCommandEditor } from "./commands/command-editor.ts";
@@ -16,6 +17,7 @@ import { renderCharacteristicsEditor } from "./editors/characteristics-editor.ts
 import { renderStateEditor } from "./editors/state-editor.ts";
 import { getAppHistory, isDirty } from "./history/app-history.ts";
 import { installUnsavedChangesGuard } from "./history/unsaved-changes-guard.ts";
+import { getI18n, initAppI18n, onLocaleChange, t } from "./i18n/i18n.ts";
 import { renderCharacterFileInput } from "./input/character-file-input-view.ts";
 import type {
   CharacterFileInputOptions,
@@ -36,19 +38,62 @@ import {
 import { renderNewCharacterWizard } from "./wizard/new-character-wizard-view.ts";
 import type { CreateCharacterOptions } from "./wizard/new-character-wizard.ts";
 
+// The app's own brand name -- a proper noun, deliberately never translated
+// (see .vibe/decisions/015-i18n-integration-approach.md).
 const APP_TITLE = "Character Editor";
 
+/**
+ * `renderApp` is only ever really invoked once per page (from `mount()`),
+ * but tests call it repeatedly on the same or a fresh root -- torn down at
+ * the top of every call, before a fresh one is made, so a locale-change
+ * subscription from a previous call never accumulates or fires against
+ * content no longer on the page. Mirrors `lifebar-editor`'s own equivalent
+ * (`.vibe/decisions/015-i18n-integration-approach.md`).
+ */
+let currentUnsubscribeLocaleChange: (() => void) | undefined;
+
+/** Applies the resolved locale to `<html lang>` so assistive technology
+ * picks the right pronunciation -- a small, purely additive correctness fix
+ * over the pattern ported from sibling apps (see .vibe/decisions/015). */
+function applyDocumentLang(): void {
+  const instance = getI18n();
+  const resolved = instance?.resolvedLanguage ?? instance?.language;
+  if (resolved) {
+    document.documentElement.lang = resolved;
+  }
+}
+
+/**
+ * Re-invoked (replacing its own previous content) on a locale change, so
+ * its text stays live even in this degraded state -- the browser-detected/
+ * persisted locale still applies via `t()`, but no `<wuik-locale-switcher>`
+ * is available to switch it manually here since `web-ui-kit`'s own custom
+ * elements may not be usable in this exact failure mode.
+ */
 function renderVersionError(root: HTMLElement, installedVersion: string): void {
+  root.replaceChildren();
+
   const container = document.createElement("div");
   container.className = "web-ui-kit-version-error";
   container.setAttribute("role", "alert");
   container.setAttribute("aria-live", "assertive");
 
   const heading = document.createElement("h1");
-  heading.textContent = "This app can't start";
+  heading.textContent = t(
+    "errors.versionMismatchHeading",
+    "This app can't start",
+  );
 
   const message = document.createElement("p");
-  message.textContent = `${APP_TITLE} requires @openkakutou/web-ui-kit v${MIN_SUPPORTED_WEB_UI_KIT_VERSION} or newer, but found v${installedVersion}. Update the web-ui-kit dependency and reload.`;
+  message.textContent = t(
+    "errors.versionMismatchBody",
+    "{{title}} requires @openkakutou/web-ui-kit v{{minVersion}} or newer, but found v{{installedVersion}}. Update the web-ui-kit dependency and reload.",
+    {
+      title: APP_TITLE,
+      minVersion: MIN_SUPPORTED_WEB_UI_KIT_VERSION,
+      installedVersion,
+    },
+  );
 
   container.append(heading, message);
   root.appendChild(container);
@@ -72,14 +117,20 @@ function renderUndoRedoButtons(onChange: () => void): {
   const undoButton = document.createElement("wuik-button");
   undoButton.setAttribute("variant", "secondary");
   undoButton.dataset.action = "undo";
-  undoButton.textContent = "Undo";
-  undoButton.setAttribute("aria-label", "Undo last change");
+  undoButton.textContent = t("app.undo", "Undo");
+  undoButton.setAttribute(
+    "aria-label",
+    t("app.undoAriaLabel", "Undo last change"),
+  );
 
   const redoButton = document.createElement("wuik-button");
   redoButton.setAttribute("variant", "secondary");
   redoButton.dataset.action = "redo";
-  redoButton.textContent = "Redo";
-  redoButton.setAttribute("aria-label", "Redo last undone change");
+  redoButton.textContent = t("app.redo", "Redo");
+  redoButton.setAttribute(
+    "aria-label",
+    t("app.redoAriaLabel", "Redo last undone change"),
+  );
 
   function refresh(): void {
     const history = getAppHistory();
@@ -108,11 +159,18 @@ function renderUndoRedoButtons(onChange: () => void): {
   return { undoButton, redoButton, refresh };
 }
 
+function currentThemeToggleLabel(): string {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  return isDark
+    ? t("app.themeToggleLight", "Switch to light mode")
+    : t("app.themeToggleDark", "Switch to dark mode");
+}
+
 function renderThemeToggle(): HTMLElement {
   const toggle = document.createElement("wuik-button");
   toggle.setAttribute("variant", "secondary");
   toggle.dataset.action = "theme-toggle";
-  toggle.textContent = "Switch to dark mode";
+  toggle.textContent = currentThemeToggleLabel();
 
   toggle.addEventListener("click", () => {
     const isDark =
@@ -121,9 +179,7 @@ function renderThemeToggle(): HTMLElement {
       "data-theme",
       isDark ? "light" : "dark",
     );
-    toggle.textContent = isDark
-      ? "Switch to dark mode"
-      : "Switch to light mode";
+    toggle.textContent = currentThemeToggleLabel();
   });
 
   return toggle;
@@ -162,9 +218,16 @@ export function renderApp(
   options: RenderAppOptions = {},
 ): void {
   root.replaceChildren();
+  currentUnsubscribeLocaleChange?.();
+  currentUnsubscribeLocaleChange = undefined;
+  applyDocumentLang();
 
   if (!isWebUiKitVersionSupported(installedWebUiKitVersion)) {
     renderVersionError(root, installedWebUiKitVersion);
+    currentUnsubscribeLocaleChange = onLocaleChange(() => {
+      applyDocumentLang();
+      renderVersionError(root, installedWebUiKitVersion);
+    });
     return;
   }
 
@@ -176,7 +239,10 @@ export function renderApp(
 
   const title = document.createElement("span");
   title.className = "app-title";
-  title.textContent = `${APP_TITLE} — v${version}`;
+  title.textContent = t("app.title", "{{title}} — v{{version}}", {
+    title: APP_TITLE,
+    version,
+  });
 
   // Always visible (not tucked away in the Export panel further down the
   // page) so the only feedback about unsaved work isn't the browser's own
@@ -194,6 +260,13 @@ export function renderApp(
   const spacer = document.createElement("div");
   spacer.className = "toolbar-spacer";
 
+  const localeSwitcher = document.createElement(
+    "wuik-locale-switcher",
+  ) as unknown as WuikLocaleSwitcherElement;
+  localeSwitcher.className = "locale-switcher";
+  localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
+  localeSwitcher.i18n = getI18n();
+
   toolbar.append(
     title,
     unsavedIndicator,
@@ -201,6 +274,7 @@ export function renderApp(
     redoButton,
     spacer,
     renderThemeToggle(),
+    localeSwitcher,
   );
   shell.appendChild(toolbar);
 
@@ -222,7 +296,9 @@ export function renderApp(
 
   function refreshHistoryUI(): void {
     refreshUndoRedoButtons();
-    unsavedIndicator.textContent = isDirty() ? "Unsaved changes" : "";
+    unsavedIndicator.textContent = isDirty()
+      ? t("app.unsavedChanges", "Unsaved changes")
+      : "";
   }
 
   // Re-renders the animation editor against the document's latest character
@@ -258,15 +334,36 @@ export function renderApp(
   // below for why it is deliberately *not* here). Callable both from the
   // initial character load and from an Undo/Redo click, so a history change
   // is reflected the exact same way a fresh load already is.
+  function onEditorPatch(patch: Partial<CharacterData>): void {
+    updateCharacterFields(patch);
+    refreshHistoryUI();
+  }
+
+  // Re-renders just the characteristics editor and the state editor from
+  // the document's current character -- the two document-backed screens
+  // with no locale-sensitive session state a re-render would lose (unlike
+  // the sprite browser's pending edit overlay or the animation editor's
+  // expand/Clsn state, each retranslating themselves internally instead).
+  // Shared by the initial/history-change full render below and by the
+  // locale-change subscription further down. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  function retranslateSimpleEditors(): void {
+    const doc = getCharacterDocument();
+    if (!doc) return;
+    renderCharacteristicsEditor(characteristicsContainer, doc.character, {
+      onChange: onEditorPatch,
+    });
+    renderStateEditor(stateEditorContainer, doc.character, {
+      onChange: onEditorPatch,
+    });
+  }
+
   function renderDocumentBackedEditors(
     character: CharacterData,
     files: LoadedFileBytes,
   ): void {
     renderCharacteristicsEditor(characteristicsContainer, character, {
-      onChange: (patch) => {
-        updateCharacterFields(patch);
-        refreshHistoryUI();
-      },
+      onChange: onEditorPatch,
     });
     renderSpriteBrowser(spriteBrowserContainer, character, files.sff, [], {
       onSpriteEdit: (edit) => {
@@ -276,10 +373,7 @@ export function renderApp(
       },
     });
     renderStateEditor(stateEditorContainer, character, {
-      onChange: (patch) => {
-        updateCharacterFields(patch);
-        refreshHistoryUI();
-      },
+      onChange: onEditorPatch,
     });
     rerenderAnimationEditor();
   }
@@ -379,7 +473,7 @@ export function renderApp(
 
   const wizardDivider = document.createElement("p");
   wizardDivider.className = "new-character-wizard__divider";
-  wizardDivider.textContent = "or";
+  wizardDivider.textContent = t("app.wizardDivider", "or");
   const wizardContainer = document.createElement("div");
   renderNewCharacterWizard(wizardContainer, {
     onCreated: handleCharacterLoaded,
@@ -408,19 +502,79 @@ export function renderApp(
   shell.appendChild(main);
 
   root.appendChild(shell);
+
+  // Live locale switching (backlog item 012): re-translates every piece of
+  // "chrome" main.ts owns directly -- the title, the switcher's own label,
+  // the Undo/Redo buttons' text and aria-label, the theme toggle's current
+  // label, the unsaved-changes indicator, the wizard divider -- and
+  // re-invokes the characteristics/state editors' own existing render
+  // calls (no locale-sensitive state of their own to lose) plus the
+  // animation editor's own existing `rerenderAnimationEditor` (its
+  // expand/Clsn-panel-open state survives this exact call already, keyed
+  // off `animationEditorContainer` staying the same element -- see that
+  // function's own doc comment). Every other screen with session-important
+  // state (the file input, the wizard, the sprite browser, the
+  // palette/command editors, the export panel, the shortcuts screen)
+  // retranslates itself, from its own internal `onLocaleChange`
+  // subscription, without main.ts's help. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  currentUnsubscribeLocaleChange = onLocaleChange(() => {
+    applyDocumentLang();
+    title.textContent = t("app.title", "{{title}} — v{{version}}", {
+      title: APP_TITLE,
+      version,
+    });
+    localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
+    undoButton.textContent = t("app.undo", "Undo");
+    undoButton.setAttribute(
+      "aria-label",
+      t("app.undoAriaLabel", "Undo last change"),
+    );
+    redoButton.textContent = t("app.redo", "Redo");
+    redoButton.setAttribute(
+      "aria-label",
+      t("app.redoAriaLabel", "Redo last undone change"),
+    );
+    const themeToggle = toolbar.querySelector<HTMLElement>(
+      '[data-action="theme-toggle"]',
+    );
+    if (themeToggle) themeToggle.textContent = currentThemeToggleLabel();
+    wizardDivider.textContent = t("app.wizardDivider", "or");
+    refreshHistoryUI();
+    retranslateSimpleEditors();
+    rerenderAnimationEditor();
+  });
 }
 
-const app = document.querySelector<HTMLDivElement>("#app");
-if (app) {
-  renderApp(app, appVersion, webUiKitVersion);
+/**
+ * `initAppI18n` is awaited here, before the very first `renderApp` call --
+ * never inside `renderApp` itself, which stays synchronous so tests can
+ * keep calling it directly with deterministic English defaults (see
+ * .vibe/decisions/015-i18n-integration-approach.md). This is also why the
+ * real app never flashes English before a persisted locale resolves: the
+ * first paint already has the right language.
+ */
+async function mount(): Promise<void> {
+  await initAppI18n();
+  const app = document.querySelector<HTMLDivElement>("#app");
+  if (app) {
+    renderApp(app, appVersion, webUiKitVersion);
+  }
+
+  // Registered once here (bootstrap), not inside `renderApp` -- that
+  // function runs on every re-render in tests, which would otherwise stack
+  // up a fresh `beforeunload` listener on `window` each time. See
+  // .vibe/decisions/012.
+  installUnsavedChangesGuard();
+
+  // Same "install once at bootstrap" reasoning as the guard above --
+  // otherwise every `renderApp` call in tests would stack up another
+  // `keydown` listener on `window`. See .vibe/decisions/014.
+  installGlobalShortcutListener();
 }
 
-// Registered once here (bootstrap), not inside `renderApp` -- that function
-// runs on every re-render in tests, which would otherwise stack up a fresh
-// `beforeunload` listener on `window` each time. See .vibe/decisions/012.
-installUnsavedChangesGuard();
-
-// Same "install once at bootstrap" reasoning as the guard above -- otherwise
-// every `renderApp` call in tests would stack up another `keydown` listener
-// on `window`. See .vibe/decisions/014.
-installGlobalShortcutListener();
+if (document.readyState === "complete") {
+  void mount();
+} else {
+  window.addEventListener("load", () => void mount(), { once: true });
+}

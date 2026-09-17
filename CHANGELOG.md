@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Users can now switch the app's language between English and French from a new selector in the toolbar. The switch applies immediately, without a page reload, and the choice is remembered on later visits. On first visit, the app matches the browser's own language when it's supported, English otherwise. Switching language never loses an in-progress edit, a loaded character, or an expanded panel.
+
 ## [0.11.0] - 2026-09-13
 
 ### Added

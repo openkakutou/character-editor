@@ -9,6 +9,7 @@
 import { getCharacterDocument } from "../document/character-document.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
 import { markClean } from "../history/app-history.ts";
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { defaultTriggerDownload } from "../palettes/palette-editor.ts";
 import type { WasmBridgeOptions } from "../wasm/bridge.ts";
 import {
@@ -62,8 +63,10 @@ function renderBlocked(reason: ExportBlockedReason): HTMLElement {
   message.setAttribute("role", "alert");
 
   if (reason.kind === "pending-sprite-edits") {
-    message.textContent =
-      "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.";
+    message.textContent = t(
+      "save.blockedPendingSpriteEdits",
+      "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.",
+    );
     container.appendChild(message);
 
     const list = document.createElement("ul");
@@ -77,7 +80,11 @@ function renderBlocked(reason: ExportBlockedReason): HTMLElement {
     return container;
   }
 
-  message.textContent = `Export is blocked: ${reason.fileName} could not be saved (${reason.message}).`;
+  message.textContent = t(
+    "save.blockedSerializeError",
+    "Export is blocked: {{fileName}} could not be saved ({{message}}).",
+    { fileName: reason.fileName, message: reason.message },
+  );
   container.appendChild(message);
   return container;
 }
@@ -100,13 +107,22 @@ function renderFileList(
 
     const label = document.createElement("span");
     label.className = "export-panel__file-name";
-    label.textContent = `${file.fileName} (${file.unchanged ? "unchanged" : "modified"})`;
+    label.textContent = t(
+      "save.fileNameWithStatus",
+      "{{fileName}} ({{status}})",
+      {
+        fileName: file.fileName,
+        status: file.unchanged
+          ? t("save.unchanged", "unchanged")
+          : t("save.modified", "modified"),
+      },
+    );
     item.appendChild(label);
 
     const downloadButton = document.createElement("wuik-button");
     downloadButton.setAttribute("variant", "secondary");
     downloadButton.dataset.action = "download-file";
-    downloadButton.textContent = "Download";
+    downloadButton.textContent = t("save.download", "Download");
     downloadButton.addEventListener("click", () => {
       triggerDownload(file.bytes, file.fileName);
     });
@@ -132,7 +148,7 @@ function renderFileList(
   const downloadAllButton = document.createElement("wuik-button");
   downloadAllButton.className = "export-panel__download-all";
   downloadAllButton.dataset.action = "download-all";
-  downloadAllButton.textContent = "Download all";
+  downloadAllButton.textContent = t("save.downloadAll", "Download all");
   downloadAllButton.addEventListener("click", () => {
     void downloadAll();
   });
@@ -140,6 +156,13 @@ function renderFileList(
 
   return container;
 }
+
+// `main.ts` can call `renderExportPanel` more than once per page (e.g. the
+// new-character wizard replacing an already-loaded character) -- unsubscribed
+// at the top of every call, before a fresh one is registered, so a
+// locale-change subscription from a previous mount never accumulates. See
+// .vibe/decisions/015-i18n-integration-approach.md.
+let currentUnsubscribeLocaleChange: (() => void) | undefined;
 
 /**
  * Renders the Export panel into `root`, replacing its previous content.
@@ -154,6 +177,8 @@ export function renderExportPanel(
   options: ExportPanelOptions = {},
 ): void {
   root.replaceChildren();
+  currentUnsubscribeLocaleChange?.();
+  currentUnsubscribeLocaleChange = undefined;
 
   const getDocument = options.getDocument ?? getCharacterDocument;
   if (getDocument() === null) return;
@@ -167,13 +192,11 @@ export function renderExportPanel(
   panel.className = "export-panel";
 
   const heading = document.createElement("h3");
-  heading.textContent = "Export";
   panel.appendChild(heading);
 
   const refreshButton = document.createElement("wuik-button");
   refreshButton.className = "export-panel__refresh";
   refreshButton.setAttribute("variant", "secondary");
-  refreshButton.textContent = "Refresh export";
   panel.appendChild(refreshButton);
 
   const bodyContainer = document.createElement("div");
@@ -181,14 +204,30 @@ export function renderExportPanel(
 
   root.appendChild(panel);
 
+  function renderStaticText(): void {
+    heading.textContent = t("save.heading", "Export");
+    refreshButton.textContent = t("save.refreshExport", "Refresh export");
+  }
+  renderStaticText();
+
   // Guards against a stale computation (e.g. a slow first call outlived by
   // a faster one triggered by a later Refresh click) overwriting a fresher
   // result already on screen -- the same "ignore an out-of-order async
   // result" pattern palette-editor.ts/animation-editor.ts already use for
   // their own live previews.
   let runToken = 0;
+  // The last computed result, kept so a locale change can retranslate the
+  // already-shown body without re-running the WASM `saveX` calls a fresh
+  // computation would trigger -- exactly the "only recompute on the
+  // explicit action" contract .vibe/decisions/010 already establishes,
+  // extended here to a locale switch (not itself a "Refresh export"
+  // click). `null` while a computation is still in flight (the initial
+  // mount, or immediately after a Refresh click) -- see the "Preparing
+  // export…" branch below.
+  let lastResult: ExportResult | null = null;
 
   function renderResult(result: ExportResult): void {
+    lastResult = result;
     bodyContainer.replaceChildren();
     if (!result.ok) {
       bodyContainer.appendChild(renderBlocked(result.reason));
@@ -203,7 +242,10 @@ export function renderExportPanel(
     const doc = getDocument();
     if (!doc) return;
     const token = ++runToken;
-    bodyContainer.replaceChildren(statusParagraph("Preparing export…"));
+    lastResult = null;
+    bodyContainer.replaceChildren(
+      statusParagraph(t("save.preparingExport", "Preparing export…")),
+    );
     const result = await exportFn(doc, {
       bridgeOptions: options.bridgeOptions,
     });
@@ -213,6 +255,17 @@ export function renderExportPanel(
 
   refreshButton.addEventListener("click", () => {
     void runExport();
+  });
+
+  currentUnsubscribeLocaleChange = onLocaleChange(() => {
+    renderStaticText();
+    if (lastResult !== null) {
+      renderResult(lastResult);
+    } else {
+      bodyContainer.replaceChildren(
+        statusParagraph(t("save.preparingExport", "Preparing export…")),
+      );
+    }
   });
 
   void runExport();

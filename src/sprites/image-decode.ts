@@ -5,6 +5,8 @@
 // project's jsdom-based test suite — same "inject an untestable-under-jsdom
 // effect, verify the real default separately" shape as
 // character-viewer-web's own SpriteBrowserOptions.drawPixels.
+import { t } from "../i18n/i18n.ts";
+
 export interface DecodedImage {
   width: number;
   height: number;
@@ -77,5 +79,9 @@ export async function decodeImageFile(
 
 function describeDecodeError(err: unknown): string {
   const detail = err instanceof Error ? err.message : String(err);
-  return `This image could not be decoded — check the file is a supported format. (${detail})`;
+  return t(
+    "sprites.decodeError",
+    "This image could not be decoded — check the file is a supported format. ({{detail}})",
+    { detail },
+  );
 }

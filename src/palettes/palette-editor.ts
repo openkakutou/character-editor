@@ -6,6 +6,7 @@
 // .vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md
 // for the semantic-vs-file-order model this screen edits against.
 import { pushHistoryCommand } from "../history/app-history.ts";
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { defaultDrawPixels } from "../sprites/sprite-browser.ts";
 import {
   type SpritePixelResult,
@@ -128,6 +129,13 @@ function firstSprite(
 
 const NOOP_HANDLE: PaletteEditorHandle = { refresh() {} };
 
+// `main.ts` can call `renderPaletteEditor` more than once per page (e.g. the
+// new-character wizard replacing an already-loaded character) -- unsubscribed
+// at the top of every call, before a fresh one is registered, so a
+// locale-change subscription from a previous mount never accumulates. See
+// .vibe/decisions/015-i18n-integration-approach.md.
+let currentUnsubscribeLocaleChange: (() => void) | undefined;
+
 /**
  * Renders the palette editor into `root`, replacing its previous content.
  * `character === null` or `sffBytes === null` renders nothing, mirroring
@@ -145,6 +153,8 @@ export function renderPaletteEditor(
   options: PaletteEditorOptions = {},
 ): PaletteEditorHandle {
   root.replaceChildren();
+  currentUnsubscribeLocaleChange?.();
+  currentUnsubscribeLocaleChange = undefined;
   if (character === null || sffBytes === null) return NOOP_HANDLE;
   const characterNonNull = character;
   const sffBytesNonNull = sffBytes;
@@ -197,14 +207,18 @@ export function renderPaletteEditor(
   panel.className = "palette-editor";
 
   const heading = document.createElement("h3");
-  heading.textContent = "Palette Editor";
   panel.appendChild(heading);
 
   const sourceSection = document.createElement("div");
   sourceSection.className = "palette-editor__source";
 
   const uploadLabel = document.createElement("label");
-  uploadLabel.textContent = "Load .act file to edit";
+  // A text node (not `uploadLabel.textContent`) so its own visible text can
+  // be retranslated in place without wiping out the nested `<input>`
+  // appended right after it -- same trick as
+  // `new-character-wizard-view.ts`'s `nameLabelText`.
+  const uploadLabelText = document.createTextNode("");
+  uploadLabel.appendChild(uploadLabelText);
   const uploadInputEl = document.createElement("input");
   uploadInputEl.type = "file";
   uploadInputEl.accept = ".act";
@@ -213,13 +227,28 @@ export function renderPaletteEditor(
   const newBlankButton = document.createElement("wuik-button");
   newBlankButton.className = "palette-editor__new-blank";
   newBlankButton.setAttribute("variant", "secondary");
-  newBlankButton.textContent = "New blank palette";
 
   const duplicateButtonEl = document.createElement("wuik-button");
   duplicateButtonEl.className = "palette-editor__duplicate";
   duplicateButtonEl.setAttribute("variant", "secondary");
-  duplicateButtonEl.textContent = "Duplicate current palette";
   duplicateButtonEl.setAttribute("disabled", "");
+
+  function renderStaticText(): void {
+    heading.textContent = t("palettes.heading", "Palette Editor");
+    uploadLabelText.textContent = t(
+      "palettes.loadActFile",
+      "Load .act file to edit",
+    );
+    newBlankButton.textContent = t(
+      "palettes.newBlankPalette",
+      "New blank palette",
+    );
+    duplicateButtonEl.textContent = t(
+      "palettes.duplicateCurrentPalette",
+      "Duplicate current palette",
+    );
+  }
+  renderStaticText();
 
   const sourceErrorEl = document.createElement("p");
   sourceErrorEl.className = "palette-editor__source-error";
@@ -298,7 +327,13 @@ export function renderPaletteEditor(
     function updateSwatch(swatch: HTMLButtonElement, index: number): void {
       const hex = colorToHex(colorAt(activePalette as Uint8Array, index));
       swatch.style.background = hex;
-      swatch.setAttribute("aria-label", `Index ${index}: ${hex}`);
+      swatch.setAttribute(
+        "aria-label",
+        t("palettes.swatchAriaLabel", "Index {{index}}: {{hex}}", {
+          index: String(index),
+          hex,
+        }),
+      );
       swatch.classList.toggle("is-selected", index === selectedIndex);
     }
 
@@ -322,8 +357,10 @@ export function renderPaletteEditor(
     const reservedNoteEl = document.createElement("p");
     reservedNoteEl.className = "palette-editor__reserved-note";
     reservedNoteEl.setAttribute("role", "status");
-    reservedNoteEl.textContent =
-      "Index 0 is always fully transparent in-game — this color has no visual effect.";
+    reservedNoteEl.textContent = t(
+      "palettes.reservedNote",
+      "Index 0 is always fully transparent in-game — this color has no visual effect.",
+    );
     detail.appendChild(reservedNoteEl);
 
     const picker = document.createElement("wuik-color-picker");
@@ -331,9 +368,16 @@ export function renderPaletteEditor(
     detail.appendChild(picker);
 
     function updateDetail(): void {
-      indexLabel.textContent = `Index ${selectedIndex}`;
+      indexLabel.textContent = t("palettes.indexLabel", "Index {{index}}", {
+        index: String(selectedIndex),
+      });
       reservedNoteEl.hidden = !isReservedIndex(selectedIndex);
-      picker.setAttribute("label", `Color at index ${selectedIndex}`);
+      picker.setAttribute(
+        "label",
+        t("palettes.colorAtIndex", "Color at index {{index}}", {
+          index: String(selectedIndex),
+        }),
+      );
       picker.setAttribute(
         "value",
         colorToHex(colorAt(activePalette as Uint8Array, selectedIndex)),
@@ -375,7 +419,7 @@ export function renderPaletteEditor(
     previewSection.className = "palette-editor__preview";
 
     const spriteLabel = document.createElement("label");
-    spriteLabel.textContent = "Preview sprite";
+    spriteLabel.textContent = t("palettes.previewSprite", "Preview sprite");
     const spriteSelect = document.createElement("select");
     spriteSelect.className = "palette-editor__preview-sprite";
     const allSprites = characterNonNull.sprites.flatMap((g) => g.sprites);
@@ -411,7 +455,7 @@ export function renderPaletteEditor(
 
     const saveButtonEl = document.createElement("wuik-button");
     saveButtonEl.className = "palette-editor__save";
-    saveButtonEl.textContent = "Save as .act";
+    saveButtonEl.textContent = t("palettes.saveAsAct", "Save as .act");
     saveButtonEl.addEventListener("click", () => {
       triggerDownload(
         serializeActBytes(activePalette as Uint8Array),
@@ -426,11 +470,14 @@ export function renderPaletteEditor(
     function renderPreview(): void {
       if (!previewSprite) {
         canvas.hidden = true;
-        previewStatus.textContent = "No sprites available to preview.";
+        previewStatus.textContent = t(
+          "palettes.noPreviewSprites",
+          "No sprites available to preview.",
+        );
         return;
       }
       const token = ++previewToken;
-      previewStatus.textContent = "Loading…";
+      previewStatus.textContent = t("palettes.loading", "Loading…");
       resolvePixels(
         sffBytesNonNull,
         [[previewSprite.group, previewSprite.image]],
@@ -451,6 +498,21 @@ export function renderPaletteEditor(
     updateDetail();
     renderPreview();
   }
+
+  // This screen is only ever mounted once per loaded character (see
+  // main.ts's `handleCharacterLoaded`) -- unsubscribed at the top of every
+  // call above, so a locale-change subscription from a previous mount never
+  // accumulates. `renderBody()` already rebuilds the whole body fresh from
+  // `activePalette`/`selectedIndex`/`previewSprite` -- current data, not
+  // reset -- on every call, the same full-rebuild mechanism this screen's
+  // own external `refresh()` (item 010's undo/redo) already uses, so a
+  // locale switch preserves the active palette, selection and preview
+  // sprite exactly as well as an Undo/Redo click already does. See
+  // .vibe/decisions/015-i18n-integration-approach.md.
+  currentUnsubscribeLocaleChange = onLocaleChange(() => {
+    renderStaticText();
+    renderBody();
+  });
 
   return { refresh: renderBody };
 }

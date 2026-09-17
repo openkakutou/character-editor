@@ -10,6 +10,7 @@
 // and why an invalid row (blank/duplicate name, blank input, or a target
 // state number absent from the character's own StateDefs) is excluded from
 // the committed model entirely rather than partially saved.
+import { t } from "../i18n/i18n.ts";
 import type { CommandFile, Controller, StateDef } from "../wasm/types.ts";
 
 /** A brand new `.cmd` file with nothing in it yet — the starting point when no `.cmd` was supplied, or one failed to parse. */
@@ -50,24 +51,36 @@ export function validateCommandRow(
   const trimmedName = name.trim();
   let nameError: string | null = null;
   if (trimmedName === "") {
-    nameError = "Name cannot be empty.";
+    nameError = t("commands.nameEmpty", "Name cannot be empty.");
   } else if (otherNames.includes(trimmedName)) {
-    nameError = "Another command already uses this name.";
+    nameError = t(
+      "commands.nameDuplicate",
+      "Another command already uses this name.",
+    );
   }
 
   const inputError =
-    input.trim() === "" ? "Input sequence cannot be empty." : null;
+    input.trim() === ""
+      ? t("commands.inputEmpty", "Input sequence cannot be empty.")
+      : null;
 
   const trimmedTarget = targetStateText.trim();
   let targetStateError: string | null = null;
   let targetState: number | null = null;
   if (trimmedTarget !== "") {
     if (!WHOLE_NUMBER_PATTERN.test(trimmedTarget)) {
-      targetStateError = "Target state must be a whole number.";
+      targetStateError = t(
+        "commands.targetStateNotWholeNumber",
+        "Target state must be a whole number.",
+      );
     } else {
       const parsed = Number(trimmedTarget);
       if (!availableStateNumbers.includes(parsed)) {
-        targetStateError = `No state ${parsed} exists.`;
+        targetStateError = t(
+          "commands.targetStateNotFound",
+          "No state {{state}} exists.",
+          { state: String(parsed) },
+        );
       } else {
         targetState = parsed;
       }

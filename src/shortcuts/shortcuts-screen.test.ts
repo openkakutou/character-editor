@@ -1,5 +1,6 @@
 import { ShortcutManager } from "@openkakutou/web-ui-kit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import { getAppShortcuts, resetAppShortcutsForTests } from "./app-shortcuts.ts";
 import { renderShortcutsScreen } from "./shortcuts-screen.ts";
 
@@ -53,5 +54,21 @@ describe("renderShortcutsScreen", () => {
     expect(() =>
       renderShortcutsScreen(root, { manager: emptyManager }),
     ).not.toThrow();
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates its own heading in place when the locale changes", async () => {
+      renderShortcutsScreen(root);
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector("h2")?.textContent).toBe("Raccourcis clavier");
+    });
   });
 });

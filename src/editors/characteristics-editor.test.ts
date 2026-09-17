@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import { renderCharacteristicsEditor } from "./characteristics-editor.ts";
 
@@ -238,5 +239,31 @@ describe("renderCharacteristicsEditor", () => {
 
     expect(root.querySelectorAll('[data-field="name"]')).toHaveLength(1);
     expect(fieldInput(root, "name").value).toBe("Second");
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("renders in French, with values unchanged, once initialized under an active French locale", async () => {
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const root = document.createElement("div");
+      renderCharacteristicsEditor(root, fixtureCharacter(), {
+        onChange: vi.fn(),
+      });
+
+      const headings = [...root.querySelectorAll("h2")].map(
+        (el) => el.textContent,
+      );
+      expect(headings).toContain("Identité");
+      expect(fieldInput(root, "name").value).toBe("Kung Fu Man");
+      expect(
+        root.querySelector('[data-list-add="palettes"]')?.textContent,
+      ).toBe("Ajouter : palette");
+    });
   });
 });

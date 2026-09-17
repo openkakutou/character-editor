@@ -23,6 +23,7 @@ flowchart LR
     app --> wizard["wizard\n(src/wizard/)"]
     app --> history["history\n(src/history/)"]
     app --> shortcuts["shortcuts\n(src/shortcuts/)"]
+    app --> i18n["i18n\n(src/i18n/)"]
     input --> wasm["wasm\n(src/wasm/)"]
     input --> document
     editors --> document
@@ -201,6 +202,16 @@ flowchart LR
   `.vibe/decisions/010-export-panel-explicit-refresh-not-live-recompute.md`
   for why it recomputes on its own explicit action rather than living on
   every edit elsewhere in the app.
+- **`i18n`** (`src/i18n/`) — this app's own localization setup (item 012),
+  a thin wrapper (`i18n.ts`) around `@openkakutou/web-ui-kit`'s shared
+  i18next integration layer, under this app's own namespace
+  (`"character-editor"`) and `localStorage` key
+  (`"character-editor-locale"`), plus `en.json`/`fr.json`, the two message
+  catalogs every other module's own DOM layer reads its user-facing text
+  from via `t(key, defaultValue, vars?)`. Not connected to every module in
+  the diagram above by an arrow (nearly all of them import it) — see "Data
+  flow: switching locale" below and
+  `.vibe/decisions/015-i18n-integration-approach.md`.
 
 ## Required vs. optional input files
 
@@ -573,3 +584,39 @@ and under the test suite's jsdom environment.
    callback shape `input`'s view uses, so `app` wires both entry points to
    one shared "character loaded" handler rather than two parallel,
    drift-prone code paths.
+
+## Data flow: switching locale
+
+1. `app`'s bootstrap (`mount()`) awaits `i18n.initAppI18n()` before the
+   first `renderApp` call — the browser's own language is detected first,
+   a previously persisted manual override (in `localStorage`, under this
+   app's own key) wins over that, and either falls back to English. This
+   keeps `renderApp` itself synchronous, so the existing test suite keeps
+   calling it directly with deterministic English defaults.
+2. Every module's own DOM layer reads its strings through `i18n.t(key,
+   defaultValue, vars?)` rather than a hardcoded literal; `defaultValue` is
+   also what a caller sees before `initAppI18n` has ever resolved (e.g. a
+   test), so the rendered text is identical either way.
+3. Picking a language from the toolbar's `<wuik-locale-switcher>` fires one
+   shared `onLocaleChange` event. How each screen reacts to it depends on
+   how much of its own session state a full re-render would destroy — see
+   `.vibe/decisions/015-i18n-integration-approach.md` for the full
+   breakdown:
+   - `editors`' characteristics and state editors, having no
+     locale-sensitive state of their own, are simply re-invoked from
+     `app`'s own subscription, the same call a history change already
+     triggers.
+   - `input`, `wizard`, `sprites`, `palettes`, `commands`, `save`, and
+     `shortcuts` each subscribe internally instead, re-formatting only
+     their own already-shown text (a status line, a validation error, a
+     computed export result) from a small stored description of what that
+     text represents — never re-running the WASM call or file read that
+     originally produced it.
+   - `animations` needs no subscription of its own: `app` already
+     re-invokes it on every sprite-browser edit to keep its
+     sprite-existence check current, and its own per-`root` `WeakMap`
+     already preserves expand/Clsn-panel-open state across that repeated
+     call — a locale change reuses the exact same path.
+4. `app` also sets `<html lang>` to the resolved locale on every locale
+   change, so assistive technology picks the right pronunciation from the
+   very first paint.

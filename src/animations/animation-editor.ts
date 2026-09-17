@@ -1,3 +1,4 @@
+import { t } from "../i18n/i18n.ts";
 import {
   type SpriteEdit,
   mergeSpriteGroups,
@@ -62,6 +63,14 @@ export function defaultDrawPixels(
 
 function resetViewportToFit(viewport: HTMLElement): void {
   (viewport as unknown as { resetToFit?: () => void }).resetToFit?.();
+}
+
+/** "Hit"/"Hurt", the short word for a Clsn box's own kind -- UI chrome
+ * describing app state, not raw file data. */
+function clsnKindLabel(kind: "clsn1" | "clsn2"): string {
+  return kind === "clsn1"
+    ? t("animations.hit", "Hit")
+    : t("animations.hurt", "Hurt");
 }
 
 /** Schedules/cancels a playback timer — real `window.setTimeout`/`clearTimeout` by default, injectable for deterministic tests. */
@@ -129,7 +138,7 @@ export function renderAnimationEditor(
   container.className = "animation-editor";
 
   const heading = document.createElement("h2");
-  heading.textContent = "Animations";
+  heading.textContent = t("animations.heading", "Animations");
   container.appendChild(heading);
 
   const list = document.createElement("div");
@@ -139,7 +148,10 @@ export function renderAnimationEditor(
   const addAnimationButton = document.createElement("wuik-button");
   addAnimationButton.setAttribute("variant", "secondary");
   addAnimationButton.dataset.action = "add-animation";
-  addAnimationButton.textContent = "Add animation";
+  addAnimationButton.textContent = t(
+    "animations.addAnimation",
+    "Add animation",
+  );
   container.appendChild(addAnimationButton);
 
   let animations: Animation[] = characterNonNull.animations;
@@ -167,7 +179,9 @@ export function renderAnimationEditor(
 
   function renderList(): void {
     if (animations.length === 0) {
-      list.replaceChildren(emptyState("No animations yet."));
+      list.replaceChildren(
+        emptyState(t("animations.noAnimationsYet", "No animations yet.")),
+      );
       return;
     }
     list.replaceChildren(
@@ -185,7 +199,15 @@ export function renderAnimationEditor(
     toggleButton.className = "animation-editor__animation-toggle";
     const isExpanded = expanded.has(anim.number);
     toggleButton.setAttribute("aria-expanded", String(isExpanded));
-    toggleButton.textContent = `Animation ${anim.number} (${anim.frames.length} frame${anim.frames.length === 1 ? "" : "s"})`;
+    toggleButton.textContent = t(
+      "animations.animationToggle",
+      "Animation {{number}} ({{count}} frame{{suffix}})",
+      {
+        number: String(anim.number),
+        count: String(anim.frames.length),
+        suffix: anim.frames.length === 1 ? "" : "s",
+      },
+    );
 
     const body = document.createElement("div");
     body.className = "animation-editor__animation-body";
@@ -237,7 +259,7 @@ export function renderAnimationEditor(
     clsnPanel.className = "animation-editor__clsn-panel";
 
     const loopStartLabel = document.createElement("label");
-    loopStartLabel.textContent = "Loop start";
+    loopStartLabel.textContent = t("animations.loopStart", "Loop start");
     const loopStartInput = document.createElement("input");
     loopStartInput.type = "number";
     loopStartInput.min = "0";
@@ -254,11 +276,14 @@ export function renderAnimationEditor(
     const addFrameButton = document.createElement("wuik-button");
     addFrameButton.setAttribute("variant", "secondary");
     addFrameButton.dataset.action = "add-frame";
-    addFrameButton.textContent = "Add frame";
+    addFrameButton.textContent = t("animations.addFrame", "Add frame");
 
     const removeAnimationButton = document.createElement("wuik-button");
     removeAnimationButton.dataset.action = "remove-animation";
-    removeAnimationButton.textContent = "Remove animation";
+    removeAnimationButton.textContent = t(
+      "animations.removeAnimation",
+      "Remove animation",
+    );
 
     const removeConfirmArea = document.createElement("div");
     removeConfirmArea.className = "animation-editor__animation-remove-confirm";
@@ -270,7 +295,9 @@ export function renderAnimationEditor(
 
     function renderFrames(): void {
       if (frames.length === 0) {
-        framesList.replaceChildren(emptyState("No frames yet."));
+        framesList.replaceChildren(
+          emptyState(t("animations.noFramesYet", "No frames yet.")),
+        );
       } else {
         framesList.replaceChildren(
           ...frames.map((frame, index) =>
@@ -395,7 +422,16 @@ export function renderAnimationEditor(
     groupInput.min = "0";
     groupInput.step = "1";
     groupInput.dataset.field = "group";
-    groupInput.setAttribute("aria-label", `Frame ${index + 1} sprite group`);
+    groupInput.setAttribute(
+      "aria-label",
+      t(
+        "animations.frameSpriteGroupAriaLabel",
+        "Frame {{index}} sprite group",
+        {
+          index: String(index + 1),
+        },
+      ),
+    );
     groupInput.value = String(frame.group);
 
     const imageInput = document.createElement("input");
@@ -403,14 +439,28 @@ export function renderAnimationEditor(
     imageInput.min = "0";
     imageInput.step = "1";
     imageInput.dataset.field = "image";
-    imageInput.setAttribute("aria-label", `Frame ${index + 1} sprite image`);
+    imageInput.setAttribute(
+      "aria-label",
+      t(
+        "animations.frameSpriteImageAriaLabel",
+        "Frame {{index}} sprite image",
+        {
+          index: String(index + 1),
+        },
+      ),
+    );
     imageInput.value = String(frame.image);
 
     const timeInput = document.createElement("input");
     timeInput.type = "number";
     timeInput.step = "1";
     timeInput.dataset.field = "time";
-    timeInput.setAttribute("aria-label", `Frame ${index + 1} duration`);
+    timeInput.setAttribute(
+      "aria-label",
+      t("animations.frameDurationAriaLabel", "Frame {{index}} duration", {
+        index: String(index + 1),
+      }),
+    );
     timeInput.value = String(frame.time);
 
     const warning = document.createElement("p");
@@ -435,7 +485,11 @@ export function renderAnimationEditor(
       warning.hidden = exists;
       warning.textContent = exists
         ? ""
-        : `Sprite ${frame.group}, ${frame.image} does not exist in the loaded sprite sheet.`;
+        : t(
+            "animations.spriteMissingInSheet",
+            "Sprite {{group}}, {{image}} does not exist in the loaded sprite sheet.",
+            { group: String(frame.group), image: String(frame.image) },
+          );
     }
 
     groupInput.addEventListener("blur", commitSpriteRef);
@@ -453,33 +507,35 @@ export function renderAnimationEditor(
     clsnToggle.dataset.action = "toggle-clsn";
     clsnToggle.setAttribute("aria-pressed", String(handlers.isClsnOpen));
     clsnToggle.textContent = handlers.isClsnOpen
-      ? "Hide Clsn boxes"
-      : `Edit Clsn boxes (${frame.clsn1.length + frame.clsn2.length})`;
+      ? t("animations.hideClsnBoxes", "Hide Clsn boxes")
+      : t("animations.editClsnBoxes", "Edit Clsn boxes ({{count}})", {
+          count: String(frame.clsn1.length + frame.clsn2.length),
+        });
     clsnToggle.addEventListener("click", handlers.onToggleClsn);
 
     const moveUp = document.createElement("wuik-button");
     moveUp.setAttribute("variant", "secondary");
     moveUp.dataset.action = "move-up";
-    moveUp.textContent = "Move up";
+    moveUp.textContent = t("animations.moveUp", "Move up");
     if (index === 0) moveUp.setAttribute("disabled", "");
     moveUp.addEventListener("click", handlers.onMoveUp);
 
     const moveDown = document.createElement("wuik-button");
     moveDown.setAttribute("variant", "secondary");
     moveDown.dataset.action = "move-down";
-    moveDown.textContent = "Move down";
+    moveDown.textContent = t("animations.moveDown", "Move down");
     if (index === total - 1) moveDown.setAttribute("disabled", "");
     moveDown.addEventListener("click", handlers.onMoveDown);
 
     const remove = document.createElement("wuik-button");
     remove.dataset.action = "remove-frame";
-    remove.textContent = "Remove";
+    remove.textContent = t("animations.remove", "Remove");
     remove.addEventListener("click", handlers.onRemove);
 
     rowEl.append(
-      wrapField("Group", groupInput),
-      wrapField("Image", imageInput),
-      wrapField("Time", timeInput),
+      wrapField(t("animations.group", "Group"), groupInput),
+      wrapField(t("animations.image", "Image"), imageInput),
+      wrapField(t("animations.time", "Time"), timeInput),
       warning,
       clsnToggle,
       moveUp,
@@ -531,11 +587,11 @@ export function renderAnimationEditor(
     const addClsn1 = document.createElement("wuik-button");
     addClsn1.setAttribute("variant", "secondary");
     addClsn1.dataset.action = "add-clsn1";
-    addClsn1.textContent = "Add Clsn1 (hit)";
+    addClsn1.textContent = t("animations.addClsn1", "Add Clsn1 (hit)");
     const addClsn2 = document.createElement("wuik-button");
     addClsn2.setAttribute("variant", "secondary");
     addClsn2.dataset.action = "add-clsn2";
-    addClsn2.textContent = "Add Clsn2 (hurt)";
+    addClsn2.textContent = t("animations.addClsn2", "Add Clsn2 (hurt)");
 
     const boxList = document.createElement("div");
     boxList.className = "animation-editor__box-list";
@@ -572,7 +628,18 @@ export function renderAnimationEditor(
       el.style.height = `${box.bottom - box.top}px`;
       el.setAttribute(
         "aria-label",
-        `${kind === "clsn1" ? "Hit" : "Hurt"} box ${index + 1}: left ${box.left}, top ${box.top}, right ${box.right}, bottom ${box.bottom}`,
+        t(
+          "animations.boxAriaLabel",
+          "{{kind}} box {{index}}: left {{left}}, top {{top}}, right {{right}}, bottom {{bottom}}",
+          {
+            kind: clsnKindLabel(kind),
+            index: String(index + 1),
+            left: String(box.left),
+            top: String(box.top),
+            right: String(box.right),
+            bottom: String(box.bottom),
+          },
+        ),
       );
     }
 
@@ -592,7 +659,7 @@ export function renderAnimationEditor(
 
       const badge = document.createElement("span");
       badge.className = "animation-editor__box-badge";
-      badge.textContent = kind === "clsn1" ? "Hit" : "Hurt";
+      badge.textContent = clsnKindLabel(kind);
       el.appendChild(badge);
 
       for (const handle of ["nw", "ne", "sw", "se"] as ClsnResizeHandle[]) {
@@ -738,19 +805,49 @@ export function renderAnimationEditor(
       row.dataset.boxIndex = String(index);
 
       const label = document.createElement("span");
-      label.textContent = `${kind === "clsn1" ? "Hit" : "Hurt"} box ${index + 1}`;
+      label.textContent = t(
+        "animations.boxFieldsLabel",
+        "{{kind}} box {{index}}",
+        {
+          kind: clsnKindLabel(kind),
+          index: String(index + 1),
+        },
+      );
 
-      const xInput = numberField("x", box.left, `${kind} box ${index + 1} x`);
-      const yInput = numberField("y", box.top, `${kind} box ${index + 1} y`);
+      function boxFieldAriaLabel(
+        fieldKey: string,
+        fieldDefault: string,
+      ): string {
+        return t(
+          "animations.boxFieldAriaLabel",
+          "{{kind}} box {{index}} {{field}}",
+          {
+            kind: clsnKindLabel(kind),
+            index: String(index + 1),
+            field: t(fieldKey, fieldDefault),
+          },
+        );
+      }
+
+      const xInput = numberField(
+        "x",
+        box.left,
+        boxFieldAriaLabel("animations.fieldX", "x"),
+      );
+      const yInput = numberField(
+        "y",
+        box.top,
+        boxFieldAriaLabel("animations.fieldY", "y"),
+      );
       const wInput = numberField(
         "width",
         box.right - box.left,
-        `${kind} box ${index + 1} width`,
+        boxFieldAriaLabel("animations.fieldWidth", "width"),
       );
       const hInput = numberField(
         "height",
         box.bottom - box.top,
-        `${kind} box ${index + 1} height`,
+        boxFieldAriaLabel("animations.fieldHeight", "height"),
       );
 
       function commitFields(): void {
@@ -769,9 +866,12 @@ export function renderAnimationEditor(
       removeButton.dataset.action = "remove-clsn-box";
       removeButton.setAttribute(
         "aria-label",
-        `Remove ${kind === "clsn1" ? "hit" : "hurt"} box ${index + 1}`,
+        t("animations.removeBoxAriaLabel", "Remove {{kind}} box {{index}}", {
+          kind: clsnKindLabel(kind),
+          index: String(index + 1),
+        }),
       );
-      removeButton.textContent = "Remove box";
+      removeButton.textContent = t("animations.removeBox", "Remove box");
       removeButton.addEventListener("click", () => {
         const boxes = boxesFor(kind);
         boxes.splice(index, 1);
@@ -781,10 +881,10 @@ export function renderAnimationEditor(
 
       row.append(
         label,
-        wrapField("X", xInput),
-        wrapField("Y", yInput),
-        wrapField("W", wInput),
-        wrapField("H", hInput),
+        wrapField(t("animations.x", "X"), xInput),
+        wrapField(t("animations.y", "Y"), yInput),
+        wrapField(t("animations.w", "W"), wInput),
+        wrapField(t("animations.h", "H"), hInput),
         removeButton,
       );
       return row;
@@ -833,7 +933,7 @@ export function renderAnimationEditor(
           canvas.hidden = false;
           resetViewportToFit(viewport);
         } else {
-          status.textContent = "Loading…";
+          status.textContent = t("animations.loading", "Loading…");
           deps
             .resolvePixels(
               sffBytesForPreview,
@@ -859,7 +959,11 @@ export function renderAnimationEditor(
         }
       }
     } else {
-      status.textContent = `Sprite ${frame.group}, ${frame.image} does not exist — showing an empty preview.`;
+      status.textContent = t(
+        "animations.spriteMissingEmptyPreview",
+        "Sprite {{group}}, {{image}} does not exist — showing an empty preview.",
+        { group: String(frame.group), image: String(frame.image) },
+      );
     }
 
     wrapper.append(viewport, status, addClsn1, addClsn2, boxList);
@@ -890,17 +994,17 @@ export function renderAnimationEditor(
 
     const playButton = document.createElement("wuik-button");
     playButton.dataset.action = "play";
-    playButton.textContent = "Play";
+    playButton.textContent = t("animations.play", "Play");
 
     const pauseButton = document.createElement("wuik-button");
     pauseButton.setAttribute("variant", "secondary");
     pauseButton.dataset.action = "pause";
-    pauseButton.textContent = "Pause";
+    pauseButton.textContent = t("animations.pause", "Pause");
 
     const stepButton = document.createElement("wuik-button");
     stepButton.setAttribute("variant", "secondary");
     stepButton.dataset.action = "step";
-    stepButton.textContent = "Step";
+    stepButton.textContent = t("animations.step", "Step");
 
     let currentIndex = 0;
     let scheduledHandle: number | null = null;
@@ -923,7 +1027,11 @@ export function renderAnimationEditor(
         !spriteReferenceExists(mergedSpriteGroups(), frame.group, frame.image)
       ) {
         status.textContent = frame
-          ? `Sprite ${frame.group}, ${frame.image} does not exist.`
+          ? t(
+              "animations.spriteMissing",
+              "Sprite {{group}}, {{image}} does not exist.",
+              { group: String(frame.group), image: String(frame.image) },
+            )
           : "";
         return;
       }
@@ -943,7 +1051,7 @@ export function renderAnimationEditor(
         resetViewportToFit(viewport);
         return;
       }
-      status.textContent = "Loading…";
+      status.textContent = t("animations.loading", "Loading…");
       resolvePixels(
         sffBytes,
         [[frame.group, frame.image]],
@@ -1001,7 +1109,7 @@ export function renderAnimationEditor(
       showFrame(currentIndex);
     }
 
-    const EMPTY_STATUS = "No frames to play.";
+    const EMPTY_STATUS = t("animations.noFramesToPlay", "No frames to play.");
 
     function refreshButtons(): void {
       const frames = getFrames();
@@ -1033,7 +1141,10 @@ export function renderAnimationEditor(
       pauseButton,
       stepButton,
     );
-    (element.firstElementChild as HTMLElement).textContent = "Playback preview";
+    (element.firstElementChild as HTMLElement).textContent = t(
+      "animations.playbackPreview",
+      "Playback preview",
+    );
 
     refreshButtons();
 
@@ -1045,19 +1156,28 @@ export function renderAnimationEditor(
     handlers: { onConfirm: () => void; onCancel: () => void },
   ): HTMLElement {
     const wrapper = document.createElement("div");
+    const suffix = frameCount === 1 ? "" : "s";
     const warning = document.createElement("p");
     warning.setAttribute("role", "status");
-    warning.textContent = `This animation has ${frameCount} frame${frameCount === 1 ? "" : "s"}.`;
+    warning.textContent = t(
+      "animations.removeAnimationWarning",
+      "This animation has {{count}} frame{{suffix}}.",
+      { count: String(frameCount), suffix },
+    );
 
     const confirmButton = document.createElement("wuik-button");
     confirmButton.dataset.action = "confirm-remove-animation";
-    confirmButton.textContent = `Confirm remove (${frameCount} frame${frameCount === 1 ? "" : "s"})`;
+    confirmButton.textContent = t(
+      "animations.confirmRemoveAnimation",
+      "Confirm remove ({{count}} frame{{suffix}})",
+      { count: String(frameCount), suffix },
+    );
     confirmButton.addEventListener("click", handlers.onConfirm);
 
     const cancelButton = document.createElement("wuik-button");
     cancelButton.setAttribute("variant", "secondary");
     cancelButton.dataset.action = "cancel-remove-animation";
-    cancelButton.textContent = "Cancel";
+    cancelButton.textContent = t("animations.cancel", "Cancel");
     cancelButton.addEventListener("click", handlers.onCancel);
 
     wrapper.append(warning, confirmButton, cancelButton);

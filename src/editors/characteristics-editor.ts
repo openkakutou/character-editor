@@ -7,6 +7,7 @@
 // why, and for why text fields are plain `<input>`s styled with
 // `web-ui-kit` tokens rather than a (currently nonexistent) `wuik-input`
 // component.
+import { t } from "../i18n/i18n.ts";
 import type { CharacterData } from "../wasm/types.ts";
 
 /** A single-value text field this screen edits, in display order. */
@@ -19,30 +20,79 @@ type ScalarField =
   | "commandFile"
   | "constantsFile";
 
-const IDENTITY_FIELDS: readonly { field: ScalarField; label: string }[] = [
-  { field: "name", label: "Name" },
-  { field: "author", label: "Author" },
+interface ScalarFieldSpec {
+  field: ScalarField;
+  labelKey: string;
+  labelDefault: string;
+}
+
+const IDENTITY_FIELDS: readonly ScalarFieldSpec[] = [
+  {
+    field: "name",
+    labelKey: "characteristics.nameLabel",
+    labelDefault: "Name",
+  },
+  {
+    field: "author",
+    labelKey: "characteristics.authorLabel",
+    labelDefault: "Author",
+  },
 ];
 
-const FILE_REFERENCE_FIELDS: readonly { field: ScalarField; label: string }[] =
-  [
-    { field: "spriteFile", label: "Sprite file" },
-    { field: "animationFile", label: "Animation file" },
-    { field: "soundFile", label: "Sound file" },
-    { field: "commandFile", label: "Command file" },
-    { field: "constantsFile", label: "Constants file" },
-  ];
+const FILE_REFERENCE_FIELDS: readonly ScalarFieldSpec[] = [
+  {
+    field: "spriteFile",
+    labelKey: "characteristics.spriteFileLabel",
+    labelDefault: "Sprite file",
+  },
+  {
+    field: "animationFile",
+    labelKey: "characteristics.animationFileLabel",
+    labelDefault: "Animation file",
+  },
+  {
+    field: "soundFile",
+    labelKey: "characteristics.soundFileLabel",
+    labelDefault: "Sound file",
+  },
+  {
+    field: "commandFile",
+    labelKey: "characteristics.commandFileLabel",
+    labelDefault: "Command file",
+  },
+  {
+    field: "constantsFile",
+    labelKey: "characteristics.constantsFileLabel",
+    labelDefault: "Constants file",
+  },
+];
 
 /** A list field (an array of file-path strings) this screen edits. */
 type ListField = "stateFiles" | "palettes";
 
-const LIST_FIELDS: readonly {
+interface ListFieldSpec {
   field: ListField;
-  label: string;
-  singular: string;
-}[] = [
-  { field: "stateFiles", label: "State files", singular: "state file" },
-  { field: "palettes", label: "Palettes", singular: "palette" },
+  labelKey: string;
+  labelDefault: string;
+  singularKey: string;
+  singularDefault: string;
+}
+
+const LIST_FIELDS: readonly ListFieldSpec[] = [
+  {
+    field: "stateFiles",
+    labelKey: "characteristics.stateFilesLabel",
+    labelDefault: "State files",
+    singularKey: "characteristics.stateFileSingular",
+    singularDefault: "state file",
+  },
+  {
+    field: "palettes",
+    labelKey: "characteristics.palettesLabel",
+    labelDefault: "Palettes",
+    singularKey: "characteristics.paletteSingular",
+    singularDefault: "palette",
+  },
 ];
 
 const REQUIRED_FIELDS: ReadonlySet<ScalarField> = new Set(["name"]);
@@ -71,11 +121,16 @@ export function renderCharacteristicsEditor(
   container.className = "characteristics-editor";
 
   container.appendChild(
-    renderScalarSection("Identity", IDENTITY_FIELDS, character, options),
+    renderScalarSection(
+      t("characteristics.identityHeading", "Identity"),
+      IDENTITY_FIELDS,
+      character,
+      options,
+    ),
   );
   container.appendChild(
     renderScalarSection(
-      "File references",
+      t("characteristics.fileReferencesHeading", "File references"),
       FILE_REFERENCE_FIELDS,
       character,
       options,
@@ -85,8 +140,8 @@ export function renderCharacteristicsEditor(
     container.appendChild(
       renderListSection(
         list.field,
-        list.label,
-        list.singular,
+        t(list.labelKey, list.labelDefault),
+        t(list.singularKey, list.singularDefault),
         character,
         options,
       ),
@@ -98,7 +153,7 @@ export function renderCharacteristicsEditor(
 
 function renderScalarSection(
   heading: string,
-  fields: readonly { field: ScalarField; label: string }[],
+  fields: readonly ScalarFieldSpec[],
   character: CharacterData,
   options: CharacteristicsEditorOptions,
 ): HTMLElement {
@@ -109,9 +164,14 @@ function renderScalarSection(
   title.textContent = heading;
   section.appendChild(title);
 
-  for (const { field, label } of fields) {
+  for (const { field, labelKey, labelDefault } of fields) {
     section.appendChild(
-      renderScalarField(field, label, character[field], options),
+      renderScalarField(
+        field,
+        t(labelKey, labelDefault),
+        character[field],
+        options,
+      ),
     );
   }
 
@@ -133,7 +193,9 @@ function renderScalarField(
   const labelEl = document.createElement("label");
   labelEl.className = "characteristics-editor__label";
   labelEl.htmlFor = inputId;
-  labelEl.textContent = required ? `${label} *` : label;
+  labelEl.textContent = required
+    ? t("characteristics.requiredSuffix", "{{label}} *", { label })
+    : label;
   wrapper.appendChild(labelEl);
 
   const input = document.createElement("input");
@@ -173,7 +235,11 @@ function renderScalarField(
     }
     const trimmed = input.value.trim();
     if (trimmed === "") {
-      setInvalid(`${label} cannot be empty.`);
+      setInvalid(
+        t("characteristics.cannotBeEmpty", "{{label}} cannot be empty.", {
+          label,
+        }),
+      );
       return;
     }
     setInvalid(null);
@@ -211,7 +277,9 @@ function renderListSection(
   const addButton = document.createElement("wuik-button");
   addButton.setAttribute("variant", "secondary");
   addButton.dataset.listAdd = field;
-  addButton.textContent = `Add ${singular}`;
+  addButton.textContent = t("characteristics.addButton", "Add {{singular}}", {
+    singular,
+  });
   section.appendChild(addButton);
 
   let nextId = 0;
@@ -276,9 +344,13 @@ function renderListSection(
         removeButton.dataset.listRemove = field;
         removeButton.setAttribute(
           "aria-label",
-          `Remove ${singular} #${index + 1}`,
+          t(
+            "characteristics.removeAriaLabel",
+            "Remove {{singular}} #{{index}}",
+            { singular, index: String(index + 1) },
+          ),
         );
-        removeButton.textContent = "Remove";
+        removeButton.textContent = t("characteristics.removeButton", "Remove");
         removeButton.addEventListener("click", () => {
           rows = rows.filter((r) => r.id !== row.id);
           commit();

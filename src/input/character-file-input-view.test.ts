@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import { resetWasmBridgeForTests } from "../wasm/bridge.ts";
 import type { WasmBridgeOptions } from "../wasm/bridge.ts";
 import type { CharacterData } from "../wasm/types.ts";
@@ -150,5 +151,49 @@ describe("renderCharacterFileInput", () => {
       expect(status?.textContent).toContain("Could not load character");
     });
     expect(onLoaded).not.toHaveBeenCalled();
+  });
+
+  describe("localization (backlog item 012)", () => {
+    afterEach(async () => {
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+
+    it("retranslates the static label/hint and an already-shown slot value in place when the locale changes", async () => {
+      const root = document.createElement("div");
+      renderCharacterFileInput(root, { onLoaded: vi.fn() });
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      expect(root.querySelector(".file-input__label")?.textContent).toContain(
+        "personnage",
+      );
+      expect(root.querySelector(".file-input__hint")?.textContent).toBe(
+        "…ou glissez-déposez-les ici",
+      );
+      const cnsSlot = root.querySelector('.file-input__slot[data-kind="cns"]');
+      expect(cnsSlot?.textContent).toContain("Manquant");
+    });
+
+    it("retranslates a duplicate-file slot error without clearing the slots already gathered", async () => {
+      const root = document.createElement("div");
+      renderCharacterFileInput(root, {
+        onLoaded: vi.fn(),
+        bridgeOptions: testOptions,
+      });
+      const dropZone = root.querySelector(".file-input__dropzone");
+      if (!dropZone) throw new Error("dropzone not found");
+      const cmdA = fileFromBytes("ryu-a.cmd", textBytes("a"));
+      const cmdB = fileFromBytes("ryu-b.cmd", textBytes("b"));
+      dispatchDrop(dropZone, [cmdA, cmdB]);
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+
+      const cmdSlot = root.querySelector('.file-input__slot[data-kind="cmd"]');
+      expect(cmdSlot?.textContent).toContain("Deux fichiers fournis");
+      expect(cmdSlot?.textContent).toContain("ryu-a.cmd, ryu-b.cmd");
+    });
   });
 });
