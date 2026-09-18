@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 depends_on: [002]
 ---
 # Folder Selection as the Sole Character File Input Method (Web Build)
