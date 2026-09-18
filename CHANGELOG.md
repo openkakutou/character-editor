@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-18
+
 ### Added
 
 - Loading a character now works by selecting or dragging in its whole folder, instead of picking each file one by one. If the folder has more than one `.def` file, you're asked which one is the character; otherwise it's picked automatically. The referenced sprite, animation, and combat-logic files are found by the exact name the character's own file specifies, even in a subfolder, so a folder with leftover or alternate files of the same type is never mistaken for the ones actually used. A referenced file that can't be found anywhere in the folder shows a clear error naming exactly which one is missing. This replaces the previous file-by-file picker on the web app.
@@ -84,7 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/openkakutou/character-editor/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openkakutou/character-editor/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/openkakutou/character-editor/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/openkakutou/character-editor/compare/v0.9.0...v0.10.0
