@@ -1,86 +1,204 @@
-// DOM component for backlog item 002 (character file input for editing): a
-// keyboard/screen-reader-first file picker plus a drag-and-drop zone,
-// extending character-viewer-web's own 4-required-slot pattern (see its
-// .vibe/decisions/004) to 6 slots — 4 required, 2 optional — driven by
-// ./character-file-input.ts's ALL_FILE_KINDS config rather than hardcoded
-// markup. See .vibe/decisions/002-required-vs-optional-input-files-and-in-memory-document.md
-// for the required/optional interaction rules this view renders:
-// - readiness (auto-load trigger) keys off the 4 required slots only
-// - a missing optional slot reads as a neutral "Not provided", never an error
-// - a duplicate on an optional slot never blocks auto-loading an otherwise-
-//   complete required set
+// DOM component for backlog item 014 (folder selection as the sole
+// character file input on the web build): a native `<input webkitdirectory>`
+// folder picker plus a drag-and-drop zone accepting a dropped folder,
+// replacing item 002's per-kind file picker/drop zone outright — see this
+// backlog item's own Notes for why folder selection is the only way to
+// reach sibling files in a browser. Every interactive control is a real
+// native element (folder input, radio inputs, buttons) rather than a custom
+// `role="button"` div, so keyboard operability comes for free from the
+// browser. Structure/state-machine shape (Phase, StatusDescriptor, the
+// multi-candidate radio-group picker, the "Choose a different folder" reset
+// control) is ported from `stage-editor`'s own
+// `src/input/stage-file-input-view.ts` — see
+// .vibe/decisions/016-folder-only-input-def-files-parse-and-ported-resolution.md.
+//
+// The currently-displayed status/error text is kept as a small
+// unformatted `StatusDescriptor`, not a pre-formatted string, so a live
+// locale change (item 012) can re-format and redisplay it in the new
+// language without re-running the load/parse that produced it.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import {
-  ALL_FILE_KINDS,
   type CharacterFileInputOptions,
+  type CharacterFolderLoadResult,
   EXTENSION_BY_KIND,
-  type FileKind,
-  type FileSlots,
   type LoadedFileBytes,
   OPTIONAL_FILE_KINDS,
-  REQUIRED_FILE_KINDS,
-  isComplete,
-  loadCharacterFromSlots,
-  mergeFiles,
+  loadCharacterFromChosenDef,
+  loadCharacterFromFolderFiles,
 } from "./character-file-input.ts";
+import type { GatheredFile } from "./folder-entries.ts";
+import {
+  type DataTransferItemLike,
+  filesFromDataTransferItems,
+  filesFromWebkitDirectoryFiles,
+} from "./folder-entries.ts";
 
 export interface CharacterFileInputViewOptions {
   /**
-   * Called once the 4 required files have been read and the character
-   * successfully loaded. `files` carries the raw bytes of every slot that
-   * was actually supplied (required and optional), for a caller to hold
-   * onto (e.g. in an in-memory document) for later editor screens.
+   * Called once the character has been fully resolved and loaded. `files`
+   * carries the raw bytes of every kind that was actually resolved
+   * (required and optional), for a caller to hold onto (e.g. in an
+   * in-memory document) for later editor screens.
    */
   onLoaded: (character: CharacterData, files: LoadedFileBytes) => void;
   /** Forwarded to the file-reading/WASM bridge layer; injectable for testing. */
   bridgeOptions?: CharacterFileInputOptions;
 }
 
-function isOptional(kind: FileKind): boolean {
-  return (OPTIONAL_FILE_KINDS as readonly FileKind[]).includes(kind);
+type Phase = "idle" | "loading" | "needs-selection" | "done";
+
+type ErrorResult = Exclude<
+  CharacterFolderLoadResult,
+  { status: "success" | "needs-selection" }
+>;
+
+type StatusDescriptor =
+  | { kind: "none" }
+  | { kind: "reading" }
+  | { kind: "readingFile"; fileName: string }
+  | {
+      kind: "success";
+      name: string;
+      includedOptional: string[];
+      omittedOptional: string[];
+      zssAmbiguousCount?: number;
+    }
+  | { kind: "needsSelection"; count: number }
+  | { kind: "error"; result: ErrorResult; source: "picker" | "drop" };
+
+function formatErrorMessage(
+  result: ErrorResult,
+  source: "picker" | "drop",
+): string {
+  switch (result.status) {
+    case "no-files":
+      return source === "drop"
+        ? t(
+            "input.errorNoFilesDrop",
+            "Couldn't read anything from the dropped folder — your browser may not support folder drag-and-drop here. Try the folder picker button instead.",
+          )
+        : t(
+            "input.errorNoFilesPicker",
+            "This folder is empty — pick a folder that contains the character's .def file.",
+          );
+    case "no-candidate":
+      return t(
+        "input.errorNoCandidate",
+        "No .def file found in this folder — expected one like kfm.def.",
+      );
+    case "read-error":
+      return t(
+        "input.errorReadFile",
+        "Could not read {{fileName}}: {{message}}",
+        {
+          fileName: result.error.fileName,
+          message: result.error.message,
+        },
+      );
+    case "bridge-error":
+      return t("input.loadError", "Could not load character: {{message}}", {
+        message: result.message,
+      });
+    case "reference-not-found":
+      return result.referencedName === ""
+        ? t(
+            "input.errorReferenceMissingKey",
+            "The selected .def doesn't reference a {{extension}} file at all.",
+            { extension: EXTENSION_BY_KIND[result.kind] },
+          )
+        : t(
+            "input.errorReferenceNotFound",
+            'The selected .def references "{{referencedName}}" for its {{extension}} file, but that file wasn\'t found anywhere in the selected folder.',
+            {
+              referencedName: result.referencedName,
+              extension: EXTENSION_BY_KIND[result.kind],
+            },
+          );
+    case "reference-ambiguous":
+      return t(
+        "input.errorReferenceAmbiguous",
+        'The selected .def references "{{referencedName}}" for its {{extension}} file, but {{count}} files in the folder share that name — could not tell which one to use.',
+        {
+          referencedName: result.referencedName,
+          extension: EXTENSION_BY_KIND[result.kind],
+          count: String(result.candidates.length),
+        },
+      );
+  }
 }
 
-/**
- * A slot's error, kept as a small tagged description plus its raw
- * parameters rather than a pre-formatted string, so a locale change can
- * re-format it in the new language without re-processing the file that
- * produced it. `"read"` carries the underlying `FileReadError`'s own
- * message verbatim -- a technical, browser/OS-originated string with no
- * static wrapper text around it, so it is never itself translated. See
- * .vibe/decisions/015-i18n-integration-approach.md.
- */
-type SlotError =
-  | { kind: "duplicate"; extension: string; fileNames: string }
-  | { kind: "read"; message: string };
-
-function formatSlotError(error: SlotError): string {
-  if (error.kind === "read") return error.message;
-  return t(
-    "input.duplicateError",
-    "Two files given for {{extension}}: {{fileNames}} — pick one and try again.",
-    { extension: error.extension, fileNames: error.fileNames },
-  );
+function formatStatus(descriptor: StatusDescriptor): string {
+  switch (descriptor.kind) {
+    case "none":
+      return "";
+    case "reading":
+      return t("input.reading", "Reading the selected folder…");
+    case "readingFile":
+      return t("input.readingFile", "Reading {{fileName}}…", {
+        fileName: descriptor.fileName,
+      });
+    case "success": {
+      const base =
+        descriptor.omittedOptional.length > 0
+          ? t(
+              "input.loadedNoOptional",
+              "Character loaded: {{name}}. No {{extensions}} supplied.",
+              {
+                name: descriptor.name,
+                extensions: descriptor.omittedOptional.join("/"),
+              },
+            )
+          : t(
+              "input.loadedWithOptional",
+              "Character loaded: {{name}}. Also loaded {{extensions}}.",
+              {
+                name: descriptor.name,
+                extensions: descriptor.includedOptional.join(", "),
+              },
+            );
+      if (!descriptor.zssAmbiguousCount) return base;
+      return `${base} ${t(
+        "input.zssAmbiguousNote",
+        "Note: {{count}} .zss files were found in the folder — none was used, only a single .zss file is supported.",
+        { count: String(descriptor.zssAmbiguousCount) },
+      )}`;
+    }
+    case "needsSelection":
+      return t(
+        "input.needsSelection",
+        "Found {{count}} .def files in the selected folder — pick which one is the character.",
+        { count: String(descriptor.count) },
+      );
+    case "error":
+      return formatErrorMessage(descriptor.result, descriptor.source);
+  }
 }
 
+// Cancels a previous call's live locale-change subscription when
+// `renderCharacterFileInput` is invoked again on the same root — same
+// "replace, don't accumulate" rule this app's other render-owned
+// subscriptions already follow.
+const stopLocaleSubscriptionByRoot = new WeakMap<HTMLElement, () => void>();
+
 /**
- * Renders the character file input into `root`, replacing its previous
- * content. The native file input stays a first-class, fully keyboard- and
- * screen-reader-operable control alongside the drag-and-drop zone — not a
- * drag-and-drop fallback.
+ * Renders the folder-based character input into `root`, replacing its
+ * previous content.
  */
 export function renderCharacterFileInput(
   root: HTMLElement,
   options: CharacterFileInputViewOptions,
 ): void {
+  stopLocaleSubscriptionByRoot.get(root)?.();
+  stopLocaleSubscriptionByRoot.delete(root);
   root.replaceChildren();
 
-  let slots: FileSlots = {};
-  const slotErrors: Partial<Record<FileKind, SlotError>> = {};
-  let ignored: string[] = [];
-  let phase: "collecting" | "loading" | "success" = "collecting";
-  let bridgeErrorMessage: string | null = null;
-  let loadedCharacterName: string | null = null;
+  let phase: Phase = "idle";
+  let currentStatus: StatusDescriptor = { kind: "none" };
+  let isError = false;
+  let lastSource: "picker" | "drop" = "picker";
+  let selectedIndex: number | null = null;
+  let lastGatheredFiles: GatheredFile[] = [];
 
   const panel = document.createElement("wuik-panel");
   panel.className = "file-input";
@@ -90,233 +208,232 @@ export function renderCharacterFileInput(
 
   const label = document.createElement("label");
   label.className = "file-input__label";
-  label.htmlFor = "character-file-picker";
+  label.htmlFor = "character-folder-picker";
 
   const picker = document.createElement("input");
   picker.type = "file";
-  picker.id = "character-file-picker";
+  picker.id = "character-folder-picker";
+  picker.setAttribute("webkitdirectory", "");
   picker.multiple = true;
-  picker.accept = ALL_FILE_KINDS.map((kind) => EXTENSION_BY_KIND[kind]).join(
-    ",",
-  );
 
   const hint = document.createElement("p");
   hint.className = "file-input__hint";
 
   dropZone.append(label, picker, hint);
 
-  const slotList = document.createElement("ul");
-  slotList.className = "file-input__slots";
-  slotList.setAttribute("aria-live", "polite");
-
-  const ignoredNotice = document.createElement("p");
-  ignoredNotice.className = "file-input__ignored";
-  ignoredNotice.hidden = true;
+  const selectionContainer = document.createElement("div");
+  selectionContainer.className = "file-input__selection";
+  selectionContainer.hidden = true;
 
   const status = document.createElement("div");
   status.className = "file-input__status";
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
 
-  panel.append(dropZone, slotList, ignoredNotice, status);
+  const resetButton = document.createElement("button");
+  resetButton.type = "button";
+  resetButton.className = "file-input__reset";
+  resetButton.dataset.action = "reset";
+  resetButton.hidden = true;
+
+  panel.append(dropZone, selectionContainer, status, resetButton);
   root.appendChild(panel);
 
-  function renderStaticText(): void {
+  // Elements created by `renderSelection`, kept so a live locale change can
+  // retranslate them in place without rebuilding the list (which would
+  // drop the user's in-progress radio selection).
+  let selectionPrompt: HTMLElement | null = null;
+  let selectionGroup: HTMLElement | null = null;
+  let selectionConfirmButton: HTMLButtonElement | null = null;
+
+  function renderStaticTexts(): void {
     label.textContent = t(
-      "input.label",
-      "Select the character files: .def, .air, .sff, .cns (required), .cmd, .zss (optional)",
+      "input.folderLabel",
+      "Select a character folder (containing its .def file, e.g. kfm.def)",
     );
-    hint.textContent = t("input.dropHint", "…or drag and drop them here");
+    hint.textContent = t(
+      "input.dropHint",
+      "…or drag and drop a character folder here",
+    );
+    resetButton.textContent = t(
+      "input.resetButton",
+      "Choose a different folder",
+    );
+    selectionPrompt?.replaceChildren(
+      document.createTextNode(
+        t("input.selectionPrompt", "Which file is the character?"),
+      ),
+    );
+    selectionGroup?.setAttribute(
+      "aria-label",
+      t("input.candidateGroupLabel", "Candidate character files"),
+    );
+    if (selectionConfirmButton) {
+      selectionConfirmButton.textContent = t(
+        "input.confirmSelection",
+        "Load selected file",
+      );
+    }
   }
 
   function render(): void {
+    picker.disabled = phase === "loading";
     dropZone.classList.toggle(
       "file-input__dropzone--loading",
       phase === "loading",
     );
-    picker.disabled = phase === "loading";
-
-    slotList.replaceChildren(
-      ...ALL_FILE_KINDS.map((kind) => {
-        const optional = isOptional(kind);
-        const item = document.createElement("li");
-        item.className = "file-input__slot";
-        item.classList.toggle("file-input__slot--optional", optional);
-        item.dataset.kind = kind;
-
-        const file = slots[kind];
-        const error = slotErrors[kind];
-        item.classList.toggle("file-input__slot--filled", Boolean(file));
-        // A missing optional slot is never an error state — only a
-        // same-gesture duplicate (a real ambiguity) can put it in error.
-        item.classList.toggle("file-input__slot--error", Boolean(error));
-
-        const kindLabel = document.createElement("span");
-        kindLabel.className = "file-input__slot-kind";
-        kindLabel.textContent = optional
-          ? t("input.optionalSuffix", "{{extension}} (optional)", {
-              extension: EXTENSION_BY_KIND[kind],
-            })
-          : EXTENSION_BY_KIND[kind];
-
-        const value = document.createElement("span");
-        value.className = "file-input__slot-value";
-        value.textContent = file
-          ? file.name
-          : optional
-            ? t("input.notProvided", "Not provided")
-            : t("input.missing", "Missing");
-
-        item.append(kindLabel, value);
-
-        if (error) {
-          const errorEl = document.createElement("span");
-          errorEl.className = "file-input__slot-error-text";
-          errorEl.textContent = formatSlotError(error);
-          item.appendChild(errorEl);
-        }
-
-        return item;
-      }),
-    );
-
-    if (ignored.length > 0) {
-      ignoredNotice.textContent = t(
-        "input.ignoredNotice",
-        "Ignored (unrecognized file type): {{fileNames}}",
-        { fileNames: ignored.join(", ") },
-      );
-      ignoredNotice.hidden = false;
-    } else {
-      ignoredNotice.textContent = "";
-      ignoredNotice.hidden = true;
-    }
-
-    if (phase === "loading") {
-      status.textContent = t("input.loading", "Loading character…");
-    } else if (phase === "success") {
-      const suppliedOptional = OPTIONAL_FILE_KINDS.filter(
-        (kind) => slots[kind] !== undefined,
-      );
-      const omittedOptional = OPTIONAL_FILE_KINDS.filter(
-        (kind) => slots[kind] === undefined,
-      );
-      status.textContent =
-        omittedOptional.length > 0
-          ? t(
-              "input.loadedNoOptional",
-              "Character loaded: {{name}}. No {{extensions}} supplied.",
-              {
-                name: loadedCharacterName ?? "",
-                extensions: omittedOptional
-                  .map((kind) => EXTENSION_BY_KIND[kind])
-                  .join("/"),
-              },
-            )
-          : t(
-              "input.loadedWithOptional",
-              "Character loaded: {{name}}. Also loaded {{extensions}}.",
-              {
-                name: loadedCharacterName ?? "",
-                extensions: suppliedOptional
-                  .map((kind) => EXTENSION_BY_KIND[kind])
-                  .join(", "),
-              },
-            );
-    } else if (bridgeErrorMessage) {
-      status.textContent = t(
-        "input.loadError",
-        "Could not load character: {{message}}",
-        { message: bridgeErrorMessage },
-      );
-    } else {
-      status.textContent = "";
-    }
+    status.classList.toggle("file-input__status--error", isError);
+    status.textContent = formatStatus(currentStatus);
+    resetButton.hidden = phase === "idle" || phase === "loading";
+    selectionContainer.hidden = phase !== "needs-selection";
   }
 
-  async function tryAutoLoad(): Promise<void> {
-    if (!isComplete(slots)) return;
-
-    phase = "loading";
-    bridgeErrorMessage = null;
+  function resetToIdle(): void {
+    phase = "idle";
+    currentStatus = { kind: "none" };
+    isError = false;
+    selectedIndex = null;
+    picker.value = "";
+    selectionContainer.replaceChildren();
+    selectionPrompt = null;
+    selectionGroup = null;
+    selectionConfirmButton = null;
     render();
+  }
 
-    const result = await loadCharacterFromSlots(slots, options.bridgeOptions);
+  function renderSelection(candidates: GatheredFile[]): void {
+    selectionContainer.replaceChildren();
+    selectedIndex = null;
+
+    const prompt = document.createElement("p");
+    prompt.textContent = t(
+      "input.selectionPrompt",
+      "Which file is the character?",
+    );
+    selectionPrompt = prompt;
+
+    const group = document.createElement("div");
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute(
+      "aria-label",
+      t("input.candidateGroupLabel", "Candidate character files"),
+    );
+    selectionGroup = group;
+
+    const confirmButton = document.createElement("button");
+    confirmButton.type = "button";
+    confirmButton.dataset.action = "confirm-selection";
+    confirmButton.textContent = t(
+      "input.confirmSelection",
+      "Load selected file",
+    );
+    confirmButton.disabled = true;
+    selectionConfirmButton = confirmButton;
+
+    candidates.forEach((candidate, index) => {
+      const optionLabel = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "character-def-candidate";
+      input.value = String(index);
+      // A jsdom quirk: `.click()` on a radio reliably toggles `.checked`
+      // but doesn't reliably synthesize a "change" event under this
+      // project's pinned jsdom — read the selection from "click" instead,
+      // the same workaround `stage-editor`/`lifebar-editor` use.
+      input.addEventListener("click", () => {
+        selectedIndex = index;
+        confirmButton.disabled = false;
+      });
+      optionLabel.append(
+        input,
+        document.createTextNode(` ${candidate.relativePath}`),
+      );
+      group.appendChild(optionLabel);
+    });
+
+    confirmButton.addEventListener("click", () => {
+      if (selectedIndex === null) return;
+      const chosen = candidates[selectedIndex];
+      phase = "loading";
+      currentStatus = { kind: "readingFile", fileName: chosen.file.name };
+      isError = false;
+      render();
+      void finishLoading(
+        loadCharacterFromChosenDef(
+          chosen,
+          lastGatheredFiles,
+          options.bridgeOptions,
+        ),
+      );
+    });
+
+    selectionContainer.append(prompt, group, confirmButton);
+  }
+
+  async function finishLoading(
+    resultPromise: Promise<CharacterFolderLoadResult>,
+  ): Promise<void> {
+    const result = await resultPromise;
 
     if (result.status === "success") {
-      phase = "success";
-      loadedCharacterName = result.character.name;
+      phase = "done";
+      isError = false;
+      const includedOptional = OPTIONAL_FILE_KINDS.filter(
+        (kind) => result.files[kind] !== undefined,
+      ).map((kind) => EXTENSION_BY_KIND[kind]);
+      const omittedOptional = OPTIONAL_FILE_KINDS.filter(
+        (kind) => result.files[kind] === undefined,
+      ).map((kind) => EXTENSION_BY_KIND[kind]);
+      currentStatus = {
+        kind: "success",
+        name: result.character.name,
+        includedOptional,
+        omittedOptional,
+        zssAmbiguousCount: result.zssAmbiguousCount,
+      };
       render();
       options.onLoaded(result.character, result.files);
       return;
     }
 
-    if (result.status === "read-error") {
-      // Drop just the offending slot so the user can re-supply that one
-      // file without losing the others already gathered.
-      delete slots[result.error.kind];
-      slotErrors[result.error.kind] = {
-        kind: "read",
-        message: result.error.message,
+    if (result.status === "needs-selection") {
+      phase = "needs-selection";
+      isError = false;
+      currentStatus = {
+        kind: "needsSelection",
+        count: result.candidates.length,
       };
-      phase = "collecting";
+      renderSelection(result.candidates);
       render();
       return;
     }
 
-    // bridge-error: nothing file-specific to blame, so every slot stays
-    // filled — the user retries by re-dropping any required file, which
-    // triggers a fresh attempt.
-    phase = "collecting";
-    bridgeErrorMessage = result.message;
+    phase = "done";
+    isError = true;
+    currentStatus = { kind: "error", result, source: lastSource };
     render();
   }
 
-  function handleIncomingFiles(files: File[]): void {
-    if (files.length === 0) return;
-
-    const previousSlots = slots;
-    const merged = mergeFiles(slots, files);
-    slots = merged.slots;
-    ignored = merged.ignored.map((file) => file.name);
-    bridgeErrorMessage = null;
-
-    for (const duplicate of merged.duplicates) {
-      slotErrors[duplicate.kind] = {
-        kind: "duplicate",
-        extension: EXTENSION_BY_KIND[duplicate.kind],
-        fileNames: duplicate.fileNames.join(", "),
-      };
-    }
-
-    // Only a slot actually resupplied in this gesture clears its previous
-    // error; an untouched slot's stale error (if any) is left alone.
-    for (const kind of ALL_FILE_KINDS) {
-      const isDuplicateThisGesture = merged.duplicates.some(
-        (duplicate) => duplicate.kind === kind,
-      );
-      if (!isDuplicateThisGesture && slots[kind] !== previousSlots[kind]) {
-        delete slotErrors[kind];
-      }
-    }
-
-    phase = "collecting";
+  function handleGathered(
+    files: GatheredFile[],
+    source: "picker" | "drop",
+  ): void {
+    lastSource = source;
+    lastGatheredFiles = files;
+    phase = "loading";
+    isError = false;
+    currentStatus = { kind: "reading" };
     render();
-
-    // A duplicate on an OPTIONAL kind is still reported (above) but never
-    // blocks attempting to load an otherwise-complete required set — only
-    // a duplicate on one of the 4 required kinds does.
-    const hasBlockingDuplicate = merged.duplicates.some((duplicate) =>
-      (REQUIRED_FILE_KINDS as readonly FileKind[]).includes(duplicate.kind),
+    void finishLoading(
+      loadCharacterFromFolderFiles(files, options.bridgeOptions),
     );
-    if (!hasBlockingDuplicate) {
-      void tryAutoLoad();
-    }
   }
 
   picker.addEventListener("change", () => {
-    handleIncomingFiles(Array.from(picker.files ?? []));
-    picker.value = "";
+    handleGathered(
+      filesFromWebkitDirectoryFiles(Array.from(picker.files ?? [])),
+      "picker",
+    );
   });
 
   dropZone.addEventListener("dragenter", (event) => {
@@ -332,21 +449,30 @@ export function renderCharacterFileInput(
   dropZone.addEventListener("drop", (event) => {
     event.preventDefault();
     dropZone.classList.remove("file-input__dropzone--dragging");
-    const dataTransfer = (event as DragEvent).dataTransfer;
-    handleIncomingFiles(dataTransfer ? Array.from(dataTransfer.files) : []);
+    const dataTransfer = (event as DragEvent).dataTransfer as unknown as {
+      items: readonly DataTransferItemLike[];
+    } | null;
+    const items = dataTransfer ? Array.from(dataTransfer.items) : [];
+    void filesFromDataTransferItems(items).then((files) =>
+      handleGathered(files, "drop"),
+    );
+  });
+
+  resetButton.addEventListener("click", () => {
+    resetToIdle();
   });
 
   // This view is only ever mounted once per app session (see main.ts's
   // renderApp) -- one subscription for its whole lifetime never
   // accumulates. Re-formats whatever is currently shown from the state
-  // already held above -- never re-reading a file or re-running the WASM
-  // bridge -- so an already-gathered slot/error/status survives a locale
-  // switch untouched. See .vibe/decisions/015-i18n-integration-approach.md.
-  onLocaleChange(() => {
-    renderStaticText();
+  // already held above -- never re-reading a file, re-gathering a folder,
+  // or re-running the WASM bridge.
+  const stopLocaleSubscription = onLocaleChange(() => {
+    renderStaticTexts();
     render();
   });
+  stopLocaleSubscriptionByRoot.set(root, stopLocaleSubscription);
 
-  renderStaticText();
+  renderStaticTexts();
   render();
 }

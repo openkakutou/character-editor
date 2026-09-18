@@ -52,6 +52,14 @@ at all. `src/input/character-file-input.ts` reads `File` objects via
 `FileReader#readAsArrayBuffer` instead, which behaves identically under
 jsdom and in a real browser.
 
+jsdom also doesn't implement `DataTransferItem.webkitGetAsEntry()` or
+`FileSystemDirectoryReader` (the drag-and-drop folder APIs) at all.
+`folder-entries.ts` models only the handful of members it actually uses as
+small `*Like` interfaces, so its recursive-walk logic is unit-tested
+against plain mock objects instead of a real implementation — real
+browser behavior is confirmed separately, see "Beyond the test suite"
+below.
+
 Native browser objects that jsdom doesn't construct in a test-friendly way
 (a drop event's `dataTransfer`, a file input's `files`) are stubbed with
 `Object.defineProperty` in tests rather than built through jsdom's own
@@ -136,11 +144,21 @@ interaction without needing a `PointerEvent` polyfill.
 
 ## Beyond the test suite: real-browser verification
 
-Passing tests are not treated as proof a UI feature works. The file input
-was additionally driven against a real headless Chromium (dev server +
-Playwright) during development — dropping the 4 required files and
-confirming the success status, and swapping in a corrupt `.sff` to confirm
-the error path renders cleanly with no console errors. The sprite browser
+Passing tests are not treated as proof a UI feature works. The folder-based
+file input was additionally driven against a real headless Chromium (dev
+server + Playwright) during development — selecting a folder via the
+`webkitdirectory` picker (Playwright's `setInputFiles` accepts a directory
+path directly) with a required file nested one level deeper than the `.def`
+itself, confirming resolution isn't limited to the `.def`'s own folder;
+selecting a folder with two `.def` files and confirming the picker lists
+both by their relative path, then loads the chosen one; and selecting a
+folder missing a referenced file to confirm the error names it exactly,
+with no console errors and no partial load. This pass is also what caught
+a real bug no unit test could: the "pick a `.def`" panel's own `display:
+flex` had the same CSS specificity as the `hidden` attribute's UA-default
+`display: none` and was winning, so the panel never actually hid itself
+after a successful load — fixed with a `[hidden]`-scoped override. The
+sprite browser
 got the same treatment: loading a character, confirming a selected sprite's
 pixels actually render inside `<wuik-viewport>` (sampled non-blank canvas
 content, not just "no crash"), importing and replacing with a real PNG,

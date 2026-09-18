@@ -6,7 +6,7 @@ A read+write web editor for [OpenKakutou](https://github.com/openkakutou) (MUGEN
 This project is in early-stage development. Available now:
 
 - Built on the shared `web-ui-kit` design system: a styled app frame with the app title/version, and a light/dark theme toggle.
-- Load a character for editing by picking or dragging in its 4 required files (`.def`, `.air`, `.sff`, `.cns`), plus its `.cmd`/`.zss` files if it has them — the app reads them, clearly calls out a missing required file or an unreadable/corrupt one, and confirms once the character is loaded.
+- Load a character for editing by picking or dragging in its whole folder — no need to pick each file one by one. If the folder has more than one character definition, you're asked which one to load; otherwise it's picked automatically, and its sprite, animation, and combat-logic files are found automatically even in a subfolder. A file the character needs but that can't be found in the folder shows a clear error naming exactly which one is missing.
 - Edit a loaded character's name, author, referenced file paths, and its lists of state and palette files, right after loading it — a required name left empty, or a file-list entry left blank, shows a clear inline error instead of being silently accepted.
 - Browse every sprite, grouped and zoomable; import a new one, replace an existing one's image, or delete one — deleting warns how many animation frames still reference it first, and picking an unsupported file shows a clear error instead of corrupting the sprite sheet. These edits aren't saved to a file yet.
 - Edit a character's color palette: pick and recolor any of its 256 colors, start a new palette blank or as a copy of the current one, or load an existing `.act` palette file to edit, with the change reflected live on a chosen sprite preview. The color at index 0 is flagged as always fully transparent in-game, so editing it is never mistaken for a real color change. Save the edited palette as a `.act` file — loading a file that isn't a valid palette shows a clear error instead of corrupting the editor.
@@ -19,8 +19,6 @@ This project is in early-stage development. Available now:
 - Start a new character from scratch instead of only ever editing an imported one: a blank template, or a "basic" template pre-populated with one starting animation and state, both loading into every editor exactly like an imported character would.
 - See and rebind this app's keyboard shortcuts (Undo, Redo, Save/export, Add animation, Add StateDef, Add command) from a "Keyboard shortcuts" panel, visible even before a character is loaded. Rebound keys persist across reloads, and trying to bind a key already used by another action offers to swap the two instead of silently overwriting it. Shortcuts never fire while typing in a text field.
 - Switch the app's language between English and French from a selector in the toolbar. The switch applies immediately, with no page reload, and the choice is remembered on later visits. On first visit, the app matches the browser's own language when it's supported, English otherwise. Switching language never loses an in-progress edit, a loaded character, or an expanded panel.
-
-Planned: uploading a whole character folder at once.
 <!-- vibe:end:features -->
 
 <!-- vibe:begin:install -->

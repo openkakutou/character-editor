@@ -44,13 +44,23 @@ A pending sprite browser edit against the WASM-parsed sprite list — never writ
 
 Defined in: `src/sprites/sprite-edits.ts`
 
-## FileSlots / CompleteFileSlots / LoadedFileBytes
-The character file input's accumulating state: one optional `File` slot per accepted kind (`def`/`air`/`sff`/`cns`/`cmd`/`zss`). `CompleteFileSlots` narrows this once the 4 required kinds are present (optional kinds may still be absent). `LoadedFileBytes` is the byte-buffer equivalent, produced after reading every filled slot.
+## GatheredFile
+A file found while gathering a folder selection: the `File` itself plus its `relativePath` within the chosen folder. The common currency `folder-entries.ts`'s picker/drag-and-drop gathering and `character-file-input.ts`'s resolution logic both work in.
+
+Defined in: `src/input/folder-entries.ts`
+
+## DefFileReferences
+The 4 filenames a `.def`'s own `[Files]` section can reference, as read by a narrow local parse (not a full `.def` grammar): `spriteFile`/`animationFile`/`constantsFile`/`commandFile`. Any key the `.def` doesn't set is an empty string.
+
+Defined in: `src/input/def-files-section.ts`
+
+## LoadedFileBytes
+The byte-buffer equivalent of a resolved folder-based load: one `Uint8Array` per kind actually resolved (`def`/`air`/`sff`/`cns` always present, `cmd`/`zss` only when found).
 
 Defined in: `src/input/character-file-input.ts`
 
-## CharacterResult / CharacterInputResult
-Discriminated-union results instead of thrown exceptions. `CharacterResult` is the WASM bridge's own `{ok: true, character} | {ok: false, error}`. `CharacterInputResult` wraps it one layer up: `{status: "success", character, files} | {status: "read-error", error} | {status: "bridge-error", message}`.
+## CharacterResult / CharacterInputResult / CharacterFolderLoadResult
+Discriminated-union results instead of thrown exceptions. `CharacterResult` is the WASM bridge's own `{ok: true, character} | {ok: false, error}`. `CharacterInputResult` wraps it one layer up: `{status: "success", character, files, zssAmbiguousCount?} | {status: "read-error", error} | {status: "bridge-error", message}`. `CharacterFolderLoadResult` is `CharacterInputResult` plus the folder/candidate/reference-resolution stages that can end a load earlier: `no-files`, `no-candidate`, `needs-selection` (with the candidate `.def`s), `reference-not-found`, `reference-ambiguous` (both naming which kind and referenced filename).
 
 Defined in: `src/wasm/types.ts`, `src/input/character-file-input.ts`
 

@@ -5,16 +5,14 @@ import { resetWasmBridgeForTests } from "../wasm/bridge.ts";
 import type { WasmBridgeOptions } from "../wasm/bridge.ts";
 import {
   type CharacterFileInputOptions,
-  type CompleteFileSlots,
-  type FileSlots,
-  OPTIONAL_FILE_KINDS,
-  REQUIRED_FILE_KINDS,
-  isComplete,
-  loadCharacterFromSlots,
-  mergeFiles,
-  missingRequiredKinds,
+  loadCharacterFromChosenDef,
+  loadCharacterFromFolderFiles,
   readFileAsBytes,
+  resolveDefCandidates,
+  resolveReferencedFile,
+  resolveZssFile,
 } from "./character-file-input.ts";
+import type { GatheredFile } from "./folder-entries.ts";
 
 // Real WASM assets (public/wasm/, gitignored) fetched via `npm run
 // wasm:download` before tests run — injected as Node-backed stubs since
@@ -35,6 +33,9 @@ const testOptions: WasmBridgeOptions = {
 };
 
 const testdataDir = path.resolve(import.meta.dirname, "..", "wasm", "testdata");
+function fixtureText(name: string): string {
+  return readFileSync(path.join(testdataDir, name), "utf-8");
+}
 function fixtureBytes(name: string): Uint8Array {
   return new Uint8Array(readFileSync(path.join(testdataDir, name)));
 }
@@ -47,155 +48,131 @@ function fileFromBytes(name: string, bytes: Uint8Array): File {
   return new File([bytes as BufferSource], name);
 }
 
+function gathered(
+  relativePath: string,
+  bytes: Uint8Array | string,
+): GatheredFile {
+  const name = relativePath.split("/").at(-1) ?? relativePath;
+  const fileBytes = typeof bytes === "string" ? textBytes(bytes) : bytes;
+  return { file: fileFromBytes(name, fileBytes), relativePath };
+}
+
 beforeEach(() => {
   resetWasmBridgeForTests();
 });
 
-describe("REQUIRED_FILE_KINDS / OPTIONAL_FILE_KINDS", () => {
-  it("keeps the 4 WASM-loadable kinds required and the 2 write-back-only kinds optional", () => {
-    expect(REQUIRED_FILE_KINDS).toEqual(["def", "air", "sff", "cns"]);
-    expect(OPTIONAL_FILE_KINDS).toEqual(["cmd", "zss"]);
+describe("resolveDefCandidates", () => {
+  it("returns no-files for an empty folder", () => {
+    expect(resolveDefCandidates([])).toEqual({ status: "no-files" });
+  });
+
+  it("returns no-candidate when nothing in the folder ends with .def", () => {
+    const files = [gathered("readme.txt", "notes"), gathered("ryu.sff", "sff")];
+    expect(resolveDefCandidates(files)).toEqual({ status: "no-candidate" });
+  });
+
+  it("auto-selects the single .def file found, case-insensitively", () => {
+    const def = gathered("chars/ryu/Ryu.DEF", "[Files]\n");
+    const files = [gathered("chars/ryu/ryu.sff", "sff"), def];
+
+    expect(resolveDefCandidates(files)).toEqual({
+      status: "success",
+      entry: def,
+    });
+  });
+
+  it("asks for a choice when more than one .def file is found", () => {
+    const defA = gathered("ryu/ryu.def", "a");
+    const defB = gathered("ken/ken.def", "b");
+
+    const result = resolveDefCandidates([defA, defB]);
+
+    expect(result).toEqual({
+      status: "needs-selection",
+      candidates: [defA, defB],
+    });
   });
 });
 
-describe("mergeFiles", () => {
-  it("classifies files by extension case-insensitively across all 6 kinds and fills empty slots", () => {
-    const def = fileFromBytes("Ryu.DEF", textBytes("def"));
-    const air = fileFromBytes("ryu.Air", textBytes("air"));
-    const sff = fileFromBytes("ryu.sff", textBytes("sff"));
-    const cns = fileFromBytes("ryu.cns", textBytes("cns"));
-    const cmd = fileFromBytes("ryu.CMD", textBytes("cmd"));
-    const zss = fileFromBytes("ryu.zss", textBytes("zss"));
-
-    const result = mergeFiles({}, [def, air, sff, cns, cmd, zss]);
-
-    expect(result.slots).toEqual({ def, air, sff, cns, cmd, zss });
-    expect(result.ignored).toEqual([]);
-    expect(result.duplicates).toEqual([]);
+describe("resolveReferencedFile", () => {
+  it("reports no-reference for a blank/whitespace-only referenced path", () => {
+    expect(resolveReferencedFile("  ", [])).toEqual({ status: "no-reference" });
   });
 
-  it("accumulates across multiple merge calls without losing previously filled slots", () => {
-    const def = fileFromBytes("ryu.def", textBytes("def"));
-    const cmd = fileFromBytes("ryu.cmd", textBytes("cmd"));
-
-    const first = mergeFiles({}, [def]);
-    const second = mergeFiles(first.slots, [cmd]);
-
-    expect(second.slots).toEqual({ def, cmd });
+  it("resolves an exact-case basename match, ignoring the reference's own subfolder", () => {
+    const sff = gathered("sprites/kfm.sff", "sff-bytes");
+    const result = resolveReferencedFile("kfm.sff", [sff]);
+    expect(result).toEqual({ status: "success", entry: sff });
   });
 
-  it("replaces a slot's file when a new file of the same kind is merged in a later call", () => {
-    const badSff = fileFromBytes("ryu.sff", textBytes("garbage"));
-    const goodSff = fileFromBytes("ryu-fixed.sff", textBytes("real sff bytes"));
-
-    const first = mergeFiles({}, [badSff]);
-    const second = mergeFiles(first.slots, [goodSff]);
-
-    expect(second.slots.sff).toBe(goodSff);
+  it("falls back to a case-insensitive basename match when no exact-case match exists", () => {
+    const sff = gathered("sprites/KFM.SFF", "sff-bytes");
+    const result = resolveReferencedFile("kfm.sff", [sff]);
+    expect(result).toEqual({ status: "success", entry: sff });
   });
 
-  it("reports files with an unrecognized extension as ignored instead of assigning them", () => {
-    const readme = fileFromBytes("readme.txt", textBytes("notes"));
-    const def = fileFromBytes("ryu.def", textBytes("def"));
-
-    const result = mergeFiles({}, [readme, def]);
-
-    expect(result.ignored).toEqual([readme]);
-    expect(result.slots).toEqual({ def });
-  });
-
-  it("reports two files of the same required kind given in one call as a duplicate, naming both filenames, and leaves that slot untouched", () => {
-    const defA = fileFromBytes("ryu-a.def", textBytes("a"));
-    const defB = fileFromBytes("ryu-b.def", textBytes("b"));
-    const existingSff = fileFromBytes("ryu.sff", textBytes("sff"));
-
-    const result = mergeFiles({ sff: existingSff }, [defA, defB]);
-
-    expect(result.duplicates).toEqual([
-      { kind: "def", fileNames: ["ryu-a.def", "ryu-b.def"] },
+  it("reports not-found, naming the referenced filename, when nothing in the folder matches", () => {
+    const result = resolveReferencedFile("kfm.sff", [
+      gathered("other.sff", "x"),
     ]);
-    expect(result.slots).toEqual({ sff: existingSff });
+    expect(result).toEqual({ status: "not-found", referencedName: "kfm.sff" });
   });
 
-  it("reports two files of the same optional kind given in one call as a duplicate too", () => {
-    const cmdA = fileFromBytes("ryu-a.cmd", textBytes("a"));
-    const cmdB = fileFromBytes("ryu-b.cmd", textBytes("b"));
-
-    const result = mergeFiles({}, [cmdA, cmdB]);
-
-    expect(result.duplicates).toEqual([
-      { kind: "cmd", fileNames: ["ryu-a.cmd", "ryu-b.cmd"] },
-    ]);
-    expect(result.slots).toEqual({});
-  });
-});
-
-describe("missingRequiredKinds", () => {
-  it("lists all four required kinds as missing for empty slots, ignoring optional kinds entirely", () => {
-    expect(missingRequiredKinds({})).toEqual(["def", "air", "sff", "cns"]);
-  });
-
-  it("lists only the required kinds not yet present, never an optional one", () => {
-    const slots: FileSlots = {
-      def: fileFromBytes("ryu.def", textBytes("def")),
-      sff: fileFromBytes("ryu.sff", textBytes("sff")),
-      cmd: fileFromBytes("ryu.cmd", textBytes("cmd")),
-    };
-
-    expect(missingRequiredKinds(slots)).toEqual(["air", "cns"]);
-  });
-
-  it("returns an empty array once all four required kinds are present, regardless of optional slots", () => {
-    const slots: FileSlots = {
-      def: fileFromBytes("ryu.def", textBytes("def")),
-      air: fileFromBytes("ryu.air", textBytes("air")),
-      sff: fileFromBytes("ryu.sff", textBytes("sff")),
-      cns: fileFromBytes("ryu.cns", textBytes("cns")),
-    };
-
-    expect(missingRequiredKinds(slots)).toEqual([]);
+  it("reports ambiguous, listing every candidate, when more than one file shares the exact basename", () => {
+    const a = gathered("a/kfm.sff", "1");
+    const b = gathered("b/kfm.sff", "2");
+    const result = resolveReferencedFile("kfm.sff", [a, b]);
+    expect(result).toEqual({
+      status: "ambiguous",
+      referencedName: "kfm.sff",
+      candidates: [a, b],
+    });
   });
 });
 
-describe("isComplete", () => {
-  it("is false when at least one required kind is missing, even with both optional kinds present", () => {
-    expect(
-      isComplete({
-        def: fileFromBytes("ryu.def", textBytes("def")),
-        cmd: fileFromBytes("ryu.cmd", textBytes("cmd")),
-        zss: fileFromBytes("ryu.zss", textBytes("zss")),
-      }),
-    ).toBe(false);
+describe("resolveZssFile", () => {
+  it("reports none when the folder has no .zss file", () => {
+    expect(resolveZssFile([gathered("ryu.def", "d")])).toEqual({
+      status: "none",
+    });
   });
 
-  it("is true once all four required kinds are present, with no optional kind supplied at all", () => {
-    const slots: FileSlots = {
-      def: fileFromBytes("ryu.def", textBytes("def")),
-      air: fileFromBytes("ryu.air", textBytes("air")),
-      sff: fileFromBytes("ryu.sff", textBytes("sff")),
-      cns: fileFromBytes("ryu.cns", textBytes("cns")),
-    };
+  it("resolves the single .zss file found, since a .def never references one by name", () => {
+    const zss = gathered("ryu.zss", "z");
+    expect(resolveZssFile([gathered("ryu.def", "d"), zss])).toEqual({
+      status: "success",
+      entry: zss,
+    });
+  });
 
-    expect(isComplete(slots)).toBe(true);
+  it("reports ambiguous, listing both, when the folder has more than one .zss file", () => {
+    const a = gathered("a.zss", "1");
+    const b = gathered("b.zss", "2");
+    expect(resolveZssFile([a, b])).toEqual({
+      status: "ambiguous",
+      candidates: [a, b],
+    });
   });
 });
 
-describe("loadCharacterFromSlots", () => {
-  function requiredOnlySlots(): CompleteFileSlots {
-    return {
-      def: fileFromBytes(
-        "ryu.def",
-        textBytes("[Info]\nname = File Input Test Character\n"),
-      ),
-      air: fileFromBytes("ryu.air", fixtureBytes("sample.air")),
-      sff: fileFromBytes("ryu.sff", fixtureBytes("v1-basic.sff")),
-      cns: fileFromBytes("ryu.cns", fixtureBytes("sample.cns")),
-    };
+describe("loadCharacterFromChosenDef / loadCharacterFromFolderFiles", () => {
+  function defText(extra = ""): string {
+    return `[Info]\nname = File Input Test Character\n\n[Files]\nsprite = ryu.sff\nanim = ryu.air\ncns = ryu.cns\n${extra}`;
   }
 
-  it("reads the 4 required files and loads the character via the WASM bridge, with no optional slots supplied", async () => {
-    const result = await loadCharacterFromSlots(
-      requiredOnlySlots(),
+  function completeFolder(extra: GatheredFile[] = []): GatheredFile[] {
+    return [
+      gathered("ryu/ryu.def", defText()),
+      gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+      gathered("ryu/ryu.sff", fixtureBytes("v1-basic.sff")),
+      gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+      ...extra,
+    ];
+  }
+
+  it("loads the character when exactly one .def is found and every required reference resolves", async () => {
+    const result = await loadCharacterFromFolderFiles(
+      completeFolder(),
       testOptions,
     );
 
@@ -207,52 +184,151 @@ describe("loadCharacterFromSlots", () => {
     expect(result.files.zss).toBeUndefined();
   });
 
-  it("also captures the raw bytes of every supplied kind, required and optional, for later editors to read/write back", async () => {
-    const slots: CompleteFileSlots = {
-      ...requiredOnlySlots(),
-      cmd: fileFromBytes("ryu.cmd", textBytes("cmd contents")),
-      zss: fileFromBytes("ryu.zss", textBytes("zss contents")),
-    };
+  it("resolves a referenced file that sits in a different subfolder than the .def itself", async () => {
+    const files = [
+      gathered("pack/ryu.def", defText()),
+      gathered("pack/sprites/ryu.sff", fixtureBytes("v1-basic.sff")),
+      gathered("pack/anims/ryu.air", fixtureBytes("sample.air")),
+      gathered("pack/logic/ryu.cns", fixtureBytes("sample.cns")),
+    ];
 
-    const result = await loadCharacterFromSlots(slots, testOptions);
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
+
+    expect(result.status).toBe("success");
+  });
+
+  it("also resolves and reads the optional .cmd file when the .def references one", async () => {
+    const files = completeFolder([
+      gathered("ryu/ryu.cmd", fixtureText("sample.cmd")),
+    ]);
+    const withCmdRef = [
+      gathered("ryu/ryu.def", defText("cmd = ryu.cmd\n")),
+      ...files.slice(1),
+    ];
+
+    const result = await loadCharacterFromFolderFiles(withCmdRef, testOptions);
 
     expect(result.status).toBe("success");
     if (result.status !== "success") throw new Error("expected success");
-    expect(result.files.def).toBeInstanceOf(Uint8Array);
-    expect(result.files.sff).toEqual(fixtureBytes("v1-basic.sff"));
-    expect(result.files.cmd).toEqual(textBytes("cmd contents"));
+    expect(result.files.cmd).toEqual(textBytes(fixtureText("sample.cmd")));
+  });
+
+  it("resolves a single .zss file by extension and includes its bytes, without blocking on ambiguity rules meant for referenced kinds", async () => {
+    const files = completeFolder([gathered("ryu/ryu.zss", "zss contents")]);
+
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("expected success");
     expect(result.files.zss).toEqual(textBytes("zss contents"));
   });
 
-  it("does not call the WASM bridge with the optional .cmd/.zss bytes — they are never parsed by this item", async () => {
-    const slots: CompleteFileSlots = {
-      ...requiredOnlySlots(),
-      // Deliberately not valid .cmd/.zss syntax at all — if these were fed
-      // to the WASM bridge's load() call (which only accepts 4 arguments),
-      // the call itself would need to change; success here proves they
-      // aren't touched by the bridge.
-      cmd: fileFromBytes("ryu.cmd", textBytes("not real cmd syntax")),
-      zss: fileFromBytes("ryu.zss", textBytes("not real zss syntax")),
-    };
+  it("still succeeds, flagging the count, when more than one .zss file is found (optional kind, never blocking)", async () => {
+    const files = completeFolder([
+      gathered("ryu/ryu.zss", "1"),
+      gathered("ryu/ryu-alt.zss", "2"),
+    ]);
 
-    const result = await loadCharacterFromSlots(slots, testOptions);
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
 
     expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("expected success");
+    expect(result.zssAmbiguousCount).toBe(2);
+    expect(result.files.zss).toBeUndefined();
   });
 
-  it("returns a read-error naming the offending required file when one cannot be read as bytes", async () => {
-    const slots = requiredOnlySlots();
-    const optionsWithFailingSff: CharacterFileInputOptions = {
+  it("prompts for a choice, without reading anything, when the folder has two .def files", async () => {
+    const defA = gathered("ryu/ryu.def", defText());
+    const defB = gathered("ken/ken.def", defText());
+
+    const result = await loadCharacterFromFolderFiles(
+      [defA, defB],
+      testOptions,
+    );
+
+    expect(result).toEqual({
+      status: "needs-selection",
+      candidates: [defA, defB],
+    });
+  });
+
+  it("reports no-candidate when the folder has no .def file at all", async () => {
+    const result = await loadCharacterFromFolderFiles(
+      [gathered("ryu.sff", "x")],
+      testOptions,
+    );
+    expect(result).toEqual({ status: "no-candidate" });
+  });
+
+  it("reports reference-not-found, naming the exact missing filename, when a required reference can't be located anywhere", async () => {
+    const files = [
+      gathered("ryu/ryu.def", defText()),
+      gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+      // .sff deliberately missing
+      gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+    ];
+
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
+
+    expect(result).toEqual({
+      status: "reference-not-found",
+      kind: "sff",
+      referencedName: "ryu.sff",
+    });
+  });
+
+  it("reports reference-ambiguous, naming the reference and listing candidates, when two files share the referenced basename", async () => {
+    const sffA = gathered("a/ryu.sff", fixtureBytes("v1-basic.sff"));
+    const sffB = gathered("b/ryu.sff", fixtureBytes("v1-basic.sff"));
+    const files = [
+      gathered("ryu/ryu.def", defText()),
+      gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+      sffA,
+      sffB,
+      gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+    ];
+
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
+
+    expect(result).toEqual({
+      status: "reference-ambiguous",
+      kind: "sff",
+      referencedName: "ryu.sff",
+      candidates: [sffA, sffB],
+    });
+  });
+
+  it("reports reference-not-found for the referenced .cmd file when the .def names one but it's missing", async () => {
+    const files = [
+      gathered("ryu/ryu.def", defText("cmd = ryu.cmd\n")),
+      gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+      gathered("ryu/ryu.sff", fixtureBytes("v1-basic.sff")),
+      gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+    ];
+
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
+
+    expect(result).toEqual({
+      status: "reference-not-found",
+      kind: "cmd",
+      referencedName: "ryu.cmd",
+    });
+  });
+
+  it("returns a read-error naming the offending file when a resolved required file cannot be read", async () => {
+    const options: CharacterFileInputOptions = {
       ...testOptions,
       readFileBytes: async (file) => {
-        if (file.name === "ryu.sff") {
+        if (file.name === "ryu.sff")
           throw new Error("simulated unreadable file");
-        }
         return readFileAsBytes(file);
       },
     };
 
-    const result = await loadCharacterFromSlots(slots, optionsWithFailingSff);
+    const result = await loadCharacterFromFolderFiles(
+      completeFolder(),
+      options,
+    );
 
     expect(result.status).toBe("read-error");
     if (result.status !== "read-error") throw new Error("expected read-error");
@@ -261,40 +337,32 @@ describe("loadCharacterFromSlots", () => {
     expect(result.error.message).toContain("simulated unreadable file");
   });
 
-  it("returns a read-error naming an unreadable optional file too, even though it's not WASM-parsed", async () => {
-    const slots: CompleteFileSlots = {
-      ...requiredOnlySlots(),
-      cmd: fileFromBytes("ryu.cmd", textBytes("cmd contents")),
-    };
-    const optionsWithFailingCmd: CharacterFileInputOptions = {
-      ...testOptions,
-      readFileBytes: async (file) => {
-        if (file.name === "ryu.cmd") {
-          throw new Error("simulated unreadable optional file");
-        }
-        return readFileAsBytes(file);
-      },
-    };
+  it("returns a bridge-error with the module's message when the resolved files' contents are malformed", async () => {
+    const files = [
+      gathered("ryu/ryu.def", defText()),
+      gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+      gathered("ryu/ryu.sff", "not a valid sff file"),
+      gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+    ];
 
-    const result = await loadCharacterFromSlots(slots, optionsWithFailingCmd);
-
-    expect(result.status).toBe("read-error");
-    if (result.status !== "read-error") throw new Error("expected read-error");
-    expect(result.error.kind).toBe("cmd");
-  });
-
-  it("returns a bridge-error with the module's message when a required file's contents are malformed", async () => {
-    const slots = requiredOnlySlots();
-    slots.sff = fileFromBytes(
-      "ryu.sff",
-      textBytes("this is not a valid .sff file"),
-    );
-
-    const result = await loadCharacterFromSlots(slots, testOptions);
+    const result = await loadCharacterFromFolderFiles(files, testOptions);
 
     expect(result.status).toBe("bridge-error");
     if (result.status !== "bridge-error")
       throw new Error("expected bridge-error");
     expect(result.message).toContain("sprite");
+  });
+
+  it("loadCharacterFromChosenDef loads directly from an already-chosen .def entry, for the multi-def picker flow", async () => {
+    const folder = completeFolder();
+    const chosen = folder[0];
+
+    const result = await loadCharacterFromChosenDef(
+      chosen,
+      folder,
+      testOptions,
+    );
+
+    expect(result.status).toBe("success");
   });
 });

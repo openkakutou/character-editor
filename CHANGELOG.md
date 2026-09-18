@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Loading a character now works by selecting or dragging in its whole folder, instead of picking each file one by one. If the folder has more than one `.def` file, you're asked which one is the character; otherwise it's picked automatically. The referenced sprite, animation, and combat-logic files are found by the exact name the character's own file specifies, even in a subfolder, so a folder with leftover or alternate files of the same type is never mistaken for the ones actually used. A referenced file that can't be found anywhere in the folder shows a clear error naming exactly which one is missing. This replaces the previous file-by-file picker on the web app.
+
 ## [0.12.0] - 2026-09-17
 
 ### Added

@@ -66,14 +66,14 @@ body {
 }
 
 /*
- * Character file input (backlog item 002) — 6 accumulating slots (4
- * required, 2 optional), same interaction model as
- * character-viewer-web's own file input, extended for the required/
- * optional split. Error text uses `--wuik-color-text`, not
- * `--wuik-color-danger` — see web-ui-kit's own
- * .vibe/decisions/009-error-text-uses-text-token-not-danger.md; the
- * invalid state still signals non-verbally via a danger-colored left
- * border instead.
+ * Character file input (backlog item 014) — folder selection only, a
+ * native `<input webkitdirectory>` picker plus a drag-and-drop zone
+ * accepting a dropped folder, replacing item 002's 6-slot per-kind picker
+ * outright. Error text uses `--wuik-color-text`, not `--wuik-color-danger`
+ * — see web-ui-kit's own
+ * .vibe/decisions/009-error-text-uses-text-token-not-danger.md; the status
+ * region's own invalid state still signals non-verbally via a
+ * danger-colored left border instead (`.file-input__status--error`).
  */
 .file-input {
   display: flex;
@@ -111,67 +111,62 @@ body {
   color: var(--wuik-color-text-secondary);
 }
 
-.file-input__slots {
+/* The multi-`.def`-candidate picker: a native radiogroup, shown only while
+ * the folder input's own phase is "needs-selection" (view-controlled via
+ * `hidden`, not a CSS state selector, since the view already tracks phase). */
+.file-input__selection {
   display: flex;
   flex-direction: column;
-  gap: var(--wuik-space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.file-input__slot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
   gap: var(--wuik-space-2);
+  padding: var(--wuik-space-2);
+  border-left: 3px solid var(--wuik-color-border);
 }
 
-.file-input__slot-kind {
-  min-width: 3.5em;
-  font-family: var(--wuik-font-family-mono);
+/* `display: flex` above has the same specificity as the UA stylesheet's
+ * `[hidden] { display: none }` and would otherwise win at equal
+ * specificity (author rules beat the UA sheet) — found by real-browser
+ * runtime verification, where the candidate picker stayed visible after a
+ * successful load despite `selectionContainer.hidden` being set. This
+ * higher-specificity rule restores the `hidden` attribute's own effect. */
+.file-input__selection[hidden] {
+  display: none;
+}
+
+.file-input__selection p {
+  margin: 0;
   font-weight: var(--wuik-font-weight-medium);
 }
 
-/* Optional slots' kind label (incl. its "(optional)" suffix) is de-
- * emphasized relative to required slots', so the required/optional split
- * reads at a glance without a new badge shape. */
-.file-input__slot--optional .file-input__slot-kind {
-  font-weight: var(--wuik-font-weight-regular);
-  color: var(--wuik-color-text-secondary);
-}
-
-.file-input__slot-value {
-  color: var(--wuik-color-text-secondary);
-}
-
-.file-input__slot--filled .file-input__slot-value {
-  color: var(--wuik-color-text);
-}
-
-/* Non-verbal error signal via a border, per web-ui-kit's own decision 009 —
- * the message text itself stays on --wuik-color-text below. */
-.file-input__slot--error {
-  padding-left: var(--wuik-space-2);
-  border-left: 3px solid var(--wuik-color-danger);
-}
-
-.file-input__slot-error-text {
-  flex-basis: 100%;
+.file-input__selection [role="radiogroup"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+  font-family: var(--wuik-font-family-mono);
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text);
-}
-
-.file-input__ignored {
-  margin: 0;
-  font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-warning);
 }
 
 .file-input__status {
   min-height: 1.2em;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-secondary);
+}
+
+/* Non-verbal error signal via a border, per web-ui-kit's own decision 009 —
+ * the message text itself stays on --wuik-color-text above. */
+.file-input__status--error {
+  padding-left: var(--wuik-space-2);
+  color: var(--wuik-color-text);
+  border-left: 3px solid var(--wuik-color-danger);
+}
+
+.file-input__reset {
+  align-self: flex-start;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /*
@@ -182,7 +177,7 @@ body {
  * inset focus ring) `web-ui-kit`'s own components already follow — see
  * .vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md.
  * Error text stays on `--wuik-color-text`, never `--wuik-color-danger`,
- * matching `.file-input__slot-error-text` above and web-ui-kit's own
+ * matching `.file-input__status--error` above and web-ui-kit's own
  * .vibe/decisions/009-error-text-uses-text-token-not-danger.md.
  */
 .characteristics-editor {

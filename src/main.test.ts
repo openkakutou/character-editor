@@ -43,20 +43,49 @@ function fileFromBytes(name: string, bytes: Uint8Array): File {
   return new File([bytes as BufferSource], name);
 }
 
+function defText(name: string, extra = ""): string {
+  return `[Info]\nname = ${name}\n\n[Files]\nsprite = ryu.sff\nanim = ryu.air\ncns = ryu.cns\n${extra}`;
+}
+
 function requiredFiles(): File[] {
   return [
-    fileFromBytes(
-      "ryu.def",
-      textBytes("[Info]\nname = Main Wiring Test Character\n"),
-    ),
+    fileFromBytes("ryu.def", textBytes(defText("Main Wiring Test Character"))),
     fileFromBytes("ryu.air", fixtureBytes("sample.air")),
     fileFromBytes("ryu.sff", fixtureBytes("v1-basic.sff")),
     fileFromBytes("ryu.cns", fixtureBytes("sample.cns")),
   ];
 }
 
+/** Same as `requiredFiles`, but the `.def` also references a `.cmd` file. */
+function requiredFilesWithCmdReference(): File[] {
+  return [
+    fileFromBytes(
+      "ryu.def",
+      textBytes(defText("Main Wiring Test Character", "cmd = ryu.cmd\n")),
+    ),
+    ...requiredFiles().slice(1),
+    fileFromBytes("ryu.cmd", fixtureBytes("sample.cmd")),
+  ];
+}
+
+/**
+ * Simulates dropping a folder: builds a `DataTransfer`-like object whose
+ * `items` yield one flat `FileSystemFileEntry`-like per file — matching
+ * `character-file-input-view.ts`'s real drag-and-drop gathering contract
+ * (`folder-entries.ts`'s `filesFromDataTransferItems`), not the old
+ * per-file `dataTransfer.files` shape item 014 replaced.
+ */
 function dispatchDrop(dropZone: Element, files: File[]): void {
-  const dataTransfer = { files } as unknown as DataTransfer;
+  const dataTransfer = {
+    items: files.map((file) => ({
+      webkitGetAsEntry: () => ({
+        isFile: true,
+        isDirectory: false,
+        fullPath: `/${file.name}`,
+        file: (success: (file: File) => void) => success(file),
+      }),
+    })),
+  } as unknown as DataTransfer;
   const event = new Event("drop", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
   dropZone.dispatchEvent(event);
@@ -643,10 +672,7 @@ describe("renderApp", () => {
 
     const dropZone = root.querySelector(".file-input__dropzone");
     if (!dropZone) throw new Error("dropzone not found");
-    dispatchDrop(dropZone, [
-      ...requiredFiles(),
-      fileFromBytes("ryu.cmd", fixtureBytes("sample.cmd")),
-    ]);
+    dispatchDrop(dropZone, requiredFilesWithCmdReference());
 
     await vi.waitFor(() => {
       expect(root.querySelectorAll(".command-editor__row")).toHaveLength(2);
@@ -711,8 +737,8 @@ describe("renderApp", () => {
     );
     expect(names).toEqual([
       "character.def (unchanged)",
-      "character.air (unchanged)",
-      "character.cns (unchanged)",
+      "ryu.air (unchanged)",
+      "ryu.cns (unchanged)",
     ]);
   });
 
