@@ -13,11 +13,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "lint": "biome check --write .",
     "wasm:download": "node scripts/download-wasm.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "1.62.1",
     "@types/node": "^22.20.1",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.3",

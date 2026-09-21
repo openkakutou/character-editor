@@ -59,8 +59,61 @@ jobs:
         with:
           path: dist
 
+  # A genuinely separate job (not steps in `build` above) — own checkout,
+  # install, and WASM download — so Playwright's Chromium download/cache
+  # never delays the fast Test/Lint/Build feedback loop, per backlog item
+  # 016's own acceptance criterion ("runs in CI as its own job, separate
+  # from npm test"). `deploy` below only runs once this job (and `build`)
+  # both pass, so a real rendering regression blocks publishing the same
+  # way a failing unit test already does.
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # See the "Download character WASM release" step in the build job
+      # above — same reason: every surface this suite screenshots decodes a
+      # real sprite through the same real WASM build at runtime.
+      - name: Download character WASM release
+        run: npm run wasm:download -- v0.8.0
+
+      # Keyed on the pinned @playwright/test version (package-lock.json) so
+      # a version bump busts the cache instead of silently reusing a
+      # mismatched browser build.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual regression tests
+        run: npm run test:visual
+
+      - name: Upload visual regression diff
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-regression-diff
+          path: test-results/
+          retention-days: 14
+
   deploy:
-    needs: build
+    needs: [build, visual]
     runs-on: ubuntu-latest
     permissions:
       pages: write

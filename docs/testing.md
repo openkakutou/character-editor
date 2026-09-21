@@ -310,3 +310,58 @@ feature). Fixed by giving `state-editor.ts` the identical `WeakMap`
 persistence shape `animation-editor.ts` already established, closing the
 gap for both triggers at once. See `docs/architecture.md`'s "Data flow:
 switching locale" and `.vibe/decisions/015-i18n-integration-approach.md`.
+
+## Visual regression: real Playwright screenshots, checked in CI (backlog item 016)
+
+`npm test` (Vitest) never looks at a rendered pixel. `npm run test:visual`
+(`playwright.config.ts`, specs under `tests/visual/`) is a separate suite
+that does, covering this app's three real rendered surfaces — the sprite
+browser's decoded sprite preview, the palette editor's live-recolored
+sprite preview, and the animation editor's Clsn1/Clsn2 box overlay — the
+regression class no unit test or WASM-bridge test can catch, per the
+org-wide rationale in roadmap's
+`.vibe/decisions/024-visual-regression-testing-via-playwright-screenshots.md`.
+
+- Extends `web-ui-kit`'s shared Playwright preset
+  (`@openkakutou/web-ui-kit/testing/visual-preset`): fixed viewport, forced
+  animations/fonts settled, the shared diff threshold.
+- Every baseline is driven through the app's real New Character Wizard
+  ("basic" template) rather than a hand-authored folder fixture — the
+  wizard round-trips a real character through the actual `character` WASM
+  save/load path and the repo's own existing `v1-basic.sff` sprite,
+  producing a character indistinguishable from an imported one with zero
+  new fixture files. See
+  `.vibe/decisions/017-visual-regression-fixture-via-wizard-not-folder-upload.md`.
+- The palette editor's recolor baseline targets palette index 244 — the
+  index the fixture sprite's pixels reference most (found by decoding it
+  once against a synthetic index-mapped palette) — so the edit changes a
+  large, unmistakable area instead of a few scattered pixels a screenshot
+  diff could miss.
+- The animation editor's Clsn baseline adds a hit and a hurt box, then
+  drags and resizes them via direct in-page `PointerEvent` dispatch, not
+  Playwright's `page.mouse` — the same "CDP-based mouse drag proved
+  unreliable for this exact interaction in this headless setup" finding
+  this file's own animation-editor real-browser-verification notes above
+  already recorded; direct dispatch exercises the identical drag/resize
+  listeners deterministically. The screenshot itself is scoped to the
+  preview viewport alone, not the surrounding numeric box-fields list, so
+  a real overlay regression isn't diluted under the shared diff-threshold
+  by unrelated chrome — confirmed by deliberately hiding the Clsn box
+  overlay via CSS and observing the suite fail, then reverting.
+- The app is served via the plain `vite` dev server (`webServer` in
+  `playwright.config.ts`), not a build + `vite preview`, mirroring
+  `lifebar-editor`'s own equivalent choice — `public/wasm/` is served
+  identically either way.
+- Runs in CI (`.github/workflows/deploy-pages.yml`) as its own `visual`
+  job, separate from the fast `build` job's `Test`/`Lint`/`Build` steps, so
+  Playwright's Chromium download/cache never slows that feedback loop.
+  `deploy` only runs once both `build` and `visual` pass — a real
+  rendering regression blocks publishing the same way a failing unit test
+  already does.
+- A failing diff uploads `test-results/` (actual/expected/diff images) as
+  a CI artifact. Updating a baseline is always its own deliberate
+  `--update-snapshots` commit, reviewed like any other change.
+
+```sh
+npm run test:visual
+```

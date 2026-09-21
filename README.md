@@ -77,6 +77,12 @@ Run the linter/formatter (auto-fixes issues in place):
 ```sh
 npm run lint
 ```
+
+Run the visual-regression suite (compares real rendered screenshots against committed baselines):
+
+```sh
+npm run test:visual
+```
 <!-- vibe:end:usage -->
 
 <!-- vibe:begin:docs-index -->

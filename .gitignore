@@ -5,3 +5,10 @@ dist/
 
 # Downloaded/locally-built WASM artifacts from the character and sff libraries
 public/wasm/
+
+# Visual-regression test artifacts (playwright.config.ts's `outputDir`
+# failure output) — the committed baselines themselves live under
+# tests/visual/**/*-snapshots/ and are tracked normally.
+test-results/
+playwright-report/
+blob-report/

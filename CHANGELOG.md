@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Automated screenshot comparison tests now cover the sprite browser's decoded sprite preview, the palette editor's live-recolored preview, and the animation editor's Clsn hit/hurt box overlay, guarding against a rendering regression going unnoticed. They run as their own step in the deployment pipeline, separate from the regular test suite.
+
 ## [0.14.0] - 2026-09-20
 
 ### Added
