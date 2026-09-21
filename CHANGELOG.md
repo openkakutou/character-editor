@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-21
+
 ### Fixed
 
 - Automated screenshot comparison tests now cover the sprite browser's decoded sprite preview, the palette editor's live-recolored preview, and the animation editor's Clsn hit/hurt box overlay, guarding against a rendering regression going unnoticed. They run as their own step in the deployment pipeline, separate from the regular test suite.
@@ -96,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/openkakutou/character-editor/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/openkakutou/character-editor/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openkakutou/character-editor/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openkakutou/character-editor/compare/v0.11.0...v0.12.0
