@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 ---
 # Migrate Text Inputs To web-ui-kit Component
 
@@ -13,3 +13,6 @@ The characteristics editor (item 003) — and any later editor screen built the 
 
 ## Notes
 Cross-repo: blocked on `web-ui-kit` actually publishing a generic text-input component — no such item exists in its backlog yet as of this writing. See character-editor's `.vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md` for the stopgap this migrates away from, and `character-viewer-web`'s own `<wuik-viewport>` precedent (its backlog item 016) for the same pattern.
+
+## Unblocked
+2026-09-23: `web-ui-kit#024` (Generic Text Input Component) shipped and published to npm as `@openkakutou/web-ui-kit@0.14.1` (`<wuik-text-input>`, with a built-in label/placeholder/required/invalid-state contract). Back to `status: todo` — note this app's own `package.json` still pins `^0.13.0`, which does not resolve to 0.14.x on a plain `npm install` (pre-1.0 caret range); bumping that pin is part of implementing this item, not a separate prerequisite.
