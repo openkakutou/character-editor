@@ -68,6 +68,24 @@ jobs:
   # way a failing unit test already does.
   visual:
     runs-on: ubuntu-latest
+    # Runs inside Playwright's own published image instead of installing
+    # Chromium onto the bare `ubuntu-latest` runner: `playwright install
+    # --with-deps chromium` on the runner produced font-rendering (glyph
+    # metrics, antialiasing) that didn't match whatever machine the
+    # committed baseline PNGs were captured on, so the animation editor's
+    # Clsn-boxes screenshot failed intermittently right at the diff
+    # threshold on every push since it was added — an environment
+    # mismatch, not real flakiness (see `character-viewer-web`'s
+    # `.vibe/decisions/023`, the sibling repo where the identical root
+    # cause was found and fixed first). The image already bundles a
+    # matching Chromium + fonts for this exact `@playwright/test` version,
+    # so a baseline regenerated via this same image (see `docs/testing.md`)
+    # always matches what CI renders. Pinned by digest, tag
+    # `v1.62.1-noble` — bump both together with the `@playwright/test`
+    # version in package.json, and regenerate every baseline through the
+    # new image before merging.
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e # v1.62.1-noble
     steps:
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -86,20 +104,6 @@ jobs:
       # real sprite through the same real WASM build at runtime.
       - name: Download character WASM release
         run: npm run wasm:download -- v0.8.0
-
-      # Keyed on the pinned @playwright/test version (package-lock.json) so
-      # a version bump busts the cache instead of silently reusing a
-      # mismatched browser build.
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
 
       - name: Visual regression tests
         run: npm run test:visual

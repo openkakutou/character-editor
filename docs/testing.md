@@ -358,6 +358,17 @@ org-wide rationale in roadmap's
   `deploy` only runs once both `build` and `visual` pass — a real
   rendering regression blocks publishing the same way a failing unit test
   already does.
+- Runs inside Playwright's own published Docker image
+  (`mcr.microsoft.com/playwright`, pinned by digest to the exact
+  `@playwright/test` version), not directly on the bare `ubuntu-latest`
+  runner — see `.vibe/decisions/018`. Every baseline must be regenerated
+  through that same image, never a bare local `npm run test:visual:update`,
+  or its font rendering won't match what CI produces:
+  ```sh
+  docker run --rm -v "$PWD:/work" -w /work --ipc=host \
+    mcr.microsoft.com/playwright:v1.62.1-noble \
+    bash -c "npm ci && npm run test:visual:update"
+  ```
 - A failing diff uploads `test-results/` (actual/expected/diff images) as
   a CI artifact. Updating a baseline is always its own deliberate
   `--update-snapshots` commit, reviewed like any other change.
