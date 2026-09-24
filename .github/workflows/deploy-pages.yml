@@ -40,7 +40,7 @@ jobs:
       # — see this repo's own CLAUDE.md ("WASM dependency on character")
       # for where that pin lives.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.8.0
+        run: npm run wasm:download -- v0.9.0
 
       - name: Test
         run: npm test
@@ -103,7 +103,7 @@ jobs:
       # above — same reason: every surface this suite screenshots decodes a
       # real sprite through the same real WASM build at runtime.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.8.0
+        run: npm run wasm:download -- v0.9.0
 
       - name: Visual regression tests
         run: npm run test:visual
