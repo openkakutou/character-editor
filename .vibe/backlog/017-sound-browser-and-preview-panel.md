@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: todo
 ---
 # Sound Browser And Preview Panel
 
@@ -13,4 +13,7 @@ Every other part of a character — sprites, palettes, animations, states, comma
 - [ ] A character loaded with no sound file (or one that fails to load) shows a clear empty/error state instead of an empty panel with no explanation
 
 ## Notes
-Cross-repo: blocked on `character#057` (decode and expose character sound effects), itself blocked on the `snd` repo existing. See roadmap `.vibe/decisions/026`. Import/replace/delete editing of sounds (mirroring the sprite browser's edit capability) is intentionally out of scope here — preview/browse only, matching this item's own acceptance criteria; a future edit item can follow the same in-memory-overlay-then-export pattern items `004`/`009` already established for sprites once there's a `snd` encode path to write back to.
+Cross-repo: was blocked on `character#057` (decode and expose character sound effects). See roadmap `.vibe/decisions/026`. Import/replace/delete editing of sounds (mirroring the sprite browser's edit capability) is intentionally out of scope here — preview/browse only, matching this item's own acceptance criteria; a future edit item can follow the same in-memory-overlay-then-export pattern items `004`/`009` already established for sprites once there's a `snd` encode path to write back to.
+
+## Unblocked
+2026-09-25: `character#057` shipped and published as `character` v0.9.0 (`Character.Sounds`, decoded via `github.com/openkakutou/snd`), now pinned in this app's own WASM download (see `chore: bump character WASM to v0.9.0`). Back to `status: todo`.
