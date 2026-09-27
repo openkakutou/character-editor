@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-09-27
+
 ### Added
 
 - The characteristics editor, the new-character wizard's Name field, and the command editor's Name/Input-sequence fields now use the design system's own text-input component instead of a plain styled text box, matching the look and feel of every other field in the app more closely.
@@ -102,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/openkakutou/character-editor/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/openkakutou/character-editor/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/openkakutou/character-editor/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openkakutou/character-editor/compare/v0.12.0...v0.13.0
