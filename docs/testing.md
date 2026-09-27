@@ -219,8 +219,11 @@ with no console errors throughout. This pass caught one real gap unit tests
 couldn't (`jsdom` has no visual rendering to catch it): the `is-invalid`
 class was applied correctly but had no matching CSS rule at all, so an
 invalid field showed no visible cue beyond its error text — fixed by adding
-the same danger-border/focus-ring styling `characteristics-editor.ts`'s
-fields already have.
+a matching danger-border/focus-ring styling rule (the same shared
+input/invalid-state contract this app's plain native fields have followed
+since, e.g. the command editor's own Time/Buffer time/Target state number
+fields — see "Text input fields" in `docs/architecture.md` for which
+fields since moved to `<wuik-text-input>` instead, item 013).
 
 The Export panel got the same treatment against a real character fixture,
 loaded in a real Chromium instance: confirming the file list appears

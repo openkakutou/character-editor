@@ -171,14 +171,11 @@ body {
 
 /*
  * Characteristics editor (backlog item 003) — the app's first editing
- * screen. `web-ui-kit` has no generic text-input component yet, so plain
- * `<input>`s are styled here directly with its tokens, reusing the exact
- * invalid-state contract (`is-invalid` + `aria-invalid` + a danger border,
- * inset focus ring) `web-ui-kit`'s own components already follow — see
- * .vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md.
- * Error text stays on `--wuik-color-text`, never `--wuik-color-danger`,
- * matching `.file-input__status--error` above and web-ui-kit's own
- * .vibe/decisions/009-error-text-uses-text-token-not-danger.md.
+ * screen. Text fields are `<wuik-text-input>` (backlog item 013) — the
+ * component owns its own label/input/error layout and invalid-state styling
+ * internally, so only this screen's own layout (section/list spacing, a
+ * width cap matching the pre-migration stopgap) is set here. See
+ * .vibe/decisions/019-text-input-migration-to-wuik-text-input.md.
  */
 .characteristics-editor {
   display: flex;
@@ -200,50 +197,12 @@ body {
   color: var(--wuik-color-text-secondary);
 }
 
-.characteristics-editor__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--wuik-space-1);
-}
-
-.characteristics-editor__label {
-  font-size: var(--wuik-font-size-sm);
-  font-weight: var(--wuik-font-weight-medium);
-}
-
-.characteristics-editor__input {
-  box-sizing: border-box;
-  width: 100%;
+/* Caps a scalar field's width the same as the pre-migration stopgap did —
+ * `<wuik-text-input>` is `display: block` internally, so as a direct child
+ * of this column-flex section (default `align-items: stretch`) it would
+ * otherwise stretch to the section's full width. */
+.characteristics-editor__section > wuik-text-input {
   max-width: 28rem;
-  padding: var(--wuik-space-2);
-  font-family: var(--wuik-font-family-base);
-  font-size: var(--wuik-font-size-base);
-  color: var(--wuik-color-text);
-  background-color: var(--wuik-color-bg);
-  border: 1px solid var(--wuik-color-border);
-  border-radius: var(--wuik-space-1);
-}
-
-.characteristics-editor__input:focus-visible {
-  outline: 2px solid var(--wuik-color-focus-ring);
-  outline-offset: -2px;
-}
-
-.characteristics-editor__input.is-invalid {
-  border-color: var(--wuik-color-danger);
-}
-
-/* Keeps the invalid signal visible even while focused — otherwise the
- * (inset) focus ring visually covers the danger border it sits on top
- * of, and a user editing the very field they just made invalid would see
- * no non-verbal cue at all until they tab away. */
-.characteristics-editor__input.is-invalid:focus-visible {
-  outline-color: var(--wuik-color-danger);
-}
-
-.characteristics-editor__field-error {
-  font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text);
 }
 
 .characteristics-editor__list {
@@ -259,7 +218,7 @@ body {
   gap: var(--wuik-space-2);
 }
 
-.characteristics-editor__list-row .characteristics-editor__input {
+.characteristics-editor__list-row wuik-text-input {
   flex: 1;
 }
 
@@ -629,11 +588,14 @@ body {
 }
 
 /*
- * Command editor (backlog item 008) — one row per command, each field
- * reusing the exact input/invalid-state contract characteristics-editor
- * already established (is-invalid + aria-invalid + a danger border, error
- * text on --wuik-color-text) rather than inventing a second visual
- * language for the same concept.
+ * Command editor (backlog item 008) — one row per command. Name/Input
+ * sequence are `<wuik-text-input>` (backlog item 013, see
+ * .vibe/decisions/019-text-input-migration-to-wuik-text-input.md) and need
+ * no dedicated class beyond the width rule below; Time/Buffer time/Target
+ * state stay plain native `<input type="number">` (no equivalent component
+ * exists) and keep the `.command-editor__field`/`__input`/`__label`
+ * classes below, reusing the is-invalid/aria-invalid/danger-border contract
+ * characteristics-editor originally established.
  */
 .command-editor__empty {
   color: var(--wuik-color-text-secondary);
@@ -664,6 +626,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--wuik-space-1);
+}
+
+/* Caps a migrated field's width to roughly match its still-native
+ * `.command-editor__input` siblings (16rem) in the same wrapped row --
+ * `<wuik-text-input>` is `display: block` internally and has no intrinsic
+ * width of its own otherwise. */
+.command-editor__row > wuik-text-input {
+  width: 16rem;
 }
 
 .command-editor__label {
@@ -731,34 +701,15 @@ body {
   gap: var(--wuik-space-4);
 }
 
-.new-character-wizard__name-label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--wuik-space-1);
-  font-size: var(--wuik-font-size-sm);
-  font-weight: var(--wuik-font-weight-medium);
-}
-
-/* Same token contract as characteristics-editor.ts's own plain `<input>`
- * stopgap (.vibe/decisions/003) -- no dedicated text-input component
- * exists in web-ui-kit yet. */
-.new-character-wizard__input {
-  box-sizing: border-box;
-  width: 100%;
-  padding: var(--wuik-space-2);
-  font-family: var(--wuik-font-family-base);
-  font-size: var(--wuik-font-size-base);
-  color: var(--wuik-color-text);
-  background-color: var(--wuik-color-bg);
-  border: 1px solid var(--wuik-color-border);
-  border-radius: var(--wuik-space-1);
-}
-
-.new-character-wizard__input:focus-visible {
-  outline: 2px solid var(--wuik-color-focus-ring);
-  outline-offset: -2px;
-}
-
+/*
+ * The name field is a `<wuik-text-input>` (backlog item 013) -- it owns its
+ * own label/input/error layout and invalid styling internally, so no
+ * dedicated class is needed for it here; `display: block` plus this
+ * `.new-character-wizard__dialog`'s own column-flex `align-items: stretch`
+ * (the default) already stretches it edge-to-edge like the removed
+ * `.new-character-wizard__input` did. See
+ * .vibe/decisions/019-text-input-migration-to-wuik-text-input.md.
+ */
 .new-character-wizard__error {
   margin: 0;
   font-size: var(--wuik-font-size-sm);

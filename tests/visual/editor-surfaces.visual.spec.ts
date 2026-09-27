@@ -24,7 +24,14 @@ async function createBasicCharacter(
   await page
     .locator('wuik-radio-group input[type="radio"][value="basic"]')
     .click();
-  await page.locator('input[data-field="wizard-name"]').fill("Visual Test");
+  // `wizard-name` is a `<wuik-text-input>` (backlog item 013) -- the
+  // `data-field` attribute lives on the host, its real, fillable `<input>`
+  // inside its shadow DOM; Playwright's CSS engine pierces shadow
+  // boundaries, so this still resolves in one selector. See
+  // .vibe/decisions/019-text-input-migration-to-wuik-text-input.md.
+  await page
+    .locator('wuik-text-input[data-field="wizard-name"] input')
+    .fill("Visual Test");
   await page.locator('[data-action="create-character"]').click();
   await expect(page.locator(".sprite-browser")).toBeVisible();
 }

@@ -46,10 +46,18 @@ function openTrigger(root: HTMLElement): HTMLElement {
   return el as HTMLElement;
 }
 
-function nameInput(root: HTMLElement): HTMLInputElement {
-  const el = root.querySelector<HTMLInputElement>('[data-field="wizard-name"]');
+/** The name field is a `<wuik-text-input>` (backlog item 013), never a plain `<input>` -- see .vibe/decisions/019. */
+function nameInput(root: HTMLElement): HTMLElement {
+  const el = root.querySelector<HTMLElement>('[data-field="wizard-name"]');
   if (!el) throw new Error("name field not found");
   return el;
+}
+
+/** Simulates a keystroke: `<wuik-text-input>` reports every keystroke live via `wuik-input`. */
+function typeName(root: HTMLElement, value: string): void {
+  nameInput(root).dispatchEvent(
+    new CustomEvent("wuik-input", { detail: { value } }),
+  );
 }
 
 function createButton(root: HTMLElement): HTMLElement {
@@ -89,6 +97,12 @@ describe("renderNewCharacterWizard", () => {
     expect(templateGroup(root).getAttribute("value")).toBe("blank");
   });
 
+  it("renders the name field labeled and required", () => {
+    renderNewCharacterWizard(root, { onCreated: vi.fn() });
+
+    expect(nameInput(root).getAttribute("label")).toBe("Name");
+  });
+
   it("opens the dialog when the trigger is clicked", () => {
     renderNewCharacterWizard(root, { onCreated: vi.fn() });
 
@@ -101,8 +115,7 @@ describe("renderNewCharacterWizard", () => {
     const onCreated = vi.fn();
     renderNewCharacterWizard(root, { onCreated });
     openTrigger(root).click();
-    nameInput(root).value = "Some Name";
-    nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+    typeName(root, "Some Name");
 
     cancelButton(root).click();
 
@@ -110,7 +123,7 @@ describe("renderNewCharacterWizard", () => {
     expect(onCreated).not.toHaveBeenCalled();
   });
 
-  it("shows an inline error and does not call createCharacter when Name is left blank", async () => {
+  it("shows an inline error on the name field and does not call createCharacter when Name is left blank", async () => {
     const createCharacter = vi.fn();
     renderNewCharacterWizard(root, {
       onCreated: vi.fn(),
@@ -121,7 +134,11 @@ describe("renderNewCharacterWizard", () => {
     createButton(root).click();
 
     expect(createCharacter).not.toHaveBeenCalled();
-    expect(errorText(root)).toMatch(/name/i);
+    // Shown inline on the field only -- not duplicated on the shared error
+    // line, which stays reserved for a generic (non-field) failure. See
+    // .vibe/decisions/019.
+    expect(errorText(root)).toBe("");
+    expect(nameInput(root).getAttribute("error")).toBe("A name is required.");
     expect(dialog(root).hasAttribute("open")).toBe(true);
   });
 
@@ -132,8 +149,7 @@ describe("renderNewCharacterWizard", () => {
       .mockResolvedValue(successResult("My Fighter"));
     renderNewCharacterWizard(root, { onCreated, createCharacter });
     openTrigger(root).click();
-    nameInput(root).value = "My Fighter";
-    nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+    typeName(root, "My Fighter");
 
     createButton(root).click();
     await vi.waitFor(() => {
@@ -158,8 +174,7 @@ describe("renderNewCharacterWizard", () => {
       .mockResolvedValue(successResult("Templated"));
     renderNewCharacterWizard(root, { onCreated, createCharacter });
     openTrigger(root).click();
-    nameInput(root).value = "Templated";
-    nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+    typeName(root, "Templated");
     templateGroup(root).dispatchEvent(
       new CustomEvent("wuik-change", { detail: { value: "basic" } }),
     );
@@ -184,8 +199,7 @@ describe("renderNewCharacterWizard", () => {
     });
     renderNewCharacterWizard(root, { onCreated, createCharacter });
     openTrigger(root).click();
-    nameInput(root).value = "Someone";
-    nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+    typeName(root, "Someone");
 
     createButton(root).click();
     await vi.waitFor(() => {
@@ -203,8 +217,7 @@ describe("renderNewCharacterWizard", () => {
     });
     renderNewCharacterWizard(root, { onCreated: vi.fn(), createCharacter });
     openTrigger(root).click();
-    nameInput(root).value = "Leftover";
-    nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+    typeName(root, "Leftover");
     createButton(root).click();
     await vi.waitFor(() => {
       expect(errorText(root)).toContain("boom");
@@ -213,7 +226,8 @@ describe("renderNewCharacterWizard", () => {
 
     openTrigger(root).click();
 
-    expect(nameInput(root).value).toBe("");
+    expect(nameInput(root).getAttribute("value")).toBe("");
+    expect(nameInput(root).hasAttribute("error")).toBe(false);
     expect(errorText(root)).toBe("");
   });
 
@@ -226,15 +240,14 @@ describe("renderNewCharacterWizard", () => {
     it("retranslates the trigger/dialog text without closing an open dialog or clearing the entered name", async () => {
       renderNewCharacterWizard(root, { onCreated: vi.fn() });
       openTrigger(root).click();
-      nameInput(root).value = "Ryu";
-      nameInput(root).dispatchEvent(new Event("input", { bubbles: true }));
+      typeName(root, "Ryu");
 
       await initAppI18n();
       await getI18n()?.changeLanguage("fr");
 
       expect(openTrigger(root).textContent).toBe("Nouveau personnage");
       expect(dialog(root).hasAttribute("open")).toBe(true);
-      expect(nameInput(root).value).toBe("Ryu");
+      expect(nameInput(root).getAttribute("value")).toBe("Ryu");
       expect(createButton(root).textContent).toBe("Créer");
       expect(cancelButton(root).textContent).toBe("Annuler");
     });
@@ -243,12 +256,12 @@ describe("renderNewCharacterWizard", () => {
       renderNewCharacterWizard(root, { onCreated: vi.fn() });
       openTrigger(root).click();
       createButton(root).click();
-      expect(errorText(root)).toBe("A name is required.");
+      expect(nameInput(root).getAttribute("error")).toBe("A name is required.");
 
       await initAppI18n();
       await getI18n()?.changeLanguage("fr");
 
-      expect(errorText(root)).toBe("Un nom est requis.");
+      expect(nameInput(root).getAttribute("error")).toBe("Un nom est requis.");
     });
   });
 });

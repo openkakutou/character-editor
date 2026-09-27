@@ -43,6 +43,16 @@ function fileFromBytes(name: string, bytes: Uint8Array): File {
   return new File([bytes as BufferSource], name);
 }
 
+/** Simulates typing into a `<wuik-text-input>` (backlog item 013) -- it reports every keystroke live via `wuik-input`, never a native "input" event. See .vibe/decisions/019. */
+function typeIntoTextInput(el: Element, value: string): void {
+  el.dispatchEvent(new CustomEvent("wuik-input", { detail: { value } }));
+}
+
+/** Simulates leaving a `<wuik-text-input>` (edited or not) -- `focusout` is the one event that still crosses its shadow boundary, unlike the native, uncomposed `blur` this app used to listen to directly. See .vibe/decisions/019. */
+function leaveTextInput(el: Element): void {
+  el.dispatchEvent(new Event("focusout", { bubbles: true, composed: true }));
+}
+
 function defText(name: string, extra = ""): string {
   return `[Info]\nname = ${name}\n\n[Files]\nsprite = ryu.sff\nanim = ryu.air\ncns = ryu.cns\n${extra}`;
 }
@@ -193,12 +203,11 @@ describe("renderApp", () => {
       renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
       root.querySelector<HTMLElement>('[data-action="open-wizard"]')?.click();
-      const nameField = root.querySelector<HTMLInputElement>(
+      const nameField = root.querySelector<HTMLElement>(
         '[data-field="wizard-name"]',
       );
       if (!nameField) throw new Error("wizard name field not found");
-      nameField.value = "Wizard Fighter";
-      nameField.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameField, "Wizard Fighter");
 
       root
         .querySelector<HTMLElement>('[data-action="create-character"]')
@@ -209,7 +218,9 @@ describe("renderApp", () => {
       });
       expect(getCharacterDocument()?.character.name).toBe("Wizard Fighter");
       expect(
-        root.querySelector<HTMLInputElement>('[data-field="name"]')?.value,
+        root
+          .querySelector<HTMLElement>('[data-field="name"]')
+          ?.getAttribute("value"),
       ).toBe("Wizard Fighter");
       // The dialog closes once the character is created.
       expect(
@@ -229,12 +240,11 @@ describe("renderApp", () => {
         ?.dispatchEvent(
           new CustomEvent("wuik-change", { detail: { value: "basic" } }),
         );
-      const nameField = root.querySelector<HTMLInputElement>(
+      const nameField = root.querySelector<HTMLElement>(
         '[data-field="wizard-name"]',
       );
       if (!nameField) throw new Error("wizard name field not found");
-      nameField.value = "Templated Fighter";
-      nameField.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameField, "Templated Fighter");
 
       root
         .querySelector<HTMLElement>('[data-action="create-character"]')
@@ -280,10 +290,8 @@ describe("renderApp", () => {
     await vi.waitFor(() => {
       expect(root.querySelector(".characteristics-editor")).not.toBeNull();
     });
-    const nameInput = root.querySelector<HTMLInputElement>(
-      '[data-field="name"]',
-    );
-    expect(nameInput?.value).toBe("Main Wiring Test Character");
+    const nameInput = root.querySelector<HTMLElement>('[data-field="name"]');
+    expect(nameInput?.getAttribute("value")).toBe("Main Wiring Test Character");
   });
 
   it("reflects a characteristics-editor edit in the in-memory document immediately", async () => {
@@ -297,27 +305,22 @@ describe("renderApp", () => {
       expect(root.querySelector(".characteristics-editor")).not.toBeNull();
     });
 
-    const nameInput = root.querySelector<HTMLInputElement>(
-      '[data-field="name"]',
-    );
+    const nameInput = root.querySelector<HTMLElement>('[data-field="name"]');
     if (!nameInput) throw new Error("name field not found");
-    nameInput.value = "Renamed";
-    nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+    typeIntoTextInput(nameInput, "Renamed");
 
     expect(getCharacterDocument()?.character.name).toBe("Renamed");
   });
 
   describe("undo/redo (backlog item 010)", () => {
-    async function loadAndRename(root: HTMLElement): Promise<HTMLInputElement> {
+    async function loadAndRename(root: HTMLElement): Promise<HTMLElement> {
       const dropZone = root.querySelector(".file-input__dropzone");
       if (!dropZone) throw new Error("dropzone not found");
       dispatchDrop(dropZone, requiredFiles());
       await vi.waitFor(() => {
         expect(root.querySelector(".characteristics-editor")).not.toBeNull();
       });
-      const nameInput = root.querySelector<HTMLInputElement>(
-        '[data-field="name"]',
-      );
+      const nameInput = root.querySelector<HTMLElement>('[data-field="name"]');
       if (!nameInput) throw new Error("name field not found");
       return nameInput;
     }
@@ -343,8 +346,7 @@ describe("renderApp", () => {
       renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
       const nameInput = await loadAndRename(root);
-      nameInput.value = "Renamed";
-      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameInput, "Renamed");
 
       expect(requireButton(root, "undo").hasAttribute("disabled")).toBe(false);
 
@@ -356,11 +358,13 @@ describe("renderApp", () => {
         "Main Wiring Test Character",
       );
       expect(requireButton(root, "redo").hasAttribute("disabled")).toBe(false);
-      const nameInputAfterUndo = root.querySelector<HTMLInputElement>(
+      const nameInputAfterUndo = root.querySelector<HTMLElement>(
         '[data-field="name"]',
       );
       if (!nameInputAfterUndo) throw new Error("name field not found");
-      expect(nameInputAfterUndo.value).toBe("Main Wiring Test Character");
+      expect(nameInputAfterUndo.getAttribute("value")).toBe(
+        "Main Wiring Test Character",
+      );
     });
 
     it("re-applies the edit when Redo is clicked after an Undo", async () => {
@@ -368,8 +372,7 @@ describe("renderApp", () => {
       renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
       const nameInput = await loadAndRename(root);
-      nameInput.value = "Renamed";
-      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameInput, "Renamed");
       requireButton(root, "undo").dispatchEvent(
         new Event("click", { bubbles: true }),
       );
@@ -389,8 +392,7 @@ describe("renderApp", () => {
       renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
 
       const nameInput = await loadAndRename(root);
-      nameInput.value = "Renamed";
-      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameInput, "Renamed");
 
       const addStateDefButton = requireButton(root, "add-statedef");
       const statedefCountBefore = root.querySelectorAll(
@@ -464,8 +466,7 @@ describe("renderApp", () => {
       );
 
       const nameInput = await loadAndRename(root);
-      nameInput.value = "Renamed";
-      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameInput, "Renamed");
 
       expect(isDirty()).toBe(true);
       expect(
@@ -477,8 +478,7 @@ describe("renderApp", () => {
       const root = document.createElement("div");
       renderApp(root, "0.1.0", "0.13.0", { bridgeOptions });
       const nameInput = await loadAndRename(root);
-      nameInput.value = "Renamed";
-      nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      typeIntoTextInput(nameInput, "Renamed");
 
       expect(getAppHistory().canUndo).toBe(true);
     });
@@ -699,20 +699,18 @@ describe("renderApp", () => {
       ?.click();
     const row = root.querySelector<HTMLElement>(".command-editor__row");
     if (!row) throw new Error("command row not found");
-    const nameInput = row.querySelector<HTMLInputElement>(
-      'input[data-field="name"]',
+    const nameInput = row.querySelector<HTMLElement>(
+      'wuik-text-input[data-field="name"]',
     );
     if (!nameInput) throw new Error("name input not found");
-    nameInput.value = "NewCommand";
-    nameInput.dispatchEvent(new Event("input", { bubbles: true }));
-    nameInput.dispatchEvent(new Event("blur", { bubbles: true }));
-    const inputInput = row.querySelector<HTMLInputElement>(
-      'input[data-field="input"]',
+    typeIntoTextInput(nameInput, "NewCommand");
+    leaveTextInput(nameInput);
+    const inputInput = row.querySelector<HTMLElement>(
+      'wuik-text-input[data-field="input"]',
     );
     if (!inputInput) throw new Error("input field not found");
-    inputInput.value = "a";
-    inputInput.dispatchEvent(new Event("input", { bubbles: true }));
-    inputInput.dispatchEvent(new Event("blur", { bubbles: true }));
+    typeIntoTextInput(inputInput, "a");
+    leaveTextInput(inputInput);
 
     expect(getCharacterDocument()?.commandFile.commands).toEqual([
       { name: "NewCommand", input: "a", time: 0, bufferTime: 0 },
@@ -786,7 +784,9 @@ describe("renderApp", () => {
         "Main Wiring Test Character",
       );
       expect(
-        root.querySelector<HTMLInputElement>('[data-field="name"]')?.value,
+        root
+          .querySelector<HTMLElement>('[data-field="name"]')
+          ?.getAttribute("value"),
       ).toBe("Main Wiring Test Character");
 
       await getI18n()?.changeLanguage("en");

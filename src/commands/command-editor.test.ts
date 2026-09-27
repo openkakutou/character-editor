@@ -73,6 +73,7 @@ function stubLoadCmd(
   return async () => result;
 }
 
+/** Time/Buffer time/Target state stay plain native `<input type="number">` -- no equivalent component exists, see .vibe/decisions/019. */
 function setValue(input: HTMLInputElement, value: string): void {
   input.value = value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -86,7 +87,7 @@ function rows(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(".command-editor__row"));
 }
 
-function field(row: HTMLElement, name: string): HTMLInputElement {
+function numberField(row: HTMLElement, name: string): HTMLInputElement {
   const el = row.querySelector<HTMLInputElement>(`input[data-field="${name}"]`);
   if (!el) throw new Error(`field ${name} not found`);
   return el;
@@ -96,6 +97,24 @@ function fieldError(row: HTMLElement, name: string): HTMLElement {
   const el = row.querySelector<HTMLElement>(`[data-field-error="${name}"]`);
   if (!el) throw new Error(`error slot ${name} not found`);
   return el;
+}
+
+/** Name/Input sequence are `<wuik-text-input>` (backlog item 013), never a plain `<input>` -- see .vibe/decisions/019. */
+function textField(row: HTMLElement, name: string): HTMLElement {
+  const el = row.querySelector<HTMLElement>(
+    `wuik-text-input[data-field="${name}"]`,
+  );
+  if (!el) throw new Error(`text field ${name} not found`);
+  return el;
+}
+
+function typeText(el: HTMLElement, value: string): void {
+  el.dispatchEvent(new CustomEvent("wuik-input", { detail: { value } }));
+}
+
+/** `focusout` (composed + bubbling), not `blur` -- the one event that still crosses the component's shadow boundary. See .vibe/decisions/019. */
+function leaveText(el: HTMLElement): void {
+  el.dispatchEvent(new Event("focusout", { bubbles: true, composed: true }));
 }
 
 function addButton(root: HTMLElement): HTMLElement {
@@ -121,19 +140,30 @@ describe("renderCommandEditor", () => {
 
     const row = rows(root)[0];
     // Freshly added row: blank required fields must not be flagged invalid yet.
-    expect(field(row, "name").classList.contains("is-invalid")).toBe(false);
-    expect(field(row, "input").classList.contains("is-invalid")).toBe(false);
+    expect(textField(row, "name").hasAttribute("error")).toBe(false);
+    expect(textField(row, "input").hasAttribute("error")).toBe(false);
 
-    setValue(field(row, "name"), "QCF_a");
-    blur(field(row, "name"));
-    setValue(field(row, "input"), "~D, DF, F, a");
-    blur(field(row, "input"));
+    typeText(textField(row, "name"), "QCF_a");
+    leaveText(textField(row, "name"));
+    typeText(textField(row, "input"), "~D, DF, F, a");
+    leaveText(textField(row, "input"));
 
     const last = onChange.mock.calls.at(-1)?.[0] as CommandFile;
     expect(last.commands).toEqual([
       { name: "QCF_a", input: "~D, DF, F, a", time: 0, bufferTime: 0 },
     ]);
     expect(last.states).toEqual([]);
+  });
+
+  it("marks the name and input-sequence fields required", async () => {
+    const root = document.createElement("div");
+    renderCommandEditor(root, fixtureCharacter(), null, { onChange: vi.fn() });
+
+    addButton(root).click();
+    const row = rows(root)[0];
+
+    expect(textField(row, "name").hasAttribute("required")).toBe(true);
+    expect(textField(row, "input").hasAttribute("required")).toBe(true);
   });
 
   it("loads and displays an existing command's input sequence, timing, and mapped target state", async () => {
@@ -149,9 +179,9 @@ describe("renderCommandEditor", () => {
     });
 
     const row = rows(root)[0];
-    expect(field(row, "name").value).toBe("QCF_a");
-    expect(field(row, "input").value).toBe("~D, DF, F, a");
-    expect(field(row, "targetState").value).toBe("1000");
+    expect(textField(row, "name").getAttribute("value")).toBe("QCF_a");
+    expect(textField(row, "input").getAttribute("value")).toBe("~D, DF, F, a");
+    expect(numberField(row, "targetState").value).toBe("1000");
     expect(onChange).toHaveBeenCalledWith(loadedCommandFile(), true);
   });
 
@@ -167,11 +197,10 @@ describe("renderCommandEditor", () => {
     });
     const row = rows(root)[0];
 
-    setValue(field(row, "input"), "   ");
-    blur(field(row, "input"));
+    typeText(textField(row, "input"), "   ");
+    leaveText(textField(row, "input"));
 
-    expect(field(row, "input").classList.contains("is-invalid")).toBe(true);
-    expect(fieldError(row, "input").textContent).toBe(
+    expect(textField(row, "input").getAttribute("error")).toBe(
       "Input sequence cannot be empty.",
     );
     const last = onChange.mock.calls.at(-1)?.[0] as CommandFile;
@@ -195,12 +224,12 @@ describe("renderCommandEditor", () => {
     });
     const row = rows(root)[0];
 
-    setValue(field(row, "targetState"), "42");
-    blur(field(row, "targetState"));
+    setValue(numberField(row, "targetState"), "42");
+    blur(numberField(row, "targetState"));
 
-    expect(field(row, "targetState").classList.contains("is-invalid")).toBe(
-      true,
-    );
+    expect(
+      numberField(row, "targetState").classList.contains("is-invalid"),
+    ).toBe(true);
     expect(fieldError(row, "targetState").textContent).toBe(
       "No state 42 exists.",
     );
@@ -220,8 +249,8 @@ describe("renderCommandEditor", () => {
     });
     const row = rows(root)[0];
 
-    setValue(field(row, "name"), "QCF_a_renamed");
-    blur(field(row, "name"));
+    typeText(textField(row, "name"), "QCF_a_renamed");
+    leaveText(textField(row, "name"));
 
     const last = onChange.mock.calls.at(-1)?.[0] as CommandFile;
     expect(last.commands).toEqual([
@@ -242,17 +271,21 @@ describe("renderCommandEditor", () => {
     addButton(root).click();
     const [first, second] = rows(root);
 
-    setValue(field(first, "name"), "Dup");
-    blur(field(first, "name"));
-    setValue(field(first, "input"), "a");
-    blur(field(first, "input"));
-    setValue(field(second, "name"), "Dup");
-    blur(field(second, "name"));
-    setValue(field(second, "input"), "b");
-    blur(field(second, "input"));
+    typeText(textField(first, "name"), "Dup");
+    leaveText(textField(first, "name"));
+    typeText(textField(first, "input"), "a");
+    leaveText(textField(first, "input"));
+    typeText(textField(second, "name"), "Dup");
+    leaveText(textField(second, "name"));
+    typeText(textField(second, "input"), "b");
+    leaveText(textField(second, "input"));
 
-    expect(field(first, "name").classList.contains("is-invalid")).toBe(true);
-    expect(field(second, "name").classList.contains("is-invalid")).toBe(true);
+    expect(textField(first, "name").getAttribute("error")).toBe(
+      "Another command already uses this name.",
+    );
+    expect(textField(second, "name").getAttribute("error")).toBe(
+      "Another command already uses this name.",
+    );
     const last = onChange.mock.calls.at(-1)?.[0] as CommandFile;
     expect(last.commands).toEqual([]);
   });
@@ -308,8 +341,8 @@ describe("renderCommandEditor", () => {
         onChange: vi.fn(),
       });
       addButton(root).click();
-      blur(field(rows(root)[0], "name"));
-      expect(fieldError(rows(root)[0], "name").textContent).toBe(
+      leaveText(textField(rows(root)[0], "name"));
+      expect(textField(rows(root)[0], "name").getAttribute("error")).toBe(
         "Name cannot be empty.",
       );
 
@@ -317,7 +350,7 @@ describe("renderCommandEditor", () => {
       await getI18n()?.changeLanguage("fr");
 
       expect(root.querySelector("h2")?.textContent).toBe("Commandes");
-      expect(fieldError(rows(root)[0], "name").textContent).toBe(
+      expect(textField(rows(root)[0], "name").getAttribute("error")).toBe(
         "Le nom ne peut pas être vide.",
       );
     });

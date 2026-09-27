@@ -23,8 +23,11 @@ function fixtureCharacter(
   };
 }
 
-function fieldInput(root: HTMLElement, field: string): HTMLInputElement {
-  const el = root.querySelector<HTMLInputElement>(`[data-field="${field}"]`);
+/** Every migrated text field is a `<wuik-text-input>`, never a plain `<input>` -- see .vibe/decisions/019. */
+function fieldInput(root: HTMLElement, field: string): HTMLElement {
+  const el = root.querySelector<HTMLElement>(
+    `wuik-text-input[data-field="${field}"]`,
+  );
   if (!el) throw new Error(`field not found: ${field}`);
   return el;
 }
@@ -37,13 +40,14 @@ function listRows(root: HTMLElement, field: string): HTMLElement[] {
   );
 }
 
-function setValue(input: HTMLInputElement, value: string): void {
-  input.value = value;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+/** Simulates a keystroke: `<wuik-text-input>` reports every keystroke live via `wuik-input`, never a native "input" event -- see README.md's own documented contract. */
+function typeValue(el: HTMLElement, value: string): void {
+  el.dispatchEvent(new CustomEvent("wuik-input", { detail: { value } }));
 }
 
-function blur(input: HTMLInputElement): void {
-  input.dispatchEvent(new Event("blur", { bubbles: true }));
+/** Simulates leaving the field (edited or not) -- `focusout` is composed/bubbling and so is the one event that still crosses the component's shadow boundary, unlike the native, uncomposed `blur` this app used to listen to directly. See .vibe/decisions/019. */
+function leaveField(el: HTMLElement): void {
+  el.dispatchEvent(new Event("focusout", { bubbles: true, composed: true }));
 }
 
 describe("renderCharacteristicsEditor", () => {
@@ -53,13 +57,32 @@ describe("renderCharacteristicsEditor", () => {
       onChange: vi.fn(),
     });
 
-    expect(fieldInput(root, "name").value).toBe("Kung Fu Man");
-    expect(fieldInput(root, "author").value).toBe("Elecbyte");
-    expect(fieldInput(root, "spriteFile").value).toBe("kfm.sff");
-    expect(fieldInput(root, "animationFile").value).toBe("kfm.air");
-    expect(fieldInput(root, "soundFile").value).toBe("kfm.snd");
-    expect(fieldInput(root, "commandFile").value).toBe("kfm.cmd");
-    expect(fieldInput(root, "constantsFile").value).toBe("kfm.cns");
+    expect(fieldInput(root, "name").getAttribute("value")).toBe("Kung Fu Man");
+    expect(fieldInput(root, "author").getAttribute("value")).toBe("Elecbyte");
+    expect(fieldInput(root, "spriteFile").getAttribute("value")).toBe(
+      "kfm.sff",
+    );
+    expect(fieldInput(root, "animationFile").getAttribute("value")).toBe(
+      "kfm.air",
+    );
+    expect(fieldInput(root, "soundFile").getAttribute("value")).toBe("kfm.snd");
+    expect(fieldInput(root, "commandFile").getAttribute("value")).toBe(
+      "kfm.cmd",
+    );
+    expect(fieldInput(root, "constantsFile").getAttribute("value")).toBe(
+      "kfm.cns",
+    );
+  });
+
+  it("marks only the Name field as required", () => {
+    const root = document.createElement("div");
+    renderCharacteristicsEditor(root, fixtureCharacter(), {
+      onChange: vi.fn(),
+    });
+
+    expect(fieldInput(root, "name").hasAttribute("required")).toBe(true);
+    expect(fieldInput(root, "author").hasAttribute("required")).toBe(false);
+    expect(fieldInput(root, "spriteFile").hasAttribute("required")).toBe(false);
   });
 
   it("pre-fills the stateFiles and palettes lists with one row per existing entry", () => {
@@ -70,15 +93,19 @@ describe("renderCharacteristicsEditor", () => {
 
     const stateRows = listRows(root, "stateFiles");
     expect(stateRows).toHaveLength(1);
-    expect(stateRows[0].querySelector<HTMLInputElement>("input")?.value).toBe(
-      "kfm.st",
-    );
+    expect(
+      stateRows[0]
+        .querySelector<HTMLElement>("wuik-text-input")
+        ?.getAttribute("value"),
+    ).toBe("kfm.st");
 
     const paletteRows = listRows(root, "palettes");
     expect(paletteRows).toHaveLength(2);
     expect(
-      paletteRows.map(
-        (row) => row.querySelector<HTMLInputElement>("input")?.value,
+      paletteRows.map((row) =>
+        row
+          .querySelector<HTMLElement>("wuik-text-input")
+          ?.getAttribute("value"),
       ),
     ).toEqual(["kfm1.act", "kfm2.act"]);
   });
@@ -88,25 +115,22 @@ describe("renderCharacteristicsEditor", () => {
     const onChange = vi.fn();
     renderCharacteristicsEditor(root, fixtureCharacter(), { onChange });
 
-    setValue(fieldInput(root, "name"), "Ryu");
+    typeValue(fieldInput(root, "name"), "Ryu");
 
     expect(onChange).toHaveBeenCalledWith({ name: "Ryu" });
   });
 
-  it("shows a visible validation error and does not commit when name is cleared to empty", () => {
+  it("shows a live validation error and does not commit when name is cleared to empty", () => {
     const root = document.createElement("div");
     const onChange = vi.fn();
     renderCharacteristicsEditor(root, fixtureCharacter(), { onChange });
 
-    setValue(fieldInput(root, "name"), "");
+    typeValue(fieldInput(root, "name"), "");
 
     expect(onChange).not.toHaveBeenCalled();
-    const nameInput = fieldInput(root, "name");
-    expect(nameInput.getAttribute("aria-invalid")).toBe("true");
-    expect(nameInput.classList.contains("is-invalid")).toBe(true);
-    expect(
-      root.querySelector('[data-field-error="name"]')?.textContent,
-    ).toBeTruthy();
+    expect(fieldInput(root, "name").getAttribute("error")).toBe(
+      "Name cannot be empty.",
+    );
   });
 
   it("treats a whitespace-only name the same as empty", () => {
@@ -114,11 +138,11 @@ describe("renderCharacteristicsEditor", () => {
     const onChange = vi.fn();
     renderCharacteristicsEditor(root, fixtureCharacter(), { onChange });
 
-    setValue(fieldInput(root, "name"), "   ");
+    typeValue(fieldInput(root, "name"), "   ");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(fieldInput(root, "name").classList.contains("is-invalid")).toBe(
-      true,
+    expect(fieldInput(root, "name").getAttribute("error")).toBe(
+      "Name cannot be empty.",
     );
   });
 
@@ -127,12 +151,10 @@ describe("renderCharacteristicsEditor", () => {
     const onChange = vi.fn();
     renderCharacteristicsEditor(root, fixtureCharacter(), { onChange });
 
-    setValue(fieldInput(root, "name"), "");
-    setValue(fieldInput(root, "name"), "Ken");
+    typeValue(fieldInput(root, "name"), "");
+    typeValue(fieldInput(root, "name"), "Ken");
 
-    expect(fieldInput(root, "name").classList.contains("is-invalid")).toBe(
-      false,
-    );
+    expect(fieldInput(root, "name").hasAttribute("error")).toBe(false);
     expect(onChange).toHaveBeenLastCalledWith({ name: "Ken" });
   });
 
@@ -141,15 +163,13 @@ describe("renderCharacteristicsEditor", () => {
     const onChange = vi.fn();
     renderCharacteristicsEditor(root, fixtureCharacter(), { onChange });
 
-    setValue(fieldInput(root, "author"), "");
+    typeValue(fieldInput(root, "author"), "");
 
     expect(onChange).toHaveBeenCalledWith({ author: "" });
-    expect(fieldInput(root, "author").classList.contains("is-invalid")).toBe(
-      false,
-    );
+    expect(fieldInput(root, "author").hasAttribute("error")).toBe(false);
   });
 
-  it("adds a new empty row to a list when its Add control is activated", () => {
+  it("adds a new empty, required row to a list when its Add control is activated", () => {
     const root = document.createElement("div");
     renderCharacteristicsEditor(root, fixtureCharacter({ stateFiles: [] }), {
       onChange: vi.fn(),
@@ -161,7 +181,11 @@ describe("renderCharacteristicsEditor", () => {
     if (!addButton) throw new Error("add button not found");
     addButton.click();
 
-    expect(listRows(root, "stateFiles")).toHaveLength(1);
+    const rows = listRows(root, "stateFiles");
+    expect(rows).toHaveLength(1);
+    expect(
+      rows[0].querySelector("wuik-text-input")?.hasAttribute("required"),
+    ).toBe(true);
   });
 
   it("commits a newly added list row's value once filled in", () => {
@@ -173,14 +197,14 @@ describe("renderCharacteristicsEditor", () => {
 
     root.querySelector<HTMLElement>('[data-list-add="stateFiles"]')?.click();
     const row = listRows(root, "stateFiles")[0];
-    const input = row.querySelector<HTMLInputElement>("input");
+    const input = row.querySelector<HTMLElement>("wuik-text-input");
     if (!input) throw new Error("row input not found");
-    setValue(input, "extra.st");
+    typeValue(input, "extra.st");
 
     expect(onChange).toHaveBeenCalledWith({ stateFiles: ["extra.st"] });
   });
 
-  it("flags a blank list row on blur and excludes it from the committed array", () => {
+  it("excludes a list row left blank on leave from the committed array", () => {
     const root = document.createElement("div");
     const onChange = vi.fn();
     renderCharacteristicsEditor(
@@ -194,11 +218,10 @@ describe("renderCharacteristicsEditor", () => {
     root.querySelector<HTMLElement>('[data-list-add="palettes"]')?.click();
     const rows = listRows(root, "palettes");
     const newRow = rows[rows.length - 1];
-    const input = newRow.querySelector<HTMLInputElement>("input");
+    const input = newRow.querySelector<HTMLElement>("wuik-text-input");
     if (!input) throw new Error("row input not found");
-    blur(input);
+    leaveField(input);
 
-    expect(input.classList.contains("is-invalid")).toBe(true);
     expect(onChange).toHaveBeenCalledWith({ palettes: ["kfm1.act"] });
   });
 
@@ -237,8 +260,10 @@ describe("renderCharacteristicsEditor", () => {
       onChange: vi.fn(),
     });
 
-    expect(root.querySelectorAll('[data-field="name"]')).toHaveLength(1);
-    expect(fieldInput(root, "name").value).toBe("Second");
+    expect(
+      root.querySelectorAll('wuik-text-input[data-field="name"]'),
+    ).toHaveLength(1);
+    expect(fieldInput(root, "name").getAttribute("value")).toBe("Second");
   });
 
   describe("localization (backlog item 012)", () => {
@@ -260,7 +285,9 @@ describe("renderCharacteristicsEditor", () => {
         (el) => el.textContent,
       );
       expect(headings).toContain("Identité");
-      expect(fieldInput(root, "name").value).toBe("Kung Fu Man");
+      expect(fieldInput(root, "name").getAttribute("value")).toBe(
+        "Kung Fu Man",
+      );
       expect(
         root.querySelector('[data-list-add="palettes"]')?.textContent,
       ).toBe("Ajouter : palette");

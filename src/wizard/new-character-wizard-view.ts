@@ -81,23 +81,18 @@ export function renderNewCharacterWizard(
   templateGroup.append(blankOption, basicOption);
   dialogEl.appendChild(templateGroup);
 
-  const nameLabel = document.createElement("label");
-  nameLabel.className = "new-character-wizard__name-label";
-  // A text node (not `nameLabel.textContent`) so the label's own visible
-  // text can be retranslated in place without wiping out the nested
-  // `<input>` appended right after it -- see `renderNameLabel` below.
-  const nameLabelText = document.createTextNode("");
-  nameLabel.appendChild(nameLabelText);
-  const nameField = document.createElement("input");
-  nameField.type = "text";
-  nameField.className = "new-character-wizard__input";
+  // A `<wuik-text-input>` (backlog item 013) -- its own internal `<label>`
+  // replaces the app's previous manual `<label>` + text-node retranslation
+  // trick, since the component's `label` attribute can just be re-set
+  // directly on locale change. See
+  // .vibe/decisions/019-text-input-migration-to-wuik-text-input.md.
+  const nameField = document.createElement("wuik-text-input");
   // Not `data-field="name"`: that attribute is the characteristics editor's
   // own convention for its *loaded character's* Name field elsewhere on
   // this same page -- reusing it here would make `[data-field="name"]`
   // ambiguous between the two unrelated forms.
   nameField.dataset.field = "wizard-name";
-  nameLabel.appendChild(nameField);
-  dialogEl.appendChild(nameLabel);
+  dialogEl.appendChild(nameField);
 
   const errorEl = document.createElement("p");
   errorEl.className = "new-character-wizard__error";
@@ -152,22 +147,39 @@ export function renderNewCharacterWizard(
     );
     cancelButton.textContent = t("wizard.cancel", "Cancel");
     createButton.textContent = t("wizard.create", "Create");
-    nameLabelText.textContent = t("wizard.nameLabel", "Name");
+    nameField.setAttribute("label", t("wizard.nameLabel", "Name"));
   }
 
   function renderErrorAndStatus(): void {
-    errorEl.textContent =
-      currentError === null
-        ? ""
-        : currentError.kind === "required"
-          ? t("wizard.nameRequired", "A name is required.")
-          : currentError.message;
+    if (currentError === null) {
+      errorEl.textContent = "";
+      nameField.removeAttribute("error");
+    } else if (currentError.kind === "required") {
+      // Shown inline on the field itself only -- unlike a generic
+      // post-submit failure (the other branch, e.g. a bridge error), this
+      // one *is* about this specific field, so repeating the identical
+      // sentence on the shared line too would just be the same message
+      // twice on screen (found by real-browser runtime verification). See
+      // .vibe/decisions/019.
+      errorEl.textContent = "";
+      nameField.setAttribute(
+        "error",
+        t("wizard.nameRequired", "A name is required."),
+      );
+    } else {
+      errorEl.textContent = currentError.message;
+      nameField.removeAttribute("error");
+    }
     statusEl.textContent =
       currentStatus === "creating" ? t("wizard.creating", "Creating…") : "";
   }
 
+  function currentName(): string {
+    return nameField.getAttribute("value") ?? "";
+  }
+
   function refreshCreateEnabled(): void {
-    if (nameField.value.trim() === "") {
+    if (currentName().trim() === "") {
       createButton.setAttribute("disabled", "");
     } else {
       createButton.removeAttribute("disabled");
@@ -175,7 +187,7 @@ export function renderNewCharacterWizard(
   }
 
   function resetForm(): void {
-    nameField.value = "";
+    nameField.setAttribute("value", "");
     templateGroup.setAttribute("value", "blank");
     selectedTemplate = "blank";
     currentError = null;
@@ -211,7 +223,9 @@ export function renderNewCharacterWizard(
     selectedTemplate = value === "basic" ? "basic" : "blank";
   });
 
-  nameField.addEventListener("input", () => {
+  nameField.addEventListener("wuik-input", (event) => {
+    const value = (event as CustomEvent<{ value: string }>).detail.value;
+    nameField.setAttribute("value", value);
     currentError = null;
     renderErrorAndStatus();
     refreshCreateEnabled();
@@ -224,11 +238,24 @@ export function renderNewCharacterWizard(
     void handleCreate();
   });
 
+  // `<wuik-text-input>` exposes no public focus proxy (its shadow root isn't
+  // opened with `delegatesFocus`), so a plain `.focus()` would silently do
+  // nothing -- reach into its shadow DOM for the real focusable `<input>`
+  // instead, guarded the same way this codebase already guards every other
+  // `<wuik-*>` method this test environment's unregistered custom elements
+  // don't provide. See .vibe/decisions/019.
+  function focusNameField(): void {
+    (
+      nameField.shadowRoot?.querySelector("input") as HTMLInputElement | null
+    )?.focus();
+  }
+
   async function handleCreate(): Promise<void> {
-    const name = nameField.value.trim();
+    const name = currentName().trim();
     if (name === "") {
       currentError = { kind: "required" };
       renderErrorAndStatus();
+      focusNameField();
       return;
     }
 

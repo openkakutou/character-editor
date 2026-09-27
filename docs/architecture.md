@@ -71,8 +71,8 @@ flowchart LR
   via an injected `onChange` callback rather than importing the store
   directly — kept decoupled and testable the same way `input` never touches
   `document` either, only `app` wires the two together. Its text fields are
-  plain `<input>`s styled with `web-ui-kit` tokens, not a `web-ui-kit`
-  component — see "Native form inputs" below. `state-editor.ts` (item 007)
+  `web-ui-kit`'s own `<wuik-text-input>` component (item 013) — see "Text
+  input fields" below. `state-editor.ts` (item 007)
   is the state/combat logic editor — see "Data flow: editing state/combat
   logic" below and
   `.vibe/decisions/006-state-editor-unsupported-controller-and-removal-scope.md`.
@@ -229,18 +229,23 @@ input slots: their raw bytes are captured into `document`'s store for a
 later editor item to use, but never parsed or validated by this app today.
 See `.vibe/decisions/002-required-vs-optional-input-files-and-in-memory-document.md`.
 
-## Native form inputs
+## Text input fields
 
-`web-ui-kit` has no generic text-input/form-field component yet (only
-specialized ones — a slider, a color picker — plus `wuik-button`). The
-characteristics editor's text fields are plain `<input>`/`<label>`
-elements styled directly with `web-ui-kit`'s `--wuik-*` tokens, reusing
-that design system's own documented invalid-state contract (`is-invalid`
-class, `aria-invalid`, a danger-colored border, inset focus ring) so the
-screen still reads as part of the same system. Buttons (list row add/
-remove) stay real `wuik-button` elements, since that component already
-exists. See `.vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md`
-and follow-up backlog item `013` (migrate once a real component ships).
+Every text field across the app (the characteristics editor's scalar
+fields and dynamic list rows, the new-character wizard's Name field, the
+command editor's Name/Input-sequence fields) is `web-ui-kit`'s own
+`<wuik-text-input>` component (item 013, `@openkakutou/web-ui-kit@0.14.1`)
+— it owns its own label/input/error layout and invalid-state styling
+internally. The app still drives its own validation logic (parameterized
+messages, duplicate-name detection, live-on-keystroke checks) via the
+component's `error` attribute rather than its built-in generic required
+check, and uses `focusout` (not `blur`/`wuik-change`) to detect a field
+being left, since the component's shadow boundary blocks the former and
+the latter only fires on an actual value change. See
+`.vibe/decisions/019-text-input-migration-to-wuik-text-input.md`. Number
+fields (command editor's Time/Buffer time/Target state) stay plain native
+`<input type="number">` — the component has no numeric-input equivalent.
+Buttons (list row add/remove) stay real `wuik-button` elements.
 
 ## WebAssembly dependency
 

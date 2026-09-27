@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The characteristics editor, the new-character wizard's Name field, and the command editor's Name/Input-sequence fields now use the design system's own text-input component instead of a plain styled text box, matching the look and feel of every other field in the app more closely.
+
 ## [0.14.1] - 2026-09-21
 
 ### Fixed

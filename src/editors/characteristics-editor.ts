@@ -1,12 +1,13 @@
 // Characteristics editor (backlog item 003): a form for a loaded
-// character's top-level metadata — the first editing screen in the app.
+// character's top-level metadata -- the first editing screen in the app.
 // Scoped to exactly the scalar/list fields `CharacterData` actually
 // exposes, not the backlog item's looser "name, display name, author,
-// version" wording — see
+// version" wording -- see
 // .vibe/decisions/003-characteristics-editor-scope-and-native-inputs.md for
-// why, and for why text fields are plain `<input>`s styled with
-// `web-ui-kit` tokens rather than a (currently nonexistent) `wuik-input`
-// component.
+// why. Text fields are `<wuik-text-input>` (backlog item 013, migrating off
+// the plain-`<input>` stopgap decision 003 originally chose) -- see
+// .vibe/decisions/019-text-input-migration-to-wuik-text-input.md for its
+// event/validation contract.
 import { t } from "../i18n/i18n.ts";
 import type { CharacterData } from "../wasm/types.ts";
 
@@ -185,55 +186,34 @@ function renderScalarField(
   options: CharacteristicsEditorOptions,
 ): HTMLElement {
   const required = REQUIRED_FIELDS.has(field);
-  const wrapper = document.createElement("div");
-  wrapper.className = "characteristics-editor__field";
 
-  const inputId = `characteristics-editor-${field}`;
-
-  const labelEl = document.createElement("label");
-  labelEl.className = "characteristics-editor__label";
-  labelEl.htmlFor = inputId;
-  labelEl.textContent = required
-    ? t("characteristics.requiredSuffix", "{{label}} *", { label })
-    : label;
-  wrapper.appendChild(labelEl);
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.id = inputId;
-  input.className = "characteristics-editor__input";
+  const input = document.createElement("wuik-text-input");
+  input.setAttribute("label", label);
+  input.setAttribute("value", initialValue);
   input.dataset.field = field;
-  input.value = initialValue;
-  if (required) input.setAttribute("aria-required", "true");
-  wrapper.appendChild(input);
-
-  const errorEl = document.createElement("span");
-  errorEl.className = "characteristics-editor__field-error";
-  errorEl.dataset.fieldError = field;
-  errorEl.hidden = true;
-  wrapper.appendChild(errorEl);
+  if (required) input.setAttribute("required", "");
 
   function setInvalid(message: string | null): void {
     if (message === null) {
-      input.classList.remove("is-invalid");
-      input.removeAttribute("aria-invalid");
-      errorEl.hidden = true;
-      errorEl.textContent = "";
+      input.removeAttribute("error");
       return;
     }
-    input.classList.add("is-invalid");
-    input.setAttribute("aria-invalid", "true");
-    errorEl.hidden = false;
-    errorEl.textContent = message;
+    input.setAttribute("error", message);
   }
 
-  input.addEventListener("input", () => {
+  // Validates live on every keystroke (`wuik-input`), never gated behind a
+  // blur -- matches the field's pre-migration behavior exactly, deliberately
+  // not the component's own built-in blur-gated required check, which would
+  // both delay the cue and show a different, non-parameterized message. See
+  // .vibe/decisions/019.
+  input.addEventListener("wuik-input", (event) => {
+    const value = (event as CustomEvent<{ value: string }>).detail.value;
     if (!required) {
       setInvalid(null);
-      options.onChange({ [field]: input.value } as Partial<CharacterData>);
+      options.onChange({ [field]: value } as Partial<CharacterData>);
       return;
     }
-    const trimmed = input.value.trim();
+    const trimmed = value.trim();
     if (trimmed === "") {
       setInvalid(
         t("characteristics.cannotBeEmpty", "{{label}} cannot be empty.", {
@@ -246,13 +226,12 @@ function renderScalarField(
     options.onChange({ [field]: trimmed } as Partial<CharacterData>);
   });
 
-  return wrapper;
+  return input;
 }
 
 interface ListRow {
   id: number;
   value: string;
-  touched: boolean;
 }
 
 function renderListSection(
@@ -286,7 +265,6 @@ function renderListSection(
   let rows: ListRow[] = character[field].map((value) => ({
     id: nextId++,
     value,
-    touched: true,
   }));
 
   function commit(): void {
@@ -296,47 +274,33 @@ function renderListSection(
     options.onChange({ [field]: committed } as Partial<CharacterData>);
   }
 
-  /**
-   * Toggles `input`'s own invalid styling in place, based on `row`'s
-   * current touched/blank state — never a full `render()`, so blurring or
-   * editing one row can never steal focus away by rebuilding the DOM node
-   * the user is actively interacting with.
-   */
-  function applyRowValidity(input: HTMLInputElement, row: ListRow): void {
-    const isBlank = row.touched && row.value.trim() === "";
-    input.classList.toggle("is-invalid", isBlank);
-    if (isBlank) {
-      input.setAttribute("aria-invalid", "true");
-    } else {
-      input.removeAttribute("aria-invalid");
-    }
-  }
-
   function render(): void {
     list.replaceChildren(
       ...rows.map((row, index) => {
         const rowEl = document.createElement("div");
         rowEl.className = "characteristics-editor__list-row";
 
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "characteristics-editor__input";
-        input.value = row.value;
-        applyRowValidity(input, row);
+        // No `label` attribute (and so no visible label -- see
+        // `<wuik-text-input>`'s own source: an empty label hides its whole
+        // internal `<label>`, required-marker included), matching this row's
+        // pre-migration, deliberately unlabeled design -- the section
+        // heading above already names what the list holds. `required` lets
+        // the component's own built-in blur-gated message flag a row left
+        // blank, in place of this app's previous silent border-only cue.
+        const input = document.createElement("wuik-text-input");
+        input.setAttribute("required", "");
+        input.setAttribute("value", row.value);
 
-        input.addEventListener("input", () => {
-          row.value = input.value;
+        input.addEventListener("wuik-input", (event) => {
+          row.value = (event as CustomEvent<{ value: string }>).detail.value;
           commit();
-          applyRowValidity(input, row);
         });
-        input.addEventListener("blur", () => {
-          row.touched = true;
-          // Recommit even though this row's own trimmed value hasn't
-          // changed: a row left blank on blur must be confirmed excluded
-          // from the committed array, not just visually flagged, in case
-          // it was added without ever firing its own input event.
+        // `focusout` (composed + bubbling), not `wuik-change` (fires only if
+        // the value actually differs from focus-time) -- a row focused and
+        // left untouched must still recommit/exclude on leave exactly like
+        // an edited one. See .vibe/decisions/019.
+        input.addEventListener("focusout", () => {
           commit();
-          applyRowValidity(input, row);
         });
 
         const removeButton = document.createElement("wuik-button");
@@ -364,10 +328,19 @@ function renderListSection(
   }
 
   addButton.addEventListener("click", () => {
-    rows = [...rows, { id: nextId++, value: "", touched: false }];
+    rows = [...rows, { id: nextId++, value: "" }];
     render();
-    const lastInput = list.querySelectorAll("input");
-    lastInput[lastInput.length - 1]?.focus();
+    // `<wuik-text-input>` exposes no public focus proxy (its shadow root
+    // isn't opened with `delegatesFocus`), so a plain `.focus()` on the host
+    // would silently do nothing -- reach into its shadow DOM for the real
+    // focusable `<input>` instead, guarded the same way this codebase
+    // already guards every other `<wuik-*>` method this test environment's
+    // unregistered custom elements don't provide (see .vibe/index.md).
+    const newInputs = list.querySelectorAll("wuik-text-input");
+    const lastInput = newInputs[newInputs.length - 1];
+    (
+      lastInput?.shadowRoot?.querySelector("input") as HTMLInputElement | null
+    )?.focus();
   });
 
   render();

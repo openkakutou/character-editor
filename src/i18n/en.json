@@ -68,7 +68,6 @@
     "stateFileSingular": "state file",
     "palettesLabel": "Palettes",
     "paletteSingular": "palette",
-    "requiredSuffix": "{{label}} *",
     "addButton": "Add {{singular}}",
     "removeButton": "Remove",
     "removeAriaLabel": "Remove {{singular}} #{{index}}",

@@ -237,7 +237,7 @@ export function renderCommandEditor(
     row: HTMLElement,
     field: string,
     label: string,
-    type: "text" | "number",
+    type: "number",
   ): { input: HTMLInputElement; error: HTMLElement } {
     const wrapper = document.createElement("div");
     wrapper.className = "command-editor__field";
@@ -267,6 +267,38 @@ export function renderCommandEditor(
     return { input, error };
   }
 
+  /**
+   * Builds a `<wuik-text-input>` (backlog item 013) for a Name/Input-sequence
+   * field -- both are always required. Unlike `buildField` above, this owns
+   * no separate `<label>`/error `<span>`: the component renders its own
+   * label and, once `error` is set, its own invalid-state cue and message
+   * text internally. See
+   * .vibe/decisions/019-text-input-migration-to-wuik-text-input.md.
+   */
+  function buildTextField(
+    row: HTMLElement,
+    field: string,
+    label: string,
+  ): HTMLElement {
+    const input = document.createElement("wuik-text-input");
+    input.setAttribute("label", label);
+    input.setAttribute("required", "");
+    input.dataset.field = field;
+    row.appendChild(input);
+    return input;
+  }
+
+  function applyTextFieldValidity(
+    input: HTMLElement,
+    message: string | null,
+  ): void {
+    if (message === null) {
+      input.removeAttribute("error");
+      return;
+    }
+    input.setAttribute("error", message);
+  }
+
   function buildRow(row: CommandRow): {
     element: HTMLElement;
     refresh: () => void;
@@ -275,21 +307,19 @@ export function renderCommandEditor(
     rowEl.className = "command-editor__row";
     rowEl.dataset.commandRow = String(row.id);
 
-    const name = buildField(
+    const nameInput = buildTextField(
       rowEl,
       "name",
       t("commands.nameLabel", "Name"),
-      "text",
     );
-    name.input.value = row.command.name;
+    nameInput.setAttribute("value", row.command.name);
 
-    const input = buildField(
+    const inputInput = buildTextField(
       rowEl,
       "input",
       t("commands.inputSequenceLabel", "Input sequence"),
-      "text",
     );
-    input.input.value = row.command.input;
+    inputInput.setAttribute("value", row.command.input);
 
     const hint = document.createElement("p");
     hint.className = "command-editor__hint";
@@ -335,20 +365,27 @@ export function renderCommandEditor(
     removeButton.textContent = t("commands.remove", "Remove");
     rowEl.appendChild(removeButton);
 
-    name.input.addEventListener("input", () => {
-      row.command = { ...row.command, name: name.input.value };
+    nameInput.addEventListener("wuik-input", (event) => {
+      const value = (event as CustomEvent<{ value: string }>).detail.value;
+      row.command = { ...row.command, name: value };
       onRowEdited();
     });
-    name.input.addEventListener("blur", () => {
+    // `focusout` (composed + bubbling), not `wuik-change` (fires only if the
+    // value actually differs from focus-time) -- a row focused and left
+    // untouched must still reveal its "required" state on leave exactly
+    // like an edited one did via the old native `blur`. See
+    // .vibe/decisions/019.
+    nameInput.addEventListener("focusout", () => {
       row.touched = true;
       onRowEdited();
     });
 
-    input.input.addEventListener("input", () => {
-      row.command = { ...row.command, input: input.input.value };
+    inputInput.addEventListener("wuik-input", (event) => {
+      const value = (event as CustomEvent<{ value: string }>).detail.value;
+      row.command = { ...row.command, input: value };
       onRowEdited();
     });
-    input.input.addEventListener("blur", () => {
+    inputInput.addEventListener("focusout", () => {
       row.touched = true;
       onRowEdited();
     });
@@ -395,14 +432,12 @@ export function renderCommandEditor(
 
     function refresh(): void {
       const validation = validateRow(row);
-      applyFieldValidity(
-        name.input,
-        name.error,
+      applyTextFieldValidity(
+        nameInput,
         row.touched ? validation.nameError : null,
       );
-      applyFieldValidity(
-        input.input,
-        input.error,
+      applyTextFieldValidity(
+        inputInput,
         row.touched ? validation.inputError : null,
       );
       // Target state has no "touched" gate: a blank value is always a
