@@ -170,6 +170,74 @@ describe("loadCharacterFromChosenDef / loadCharacterFromFolderFiles", () => {
     ];
   }
 
+  describe("optional sound file (.snd)", () => {
+    const sndRef = "sound = ryu.snd\n";
+    function folderWithSnd(bytes: Uint8Array | null, ref = sndRef) {
+      return [
+        gathered("ryu/ryu.def", defText(ref)),
+        gathered("ryu/ryu.air", fixtureBytes("sample.air")),
+        gathered("ryu/ryu.sff", fixtureBytes("v1-basic.sff")),
+        gathered("ryu/ryu.cns", fixtureBytes("sample.cns")),
+        ...(bytes ? [gathered("ryu/ryu.snd", bytes)] : []),
+      ];
+    }
+
+    it("decodes the referenced .snd and keeps its raw bytes", async () => {
+      const result = await loadCharacterFromFolderFiles(
+        folderWithSnd(fixtureBytes("sample.snd")),
+        testOptions,
+      );
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.character.sounds?.map((g) => g.index)).toEqual([0, 5]);
+      expect(result.character.sounds?.[0].sounds).toHaveLength(2);
+      expect(result.files.snd).toBeDefined();
+      expect(result.files.sndIssue).toBeUndefined();
+    });
+
+    it("loads with no sounds and no issue when the .def references no .snd", async () => {
+      const result = await loadCharacterFromFolderFiles(
+        folderWithSnd(null, ""),
+        testOptions,
+      );
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.character.sounds ?? []).toEqual([]);
+      expect(result.files.snd).toBeUndefined();
+      expect(result.files.sndIssue).toBeUndefined();
+    });
+
+    it("still loads the character, reporting the file name, when the referenced .snd is missing", async () => {
+      const result = await loadCharacterFromFolderFiles(
+        folderWithSnd(null),
+        testOptions,
+      );
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.character.animations).toHaveLength(2);
+      expect(result.files.sndIssue).toContain("ryu.snd");
+    });
+
+    it("keeps the good sounds and flags the broken one when a single sound cannot be decoded", async () => {
+      const result = await loadCharacterFromFolderFiles(
+        folderWithSnd(fixtureBytes("partial.snd")),
+        testOptions,
+      );
+      if (result.status !== "success") throw new Error("expected success");
+      const group0 = result.character.sounds?.[0].sounds ?? [];
+      expect(group0[0].error).toBeUndefined();
+      expect(group0[1].error).toContain("sample 1");
+      expect(result.files.sndIssue).toBeUndefined();
+    });
+
+    it("still loads the character, with the reason, when the whole .snd is invalid", async () => {
+      const result = await loadCharacterFromFolderFiles(
+        folderWithSnd(textBytes("definitely not a sound file")),
+        testOptions,
+      );
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.character.animations).toHaveLength(2);
+      expect(result.files.sndIssue).toContain("ryu.snd");
+    });
+  });
+
   it("loads the character when exactly one .def is found and every required reference resolves", async () => {
     const result = await loadCharacterFromFolderFiles(
       completeFolder(),

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDefFileReferences } from "./def-files-section.ts";
 
 describe("parseDefFileReferences", () => {
-  it("reads the sprite/anim/cns/cmd keys from a [Files] section, ignoring [Info] and unrelated keys", () => {
+  it("reads the sprite/anim/cns/cmd/sound keys from a [Files] section, ignoring [Info] and unrelated keys", () => {
     const src = `[Info]
 name = "Kung Fu Man"
 author = "Elecbyte"
@@ -22,6 +22,7 @@ pal1 = kfm1.act
       animationFile: "kfm.air",
       constantsFile: "kfm.cns",
       commandFile: "kfm.cmd",
+      soundFile: "kfm.snd",
     });
   });
 
@@ -37,6 +38,7 @@ CNS = kfm.CNS
       animationFile: "kfm.AIR",
       constantsFile: "kfm.CNS",
       commandFile: "",
+      soundFile: "",
     });
   });
 
@@ -52,6 +54,7 @@ cns = kfm.cns
       animationFile: "kfm.air",
       constantsFile: "kfm.cns",
       commandFile: "",
+      soundFile: "",
     });
   });
 
@@ -65,6 +68,7 @@ name = "No Files Section"
       animationFile: "",
       constantsFile: "",
       commandFile: "",
+      soundFile: "",
     });
   });
 

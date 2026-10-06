@@ -182,7 +182,16 @@ export interface FileReadError {
 
 /** Raw bytes read for every kind actually resolved — required kinds always present, optional kinds only when found. */
 export type LoadedFileBytes = Record<RequiredFileKind, Uint8Array> &
-  Partial<Record<OptionalFileKind, Uint8Array>>;
+  Partial<Record<OptionalFileKind, Uint8Array>> & {
+    /** Raw `.snd` bytes, when the `.def` references one that was found and read. */
+    snd?: Uint8Array;
+    /**
+     * Why the character's sounds are unavailable although the `.def`
+     * references a `.snd` (missing, ambiguous, unreadable or invalid file).
+     * Never blocks loading the rest of the character.
+     */
+    sndIssue?: string;
+  };
 
 /**
  * Outcome of reading the resolved files and passing the 4 required ones to
@@ -270,6 +279,36 @@ async function readKindBytes(
         message: err instanceof Error ? err.message : String(err),
       },
     };
+  }
+}
+
+/**
+ * Resolves, reads and returns the `.def`'s optional `sound` file. Every
+ * failure is reported as `issue` text instead of an error status: a missing
+ * or unreadable `.snd` never blocks the rest of the character.
+ */
+async function readOptionalSound(
+  referencedPath: string,
+  files: readonly GatheredFile[],
+  readFileBytes: (file: File) => Promise<Uint8Array>,
+): Promise<{ bytes?: Uint8Array; fileName: string; issue?: string }> {
+  const resolution = resolveReferencedFile(referencedPath, files);
+  if (resolution.status === "no-reference") return { fileName: "" };
+  const fileName = referencedBasename(referencedPath);
+  if (resolution.status === "not-found") {
+    return { fileName, issue: `${fileName}: file not found in the folder` };
+  }
+  if (resolution.status === "ambiguous") {
+    return {
+      fileName,
+      issue: `${fileName}: ${resolution.candidates.length} files share this name in the folder`,
+    };
+  }
+  try {
+    return { bytes: await readFileBytes(resolution.entry.file), fileName };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { fileName, issue: `${fileName}: ${message}` };
   }
 }
 
@@ -397,13 +436,34 @@ export async function loadCharacterFromChosenDef(
     bytesByKind[kind] = attempt.bytes;
   }
 
-  const result = await loadCharacter(
-    bytesByKind.def,
-    bytesByKind.air,
-    bytesByKind.sff,
-    bytesByKind.cns,
-    options,
+  const sound = await readOptionalSound(
+    references.soundFile,
+    files,
+    readFileBytes,
   );
+  if (sound.bytes) bytesByKind.snd = sound.bytes;
+  if (sound.issue) bytesByKind.sndIssue = sound.issue;
+
+  const loadWith = (sndBytes?: Uint8Array) =>
+    loadCharacter(
+      bytesByKind.def,
+      bytesByKind.air,
+      bytesByKind.sff,
+      bytesByKind.cns,
+      { ...options, sndBytes },
+    );
+
+  let result = await loadWith(sound.bytes);
+  if (!result.ok && sound.bytes) {
+    // A wholly invalid .snd must not stop the rest of the character from
+    // loading: retry without it and surface why the sounds are missing.
+    const withoutSounds = await loadWith(undefined);
+    if (withoutSounds.ok) {
+      bytesByKind.snd = undefined;
+      bytesByKind.sndIssue = `${sound.fileName}: ${result.error}`;
+      result = withoutSounds;
+    }
+  }
   if (!result.ok) return { status: "bridge-error", message: result.error };
 
   return {

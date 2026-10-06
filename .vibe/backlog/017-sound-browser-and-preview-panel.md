@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 ---
 # Sound Browser And Preview Panel
 

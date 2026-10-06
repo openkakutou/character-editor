@@ -1,0 +1,5 @@
+# Module: sounds
+**Role:** The sound browser (backlog item 017): lists every sound of the loaded character's `.snd` grouped by group index (collapsible, like the sprite browser), plays one at a time through an injectable `SoundPlayer` (real implementation: Web Audio, `AudioContext` created on first click, `AudioBuffer` built lazily per sound), and has four states: populated, empty (the `.def` references no `.snd`), error (`files.sndIssue`: referenced `.snd` missing, ambiguous, unreadable or wholly invalid), and per-row "Cannot be decoded" (`Sound.error`, empty PCM, or a playback failure). Browse/preview only. Mounted once per character load by `main.ts`, never re-rendered on Undo/Redo; re-rendering into the same root stops playback and unsubscribes the previous locale listener.
+**Files:** `src/sounds/sound-browser.ts`
+**Exports:** `renderSoundBrowser(root, character, files, options?): void`, `createWebAudioPlayer(): SoundPlayer`, `SoundPlayer`, `SoundBrowserOptions`, `SoundBrowserFiles`
+**Depends on:** `modules/wasm.md` (`CharacterData.sounds`, `Sound`), `modules/i18n.md`, `@openkakutou/web-ui-kit` (`<wuik-panel>`)

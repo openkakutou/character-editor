@@ -28,6 +28,7 @@ import { renderPaletteEditor } from "./palettes/palette-editor.ts";
 import { renderExportPanel } from "./save/export-panel.ts";
 import { installGlobalShortcutListener } from "./shortcuts/global-shortcut-listener.ts";
 import { renderShortcutsScreen } from "./shortcuts/shortcuts-screen.ts";
+import { renderSoundBrowser } from "./sounds/sound-browser.ts";
 import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { appVersion } from "./version.ts";
 import type { CharacterData } from "./wasm/types.ts";
@@ -282,6 +283,7 @@ export function renderApp(
   const shortcutsScreenContainer = document.createElement("div");
   const characteristicsContainer = document.createElement("div");
   const spriteBrowserContainer = document.createElement("div");
+  const soundBrowserContainer = document.createElement("div");
   const paletteEditorContainer = document.createElement("div");
   const stateEditorContainer = document.createElement("div");
   const animationEditorContainer = document.createElement("div");
@@ -446,6 +448,9 @@ export function renderApp(
     setCharacterDocument({ character, files });
     renderDocumentBackedEditors(character, files);
     mountCommandEditor(character, files);
+    // Read-only and independent of edit history, so rendered once here
+    // like the palette editor, never re-rendered on Undo/Redo.
+    renderSoundBrowser(soundBrowserContainer, character, files);
     paletteEditorHandle = renderPaletteEditor(
       paletteEditorContainer,
       character,
@@ -493,6 +498,7 @@ export function renderApp(
     shortcutsScreenContainer,
     characteristicsContainer,
     spriteBrowserContainer,
+    soundBrowserContainer,
     paletteEditorContainer,
     stateEditorContainer,
     commandEditorContainer,

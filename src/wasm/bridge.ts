@@ -58,6 +58,7 @@ interface OpenKakutouCharacterGlobal {
     airBytes: Uint8Array,
     sffBytes: Uint8Array,
     cnsBytes: Uint8Array,
+    sndBytes?: Uint8Array,
   ): RawLoadResult;
   loadCmd(cmdBytes: Uint8Array): RawLoadCmdResult;
   resolveSprites(
@@ -166,6 +167,11 @@ export function resetWasmBridgeForTests(): void {
   readyPromise = null;
 }
 
+/** `WasmBridgeOptions` plus the optional `.snd` file bytes `load` accepts as its fifth argument. */
+export interface LoadCharacterOptions extends WasmBridgeOptions {
+  sndBytes?: Uint8Array;
+}
+
 /**
  * Loads a character from raw `.def`/`.air`/`.sff`/`.cns` file bytes via the
  * `character` WASM module, returning a typed result instead of throwing on
@@ -176,7 +182,7 @@ export async function loadCharacter(
   airBytes: Uint8Array,
   sffBytes: Uint8Array,
   cnsBytes: Uint8Array,
-  options: WasmBridgeOptions = {},
+  options: LoadCharacterOptions = {},
 ): Promise<CharacterResult> {
   await ensureGoRuntimeReady(options);
 
@@ -185,6 +191,7 @@ export async function loadCharacter(
     airBytes,
     sffBytes,
     cnsBytes,
+    options.sndBytes,
   );
 
   if (raw.error !== null) {

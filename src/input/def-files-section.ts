@@ -17,6 +17,7 @@ export interface DefFileReferences {
   animationFile: string;
   constantsFile: string;
   commandFile: string;
+  soundFile: string;
 }
 
 const KEY_TO_FIELD: Readonly<Record<string, keyof DefFileReferences>> = {
@@ -24,6 +25,7 @@ const KEY_TO_FIELD: Readonly<Record<string, keyof DefFileReferences>> = {
   anim: "animationFile",
   cns: "constantsFile",
   cmd: "commandFile",
+  sound: "soundFile",
 };
 
 /**
@@ -39,6 +41,7 @@ export function parseDefFileReferences(defText: string): DefFileReferences {
     animationFile: "",
     constantsFile: "",
     commandFile: "",
+    soundFile: "",
   };
 
   let inFilesSection = false;

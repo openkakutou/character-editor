@@ -224,5 +224,16 @@
     "spriteEditReplaced": "remplacé",
     "spriteEditDeleted": "supprimé",
     "spriteEditDescription": "sprite (groupe {{group}}, image {{image}}) {{verb}}"
+  },
+  "sounds": {
+    "browserHeading": "Sons ({{count}})",
+    "groupToggle": "Groupe {{index}} ({{count}})",
+    "rowPlay": "{{key}} — Lire",
+    "rowStop": "{{key}} — Arrêter",
+    "rowUndecodable": "{{key}} — Décodage impossible : {{reason}}",
+    "noAudioData": "aucune donnée audio",
+    "nowPlaying": "Lecture de {{key}}",
+    "empty": "Ce personnage n'a pas de fichier de sons. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
+    "loadError": "Le fichier de sons n'a pas pu être chargé : {{reason}}. Corrigez le fichier puis rechargez le dossier du personnage."
   }
 }

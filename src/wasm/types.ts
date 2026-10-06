@@ -71,6 +71,28 @@ export interface SpriteGroup {
   sprites: Sprite[];
 }
 
+/**
+ * One decoded `.snd` sound, keyed by `(group, sample)` the way a `.cns`
+ * `PlaySnd` controller addresses it. `error` is set (and `pcm` empty) when
+ * this single entry could not be decoded.
+ */
+export interface Sound {
+  group: number;
+  sample: number;
+  sampleRate: number;
+  channels: number;
+  bitsPerSample: number;
+  /** Interleaved signed 16-bit PCM, normalized regardless of the source bit depth. */
+  pcm: number[];
+  error?: string;
+}
+
+/** A group of sounds sharing the same `.snd` group index. */
+export interface SoundGroup {
+  index: number;
+  sounds: Sound[];
+}
+
 /** A `.cns` state controller, stored as unevaluated trigger/parameter data. */
 export interface Controller {
   type: string;
@@ -115,6 +137,8 @@ export interface CharacterData {
   animations: Animation[];
   sprites: SpriteGroup[];
   stateDefs: StateDef[];
+  /** Absent for a freshly created character (no `.snd` yet). */
+  sounds?: SoundGroup[];
 }
 
 /**

@@ -239,6 +239,60 @@ body {
   border-radius: var(--wuik-space-1);
 }
 
+.sound-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  padding: var(--wuik-space-4);
+}
+
+.sound-browser__status {
+  margin: 0;
+  min-height: 1.5em;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+.sound-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+  max-height: 16em;
+  overflow-y: auto;
+  font-size: var(--wuik-font-size-sm);
+}
+
+.sound-browser__group-toggle,
+.sound-browser__sound {
+  padding: var(--wuik-space-1) var(--wuik-space-2);
+  text-align: left;
+  background: none;
+  border: 1px solid var(--wuik-color-border);
+  border-radius: var(--wuik-space-1);
+  color: var(--wuik-color-text);
+  cursor: pointer;
+}
+
+.sound-browser__sound {
+  margin-left: var(--wuik-space-4);
+}
+
+.sound-browser__sound[aria-pressed="true"] {
+  font-weight: bold;
+  border-color: var(--wuik-color-text);
+}
+
+.sound-browser__sound[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--wuik-color-text-secondary);
+}
+
+.sound-browser__empty,
+.sound-browser__error {
+  margin: 0;
+  color: var(--wuik-color-text);
+}
+
 .sprite-browser__import {
   display: flex;
   flex-wrap: wrap;

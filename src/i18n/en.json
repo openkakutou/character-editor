@@ -224,5 +224,16 @@
     "spriteEditReplaced": "replaced",
     "spriteEditDeleted": "deleted",
     "spriteEditDescription": "sprite (group {{group}}, image {{image}}) {{verb}}"
+  },
+  "sounds": {
+    "browserHeading": "Sounds ({{count}})",
+    "groupToggle": "Group {{index}} ({{count}})",
+    "rowPlay": "{{key}} — Play",
+    "rowStop": "{{key}} — Stop",
+    "rowUndecodable": "{{key}} — Cannot be decoded: {{reason}}",
+    "noAudioData": "no audio data",
+    "nowPlaying": "Playing {{key}}",
+    "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
+    "loadError": "The sound file could not be loaded: {{reason}}. Fix the file and load the character folder again."
   }
 }

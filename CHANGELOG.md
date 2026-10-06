@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A new Sounds panel lists every sound of a loaded character's sound file, grouped like the sprites, and plays one with a click (or Enter/Space) with a clear Play/Stop state; only one sound plays at a time. A sound that cannot be decoded stays in the list with the reason while the others remain playable, a character without a sound file shows an explanatory empty state, and a sound file that is missing or invalid shows an error with its cause without preventing the rest of the character from loading.
+
 ## [0.15.0] - 2026-09-27
 
 ### Added
