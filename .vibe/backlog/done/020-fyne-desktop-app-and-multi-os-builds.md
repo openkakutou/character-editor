@@ -1,5 +1,5 @@
 ---
-status: todo
+status: done
 ---
 # Fyne Desktop App And Multi-OS Builds
 
@@ -14,3 +14,7 @@ Ship `character-editor` as a standalone native desktop app for Windows, Mac and 
 
 ## Notes
 Builds are unsigned at first; signing/notarization (Mac, Windows) is a follow-up. Suggested order across editors: validate CI and packaging on `character-editor` first, then reuse the pipeline in `stage-editor` and `lifebar-editor`. See roadmap `.vibe/decisions/022` and `.vibe/decisions/019`.
+
+## Outcome
+
+Acceptance criteria 1-3 delivered. Criterion 4 (site pill to live links) is pending the first tagged release that carries desktop assets; follow up in `openkakutou.github.io`.
