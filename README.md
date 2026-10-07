@@ -90,4 +90,5 @@ npm run test:visual
 - [docs/architecture.md](docs/architecture.md) — how the app is put together: the main modules, how a character's files flow through them, and its WebAssembly dependency.
 - [docs/development.md](docs/development.md) — local dev setup notes, including how to fetch the `character` library's WebAssembly build.
 - [docs/testing.md](docs/testing.md) — how the test suite is structured, including how it exercises the real WebAssembly module and works around test-environment quirks.
+- [docs/desktop.md](docs/desktop.md) — the native desktop app: where to download it, how to build it locally, and what it covers so far.
 <!-- vibe:end:docs-index -->

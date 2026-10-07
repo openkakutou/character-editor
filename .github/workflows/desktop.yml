@@ -1,0 +1,94 @@
+name: Desktop builds
+
+# Native Fyne app (desktop/), built per OS. Every push and PR checks that it
+# tests and builds on all three systems; a version tag additionally attaches
+# the packaged apps to that tag's GitHub Release. See roadmap decision 022.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            asset: character-editor-linux-amd64.tar.gz
+          - os: macos-latest
+            asset: character-editor-macos-arm64.zip
+          - os: windows-latest
+            asset: character-editor-windows-amd64.zip
+    runs-on: ${{ matrix.os }}
+    # Needed only to attach assets to the tag's release.
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+
+      - name: Install Linux GUI libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc pkg-config libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            go build -ldflags "-s -w -H=windowsgui" -o dist/character-editor.exe .
+          else
+            go build -ldflags "-s -w" -o dist/character-editor .
+          fi
+
+      - name: Package
+        run: |
+          cd dist
+          case "${{ matrix.asset }}" in
+            *.tar.gz) tar -czf "${{ matrix.asset }}" character-editor ;;
+            *.zip)
+              if [ "$RUNNER_OS" = "Windows" ]; then
+                powershell -Command "Compress-Archive -Path character-editor.exe -DestinationPath ${{ matrix.asset }}"
+              else
+                zip "${{ matrix.asset }}" character-editor
+              fi ;;
+          esac
+
+      - name: Keep build as a workflow artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.asset }}
+          path: desktop/dist/${{ matrix.asset }}
+
+      # Stable per-OS URL: https://github.com/openkakutou/character-editor/releases/latest/download/<asset>
+      - name: Attach to the GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "Release $TAG"
+          gh release upload "$TAG" "dist/${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber

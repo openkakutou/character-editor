@@ -12,3 +12,6 @@ public/wasm/
 test-results/
 playwright-report/
 blob-report/
+
+# Desktop build output
+desktop/dist/

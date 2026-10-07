@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A first native desktop app for Windows, Mac and Linux: open a character from its definition file, see its name, author and number of sprites and animations, rename it and save it back without losing the file's formatting. Each release now ships a downloadable build per system; the web version is unchanged.
+
 ## [0.16.0] - 2026-10-06
 
 ### Added

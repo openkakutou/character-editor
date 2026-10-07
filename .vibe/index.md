@@ -18,6 +18,7 @@
 - [`modules/wizard.md`](modules/wizard.md) — the new-character wizard (item 010): builds a minimal character (blank or "basic" template) via the same WASM save-then-load round trip real characters go through, indistinguishable from an import once created
 - [`modules/shortcuts.md`](modules/shortcuts.md) — the keyboard-shortcut layer (item 011): registers this app's actions on `web-ui-kit`'s shared `ShortcutManager`, one global keydown listener that clicks the matching `data-action` button, and an always-visible screen hosting the shared `<wuik-shortcuts-panel>`
 - [`modules/i18n.md`](modules/i18n.md) — this app's own localization setup (item 012): a thin wrapper around `web-ui-kit`'s shared i18next integration layer (own namespace, own `localStorage` key), `en.json`/`fr.json` catalogs, and the `t(key, defaultValue, vars?)` every other module's DOM layer reads its strings through
+- [`modules/desktop.md`](modules/desktop.md) — native Fyne desktop app (item 020): GUI-free `session` core + Fyne `ui`, in a separate Go module under `desktop/`, built per OS by `desktop.yml`
 
 ## Observed patterns
 - The DOM-building logic of a screen/component is a pure exported function (`renderApp(root, version, installedWebUiKitVersion, options?)`, `renderCharacterFileInput(root, options)`) taking its target element and data/callbacks as parameters, kept separate from the module-level bootstrap — same "inject external effects for testability" shape as the WASM bridge and download script, applied here to DOM construction instead of `fetch`
