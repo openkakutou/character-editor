@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-07
+
 ### Added
 
 - A first native desktop app for Windows, Mac and Linux: open a character from its definition file, see its name, author and number of sprites and animations, rename it and save it back without losing the file's formatting. Each release now ships a downloadable build per system; the web version is unchanged.
@@ -114,7 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/openkakutou/character-editor/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/openkakutou/character-editor/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openkakutou/character-editor/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/openkakutou/character-editor/compare/v0.14.0...v0.14.1
