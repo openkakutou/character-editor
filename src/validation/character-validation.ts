@@ -7,6 +7,7 @@
 import { validateCommandRow } from "../commands/command-logic.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
 import { t } from "../i18n/i18n.ts";
+import { tCount } from "../i18n/plural.ts";
 import type { SectionId } from "../shell/sections.ts";
 import { mergeSpriteGroups } from "../sprites/sprite-edits.ts";
 import type { SpriteGroup } from "../wasm/types.ts";
@@ -194,14 +195,15 @@ function animationIssues(doc: CharacterDocument): ValidationIssue[] {
           "missing-sprite",
           animation.number,
           "warning",
-          t(
-            missing === 1
-              ? "validation.animationMissingSprite_one"
-              : "validation.animationMissingSprite_other",
-            missing === 1
-              ? "Animation {{number}} uses {{count}} sprite that does not exist."
-              : "Animation {{number}} uses {{count}} sprites that do not exist.",
-            { number: String(animation.number), count: String(missing) },
+          tCount(
+            "validation.animationMissingSprite",
+            missing,
+            {
+              one: "Animation {{number}} uses {{count}} sprite that does not exist.",
+              other:
+                "Animation {{number}} uses {{count}} sprites that do not exist.",
+            },
+            { number: String(animation.number) },
           ),
           target(animation.number),
         ),
