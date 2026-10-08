@@ -52,6 +52,8 @@ export interface CharacterFileInputViewOptions {
    * open character.
    */
   isActive?: () => boolean;
+  /** Extra controls placed after "Open folder" in the same row (the New character button). */
+  extraActions?: readonly HTMLElement[];
 }
 
 type Phase = "idle" | "loading" | "needs-selection" | "done";
@@ -259,6 +261,7 @@ export function renderCharacterFileInput(
   retryButton.dataset.action = "retry";
   retryButton.hidden = true;
   actions.appendChild(retryButton);
+  actions.append(...(options.extraActions ?? []));
 
   panel.append(
     dropZone,

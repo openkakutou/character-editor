@@ -22,6 +22,7 @@ import {
   type SectionId,
   sectionNumber,
 } from "./sections.ts";
+import { createThemeToggle } from "./theme-toggle.ts";
 
 const APP_TITLE = "Character Editor";
 const FOLD_STORAGE_KEY = "character-editor-sidebar-collapsed";
@@ -46,6 +47,7 @@ export interface AppShell {
   readonly redoButton: HTMLElement;
   readonly exportButton: HTMLElement;
   readonly current: SectionId;
+  readonly drawerOpen: boolean;
   goTo(id: SectionId, options?: { focus?: boolean }): void;
   /** Shows the badge of each section, or none when `countsFor` returns `null`. */
   setBadges(countsFor: (id: SectionId) => SectionCounts | null): void;
@@ -125,10 +127,6 @@ function button(
   return el;
 }
 
-function currentThemeIsDark(): boolean {
-  return document.documentElement.getAttribute("data-theme") !== "light";
-}
-
 export function createAppShell(options: AppShellOptions): AppShell {
   const root = element("div", "shell");
   const narrowQuery = window.matchMedia?.(NARROW_QUERY);
@@ -150,7 +148,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
   const modifiedIndicator = element("span", "app-unsaved-indicator");
   const spacer = element("div", "toolbar-spacer");
   const helpButton = button("help", "ghost");
-  const themeToggle = button("theme-toggle", "secondary");
+  const themeToggle = createThemeToggle();
   const localeSwitcher = document.createElement(
     "wuik-locale-switcher",
   ) as unknown as WuikLocaleSwitcherElement;
@@ -168,7 +166,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
     spacer,
     helpButton,
     localeSwitcher,
-    themeToggle,
+    themeToggle.element,
     exportButton,
   );
   toolbarHost.appendChild(toolbar);
@@ -368,9 +366,6 @@ export function createAppShell(options: AppShellOptions): AppShell {
       "aria-label",
       t("toolbar.helpLabel", "Help and keyboard shortcuts"),
     );
-    themeToggle.textContent = currentThemeIsDark()
-      ? t("app.themeToggleLight", "Switch to light mode")
-      : t("app.themeToggleDark", "Switch to dark mode");
     localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
     modifiedIndicator.textContent = modified
       ? t("app.unsavedChanges", "Unsaved changes")
@@ -475,14 +470,6 @@ export function createAppShell(options: AppShellOptions): AppShell {
     renderStaticText();
   });
 
-  themeToggle.addEventListener("click", () => {
-    document.documentElement.setAttribute(
-      "data-theme",
-      currentThemeIsDark() ? "light" : "dark",
-    );
-    renderStaticText();
-  });
-
   undoButton.addEventListener("click", options.onUndo);
   redoButton.addEventListener("click", options.onRedo);
   exportButton.addEventListener("click", options.onExport);
@@ -522,6 +509,9 @@ export function createAppShell(options: AppShellOptions): AppShell {
     get current() {
       return current;
     },
+    get drawerOpen() {
+      return drawerOpen;
+    },
     goTo,
     setBadges(countsFor) {
       lastCounts = countsFor;
@@ -542,6 +532,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
     closeDrawer,
     destroy() {
       stopLocale();
+      themeToggle.destroy();
       document.removeEventListener("keydown", onDrawerKeydown);
       narrowQuery?.removeEventListener("change", applyLayout);
       root.remove();

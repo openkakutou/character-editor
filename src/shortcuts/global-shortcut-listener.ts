@@ -103,7 +103,10 @@ export function installGlobalShortcutListener(
 
   function handleKeydown(event: Event): void {
     const keyboardEvent = event as KeyboardEvent;
-    if (shouldIgnoreGlobalShortcut(keyboardEvent.target)) {
+    // The real origin, not the retargeted host: a key typed in a kit text
+    // field reaches the window with the field's host element as `target`.
+    const origin = keyboardEvent.composedPath?.()[0] ?? keyboardEvent.target;
+    if (shouldIgnoreGlobalShortcut(origin)) {
       return;
     }
 
