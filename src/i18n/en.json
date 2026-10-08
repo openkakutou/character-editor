@@ -223,7 +223,9 @@
     "spriteEditAdded": "added",
     "spriteEditReplaced": "replaced",
     "spriteEditDeleted": "deleted",
-    "spriteEditDescription": "sprite (group {{group}}, image {{image}}) {{verb}}"
+    "spriteEditDescription": "sprite (group {{group}}, image {{image}}) {{verb}}",
+    "downloadFile": "Download {{fileName}}",
+    "exportFailed": "Export failed: {{message}}"
   },
   "sounds": {
     "browserHeading": "Sounds ({{count}})",
@@ -235,5 +237,151 @@
     "nowPlaying": "Playing {{key}}",
     "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
     "loadError": "The sound file could not be loaded: {{reason}}. Fix the file and load the character folder again."
+  },
+  "validation": {
+    "allClear": "No problem found.",
+    "nameEmpty": "The character has no name.",
+    "authorEmpty": "The author is not filled in.",
+    "spriteDuplicate": "Sprite {{group}},{{image}} appears more than once.",
+    "noSprite": "The character has no sprite.",
+    "noPalette": "No palette is declared.",
+    "animationDuplicate": "Animation {{number}} is defined more than once.",
+    "animationNoFrame": "Animation {{number}} has no frame.",
+    "stateDuplicate": "State {{number}} is defined more than once.",
+    "stateMissingAnimation": "State {{state}} uses animation {{anim}}, which does not exist.",
+    "commandNameEmpty": "Command {{n}} has no name.",
+    "commandInputEmpty": "Command {{n}} has no input sequence.",
+    "animationMissingSprite_one": "Animation {{number}} uses {{count}} sprite that does not exist.",
+    "animationMissingSprite_other": "Animation {{number}} uses {{count}} sprites that do not exist.",
+    "commandNameDuplicate": "Command \"{{name}}\" is defined more than once."
+  },
+  "export": {
+    "savedAnnounce": "Export complete. All files downloaded.",
+    "blockedByErrors": "Fix the problems listed here before exporting.",
+    "running": "Export {{done}}/{{total}}",
+    "working": "Exporting…",
+    "saved": "Saved at {{time}}",
+    "failed": "Export failed"
+  },
+  "undo": {
+    "announce": "Undone: {{action}}",
+    "redone": "Redone: {{action}}"
+  },
+  "history": {
+    "sprites": "sprite change",
+    "commands": "command change",
+    "palettes": "palette change",
+    "identity": "identity change",
+    "states": "state change",
+    "animations": "animation change"
+  },
+  "sections": {
+    "helpLabel": "Help: {{section}}",
+    "identity": {
+      "title": "Identity",
+      "description": "Name, author and the files that make up the character."
+    },
+    "sprites": {
+      "title": "Sprites",
+      "description": "Browse, import, replace and delete the character's images."
+    },
+    "sounds": {
+      "title": "Sounds",
+      "description": "Listen to the sounds the character can play."
+    },
+    "palettes": {
+      "title": "Palettes",
+      "description": "Recolour the character and save a palette file."
+    },
+    "states": {
+      "title": "States",
+      "description": "Describe what the character does in each state: standing, jumping, attacking.",
+      "help": "A StateDef describes what the character does in one state. Its controllers run every frame while the character is in that state."
+    },
+    "commands": {
+      "title": "Commands",
+      "description": "Define the button sequences that trigger moves."
+    },
+    "animations": {
+      "title": "Animations",
+      "description": "Edit frames and their collision boxes.",
+      "help": "Clsn1 boxes are where an attack hits; Clsn2 boxes are where the character can be hit."
+    },
+    "output": {
+      "title": "Export",
+      "description": "Review the problems found, then export the character files."
+    }
+  },
+  "toolbar": {
+    "export": "Export",
+    "menu": "Menu",
+    "menuLabel": "Open sections",
+    "openAnother": "Open another character",
+    "help": "Help",
+    "helpLabel": "Help and keyboard shortcuts"
+  },
+  "skip": "Skip to content",
+  "nav": {
+    "label": "Sections",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "group": {
+      "character": "Character",
+      "resources": "Resources",
+      "logic": "Logic",
+      "output": "Output"
+    },
+    "badge": {
+      "errors_one": "{{count}} error",
+      "errors_other": "{{count}} errors",
+      "warnings_one": "{{count}} warning",
+      "warnings_other": "{{count}} warnings"
+    }
+  },
+  "narrow": {
+    "notice": "This window is narrow for editing; widen it to at least 1024 px."
+  },
+  "home": {
+    "hint": "Drop a character folder, or start from scratch.",
+    "save": {
+      "note": {
+        "export": "Changes are saved by exporting."
+      }
+    },
+    "title": "Character Editor",
+    "open": "Open folder",
+    "retry": "Retry"
+  },
+  "leave": {
+    "title": "Leave this character?",
+    "body": "Changes since the last export will be lost.",
+    "cancel": "Cancel",
+    "discard": "Discard changes",
+    "exportFirst": "Export first"
+  },
+  "help": {
+    "title": "Keyboard shortcuts",
+    "intro": "The editor shows one section at a time. Pick a section in the left bar; your work in the other sections is kept.",
+    "navigation": "Navigation",
+    "nav": "Go to section {{n}}",
+    "openHint": "Press ? outside a text field to open this dialog.",
+    "editing": "Editing and output"
+  },
+  "output": {
+    "severity": {
+      "error": "Error",
+      "warning": "Warning"
+    },
+    "problems": "Problems",
+    "files": "Files to export",
+    "noProblem": "No problem found.",
+    "goTo": "Show",
+    "goToLabel": "Show: {{message}}",
+    "noFiles": "The files cannot be prepared until the problem above is fixed.",
+    "filesNote": "Use Export in the toolbar to download all of them.",
+    "errors_one": "{{count}} error",
+    "errors_other": "{{count}} errors",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings"
   }
 }

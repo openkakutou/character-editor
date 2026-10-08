@@ -223,7 +223,9 @@
     "spriteEditAdded": "ajouté",
     "spriteEditReplaced": "remplacé",
     "spriteEditDeleted": "supprimé",
-    "spriteEditDescription": "sprite (groupe {{group}}, image {{image}}) {{verb}}"
+    "spriteEditDescription": "sprite (groupe {{group}}, image {{image}}) {{verb}}",
+    "downloadFile": "Télécharger {{fileName}}",
+    "exportFailed": "Échec de l'export : {{message}}"
   },
   "sounds": {
     "browserHeading": "Sons ({{count}})",
@@ -235,5 +237,151 @@
     "nowPlaying": "Lecture de {{key}}",
     "empty": "Ce personnage n'a pas de fichier de sons. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
     "loadError": "Le fichier de sons n'a pas pu être chargé : {{reason}}. Corrigez le fichier puis rechargez le dossier du personnage."
+  },
+  "validation": {
+    "allClear": "Aucun problème détecté.",
+    "nameEmpty": "Le personnage n'a pas de nom.",
+    "authorEmpty": "L'auteur n'est pas renseigné.",
+    "spriteDuplicate": "Le sprite {{group}},{{image}} apparaît plusieurs fois.",
+    "noSprite": "Le personnage n'a aucun sprite.",
+    "noPalette": "Aucune palette n'est déclarée.",
+    "animationDuplicate": "L'animation {{number}} est définie plusieurs fois.",
+    "animationNoFrame": "L'animation {{number}} n'a aucune image.",
+    "stateDuplicate": "L'état {{number}} est défini plusieurs fois.",
+    "stateMissingAnimation": "L'état {{state}} utilise l'animation {{anim}}, qui n'existe pas.",
+    "commandNameEmpty": "La commande {{n}} n'a pas de nom.",
+    "commandInputEmpty": "La commande {{n}} n'a pas de séquence de touches.",
+    "animationMissingSprite_one": "L'animation {{number}} utilise {{count}} sprite qui n'existe pas.",
+    "animationMissingSprite_other": "L'animation {{number}} utilise {{count}} sprites qui n'existent pas.",
+    "commandNameDuplicate": "La commande « {{name}} » est définie plusieurs fois."
+  },
+  "export": {
+    "savedAnnounce": "Export terminé. Tous les fichiers sont téléchargés.",
+    "blockedByErrors": "Corrigez les problèmes listés ici avant d'exporter.",
+    "running": "Export {{done}}/{{total}}",
+    "working": "Export en cours…",
+    "saved": "Enregistré à {{time}}",
+    "failed": "Échec de l'export"
+  },
+  "undo": {
+    "announce": "Annulé : {{action}}",
+    "redone": "Rétabli : {{action}}"
+  },
+  "history": {
+    "sprites": "modification de sprite",
+    "commands": "modification de commande",
+    "palettes": "modification de palette",
+    "identity": "modification de l'identité",
+    "states": "modification d'état",
+    "animations": "modification d'animation"
+  },
+  "sections": {
+    "helpLabel": "Aide : {{section}}",
+    "identity": {
+      "title": "Identité",
+      "description": "Nom, auteur et fichiers qui composent le personnage."
+    },
+    "sprites": {
+      "title": "Sprites",
+      "description": "Parcourez, importez, remplacez et supprimez les images du personnage."
+    },
+    "sounds": {
+      "title": "Sons",
+      "description": "Écoutez les sons que le personnage peut jouer."
+    },
+    "palettes": {
+      "title": "Palettes",
+      "description": "Recolorez le personnage et enregistrez un fichier de palette."
+    },
+    "states": {
+      "title": "États",
+      "description": "Décrivez ce que fait le personnage dans chaque état : debout, saut, attaque.",
+      "help": "Un StateDef décrit ce que fait le personnage dans un état. Ses contrôleurs s'exécutent à chaque image tant que le personnage est dans cet état."
+    },
+    "commands": {
+      "title": "Commandes",
+      "description": "Définissez les séquences de touches qui déclenchent les coups."
+    },
+    "animations": {
+      "title": "Animations",
+      "description": "Modifiez les images et leurs boîtes de collision.",
+      "help": "Les boîtes Clsn1 sont les zones où une attaque touche ; les boîtes Clsn2 sont les zones où le personnage peut être touché."
+    },
+    "output": {
+      "title": "Export",
+      "description": "Vérifiez les problèmes trouvés, puis exportez les fichiers du personnage."
+    }
+  },
+  "toolbar": {
+    "export": "Exporter",
+    "menu": "Menu",
+    "menuLabel": "Ouvrir les sections",
+    "openAnother": "Ouvrir un autre personnage",
+    "help": "Aide",
+    "helpLabel": "Aide et raccourcis clavier"
+  },
+  "skip": "Aller au contenu",
+  "nav": {
+    "label": "Sections",
+    "expand": "Déplier la barre latérale",
+    "collapse": "Replier la barre latérale",
+    "group": {
+      "character": "Personnage",
+      "resources": "Ressources",
+      "logic": "Logique",
+      "output": "Sortie"
+    },
+    "badge": {
+      "errors_one": "{{count}} erreur",
+      "errors_other": "{{count}} erreurs",
+      "warnings_one": "{{count}} avertissement",
+      "warnings_other": "{{count}} avertissements"
+    }
+  },
+  "narrow": {
+    "notice": "Cette fenêtre est étroite pour l'édition ; élargissez-la à au moins 1024 px."
+  },
+  "home": {
+    "hint": "Déposez un dossier de personnage ou partez de zéro.",
+    "save": {
+      "note": {
+        "export": "Les modifications sont enregistrées par export."
+      }
+    },
+    "title": "Éditeur de personnage",
+    "open": "Ouvrir un dossier",
+    "retry": "Réessayer"
+  },
+  "leave": {
+    "title": "Quitter ce personnage ?",
+    "body": "Les modifications depuis le dernier export seront perdues.",
+    "cancel": "Annuler",
+    "discard": "Abandonner les modifications",
+    "exportFirst": "Exporter d'abord"
+  },
+  "help": {
+    "title": "Raccourcis clavier",
+    "intro": "L'éditeur affiche une section à la fois. Choisissez une section dans la barre de gauche ; votre travail dans les autres sections est conservé.",
+    "navigation": "Navigation",
+    "nav": "Aller à la section {{n}}",
+    "openHint": "Appuyez sur ? hors d'un champ de saisie pour ouvrir cette fenêtre.",
+    "editing": "Édition et sortie"
+  },
+  "output": {
+    "severity": {
+      "error": "Erreur",
+      "warning": "Avertissement"
+    },
+    "problems": "Problèmes",
+    "files": "Fichiers à exporter",
+    "noProblem": "Aucun problème détecté.",
+    "goTo": "Afficher",
+    "goToLabel": "Afficher : {{message}}",
+    "noFiles": "Les fichiers ne peuvent pas être préparés tant que le problème ci-dessus n'est pas corrigé.",
+    "filesNote": "Utilisez Exporter dans la barre d'outils pour tous les télécharger.",
+    "errors_one": "{{count}} erreur",
+    "errors_other": "{{count}} erreurs",
+    "warnings_one": "{{count}} avertissement",
+    "warnings_other": "{{count}} avertissements"
   }
 }
