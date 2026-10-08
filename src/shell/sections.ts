@@ -40,7 +40,9 @@ export function sectionForDigit(digit: number): SectionId | undefined {
 }
 
 /** Narrows an arbitrary string (a `wuik-navigate` value, say) to a section id. */
-export function isSectionId(value: string | null | undefined): value is SectionId {
+export function isSectionId(
+  value: string | null | undefined,
+): value is SectionId {
   return SECTION_IDS.includes(value as SectionId);
 }
 
