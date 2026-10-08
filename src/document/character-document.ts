@@ -186,7 +186,10 @@ export function setCommandFile(commandFile: CommandFile): void {
 
   pushHistoryCommand({
     coalesceKey: "command-file",
-    meta: { section: "commands", label: t("history.commands", "command change") },
+    meta: {
+      section: "commands",
+      label: t("history.commands", "command change"),
+    },
     do: () => applyCommandFileSnapshot(commandFile),
     undo: () => applyCommandFileSnapshot(before),
   });

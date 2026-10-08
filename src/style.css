@@ -568,11 +568,7 @@ body {
 
 .animation-editor__box--clsn1 {
   border: 2px solid var(--wuik-color-error);
-  background-color: color-mix(
-    in srgb,
-    var(--wuik-color-error) 20%,
-    transparent
-  );
+  background-color: color-mix(in srgb, var(--wuik-color-error) 20%, transparent);
 }
 
 .animation-editor__box--clsn2 {
