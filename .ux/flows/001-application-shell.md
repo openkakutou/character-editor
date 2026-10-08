@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Application shell with sidebar navigation
-status: designed
+status: validated
 date: 2026-10-08
 finding: F1 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it" and "2 — large workspace for long sessions"

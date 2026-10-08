@@ -2,7 +2,7 @@
 slug: shortcuts-help
 title: Shortcuts and help dialog
 flow: 001
-status: designed
+status: validated
 source: 
 ---
 

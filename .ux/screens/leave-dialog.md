@@ -2,7 +2,7 @@
 slug: leave-dialog
 title: Open another character confirmation
 flow: 001
-status: designed
+status: validated
 source: 
 ---
 

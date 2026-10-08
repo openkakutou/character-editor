@@ -2,7 +2,7 @@
 slug: home
 title: Home
 flow: 001
-status: designed
+status: validated
 source: 
 ---
 
