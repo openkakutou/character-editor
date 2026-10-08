@@ -16,11 +16,13 @@
 // own module-level memoization.
 import { emptyCommandFile } from "../commands/command-logic.ts";
 import {
+  type HistoryMeta,
   getAppHistory,
   markClean,
   pushHistoryCommand,
   resetAppHistoryForTests,
 } from "../history/app-history.ts";
+import { t } from "../i18n/i18n.ts";
 import type { LoadedFileBytes } from "../input/character-file-input.ts";
 import { type SpriteEdit, applySpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData, CommandFile } from "../wasm/types.ts";
@@ -121,7 +123,10 @@ function applyCharacterSnapshot(character: CharacterData): void {
  * equal the post-edit value by the time this runs. See
  * .vibe/decisions/011-undo-redo-snapshot-strategy.md.
  */
-export function updateCharacterFields(patch: Partial<CharacterData>): void {
+export function updateCharacterFields(
+  patch: Partial<CharacterData>,
+  meta?: HistoryMeta,
+): void {
   if (current === null) return;
   const before = lastCharacterSnapshot ?? structuredClone(current.character);
   const after = structuredClone({ ...current.character, ...patch });
@@ -129,6 +134,7 @@ export function updateCharacterFields(patch: Partial<CharacterData>): void {
 
   pushHistoryCommand({
     coalesceKey,
+    meta,
     do: () => applyCharacterSnapshot(after),
     undo: () => applyCharacterSnapshot(before),
   });
@@ -154,6 +160,7 @@ export function addSpriteEdit(edit: SpriteEdit): void {
   const after = applySpriteEdit(current.spriteEdits, edit);
 
   pushHistoryCommand({
+    meta: { section: "sprites", label: t("history.sprites", "sprite change") },
     do: () => applySpriteEditsSnapshot(after),
     undo: () => applySpriteEditsSnapshot(before),
   });
@@ -179,6 +186,7 @@ export function setCommandFile(commandFile: CommandFile): void {
 
   pushHistoryCommand({
     coalesceKey: "command-file",
+    meta: { section: "commands", label: t("history.commands", "command change") },
     do: () => applyCommandFileSnapshot(commandFile),
     undo: () => applyCommandFileSnapshot(before),
   });

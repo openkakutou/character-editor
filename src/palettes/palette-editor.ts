@@ -191,6 +191,10 @@ export function renderPaletteEditor(
     const after = snapshotState();
     pushHistoryCommand({
       coalesceKey,
+      meta: {
+        section: "palettes",
+        label: t("history.palettes", "palette change"),
+      },
       do: () => {
         activePalette = after.palette;
         selectedIndex = after.index;

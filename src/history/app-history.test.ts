@@ -87,3 +87,37 @@ describe("resetAppHistoryForTests", () => {
     expect(isDirty()).toBe(false);
   });
 });
+
+describe("dirty state follows the saved position", () => {
+  it("is clean again after undoing back to the position marked clean", () => {
+    pushHistoryCommand({ do: vi.fn(), undo: vi.fn() });
+    markClean();
+    pushHistoryCommand({ do: vi.fn(), undo: vi.fn() });
+    expect(isDirty()).toBe(true);
+
+    getAppHistory().undo();
+
+    expect(isDirty()).toBe(false);
+  });
+
+  it("is dirty again after undoing past the position marked clean", () => {
+    pushHistoryCommand({ do: vi.fn(), undo: vi.fn() });
+    markClean();
+
+    getAppHistory().undo();
+
+    expect(isDirty()).toBe(true);
+  });
+
+  it("exposes the section and label of the entry an undo would revert", () => {
+    pushHistoryCommand({
+      do: vi.fn(),
+      undo: vi.fn(),
+      meta: { section: "commands", label: "Edit commands" },
+    });
+    expect(getAppHistory().undoMeta).toEqual({
+      section: "commands",
+      label: "Edit commands",
+    });
+  });
+});
