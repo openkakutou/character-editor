@@ -57,3 +57,5 @@
 - StateDef and Animation rows render as tiny default buttons; headings use inconsistent levels and styles
 - No radius, shadow, motion or icon tokens; no sidebar, list, badge, toast or tooltip components in the kit
 - Design system looks generic and its component ergonomics are poor (user feedback)
+- Audit 2026-10-08 (`.ux/audit/2026-10-08.md`): promises without `.catch` leave dead-end "Loading…" states (export, wizard, folder load, previews); collision boxes not keyboard-resizable; English in the French UI (shortcuts, file pickers, raw errors); no toolbar wrap at 390 px
+- `.ux/style.md` is adopted (Studio); no design tokens for it exist yet — `/ux:implement` creates them in `web-ui-kit`

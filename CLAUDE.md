@@ -136,3 +136,7 @@ Agents active for `/vibe:review` on this project:
 | `vibe:review-web-security` | ❌ | inactive: static site with no backend/HTTP endpoints of its own |
 | `vibe:review-pentest` | ❌ | inactive: no runnable networked app/server to probe |
 | `vibe:review-hexagonal` | ❌ | inactive: no declared hexagonal (ports & adapters) architecture |
+
+## UX context <!-- ux:context -->
+
+Product understanding and UI inventory live in `.ux/`. Read `.ux/product.md` before changing anything user-facing, `.ux/inventory.md` before adding a component or a style — reuse what exists — and `.ux/style.md` (when present) before choosing any color, font or spacing. Specs: `.ux/flows/`, `.ux/screens/`.
