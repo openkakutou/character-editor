@@ -109,10 +109,31 @@ describe("renderOutputSection", () => {
     expect(controller.download).toHaveBeenCalledOnce();
   });
 
-  it("explains that files cannot be prepared when the export is blocked", () => {
+  it("says the files are being prepared, not blocked, before the first computation ends", () => {
     const root = document.createElement("div");
     renderOutputSection(root, {
       validation: new ValidationStore(),
+      controller: fakeController(null),
+      onGoToIssue: vi.fn(),
+    });
+    expect(root.querySelector(".output-section__note")?.textContent).toBe(
+      "Preparing files…",
+    );
+  });
+
+  it("explains that files cannot be prepared when the export is blocked", () => {
+    const root = document.createElement("div");
+    const validation = new ValidationStore();
+    validation.setIssues("export", [
+      {
+        id: "output:export-failed:last",
+        section: "output",
+        severity: "error",
+        message: "Export is blocked.",
+      },
+    ]);
+    renderOutputSection(root, {
+      validation,
       controller: fakeController(null),
       onGoToIssue: vi.fn(),
     });

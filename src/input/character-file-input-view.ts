@@ -409,7 +409,24 @@ export function renderCharacterFileInput(
   async function finishLoading(
     resultPromise: Promise<CharacterFolderLoadResult>,
   ): Promise<void> {
-    const result = await resultPromise;
+    let result: CharacterFolderLoadResult;
+    try {
+      result = await resultPromise;
+    } catch (error) {
+      // A rejected load must never leave the picker disabled for good.
+      phase = "done";
+      isError = true;
+      currentStatus = {
+        kind: "error",
+        result: {
+          status: "bridge-error",
+          message: error instanceof Error ? error.message : String(error),
+        },
+        source: lastSource,
+      };
+      render();
+      return;
+    }
 
     if (result.status === "success") {
       phase = "done";

@@ -2,8 +2,8 @@
 slug: leave-dialog
 title: Open another character confirmation
 flow: 001
-status: validated
-source: 
+status: implemented
+source: src/shell/leave-dialog.ts
 ---
 
 # Open another character confirmation
@@ -47,3 +47,7 @@ Prevent losing modifications that were not exported when leaving the current cha
 - **Announcements:** `role="alertdialog"`.
 - **Contrast & targets:** per kit.
 - **Motion:** none.
+
+## Captures
+
+`.ux/captures/001-application-shell/`: after-leave-dialog.png.

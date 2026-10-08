@@ -2,8 +2,8 @@
 slug: home
 title: Home
 flow: 001
-status: validated
-source: 
+status: implemented
+source: src/shell/home-view.ts, src/input/character-file-input-view.ts, src/wizard/new-character-wizard-view.ts
 ---
 
 # Home
@@ -54,3 +54,7 @@ Centred column on the page background: product title, one sentence, a large `wui
 - **Announcements:** progress steps and errors in a polite `role="status"` / `role="alert"` for errors.
 - **Contrast & targets:** per `style.md`; targets ≥ 34 px.
 - **Motion:** none beyond fades; removed under reduced motion.
+
+## Captures
+
+`.ux/captures/001-application-shell/`: after-home-empty.png.

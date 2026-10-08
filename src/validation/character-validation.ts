@@ -229,7 +229,7 @@ function stateIssues(doc: CharacterDocument): ValidationIssue[] {
         "error",
         t(
           "validation.stateDuplicate",
-          "State {{number}} is defined more than once.",
+          "StateDef {{number}} is defined more than once.",
           { number: String(number) },
         ),
         target(number),
@@ -249,7 +249,7 @@ function stateIssues(doc: CharacterDocument): ValidationIssue[] {
           "warning",
           t(
             "validation.stateMissingAnimation",
-            "State {{state}} uses animation {{anim}}, which does not exist.",
+            "StateDef {{state}} uses animation {{anim}}, which does not exist.",
             { state: String(def.number), anim: String(def.anim) },
           ),
           target(def.number),

@@ -63,7 +63,10 @@ export function createHelpDialog(
         item.append(
           keys,
           document.createTextNode(
-            ` ${t("help.nav", "Go to section {{n}}", { n: String(sectionNumber(id)) })} — ${sectionTitle(id)}`,
+            ` ${t("help.nav", "Go to section {{n}}: {{title}}", {
+              n: String(sectionNumber(id)),
+              title: sectionTitle(id),
+            })}`,
           ),
         );
         return item;

@@ -376,6 +376,8 @@ export function renderApp(
   }
 
   async function openAnotherCharacter(): Promise<void> {
+    // Leaving mid-export would discard the files still being downloaded.
+    if (exportController.state.phase === "running") return;
     if (isDirty() && !(await leaveDialog.confirm())) return;
     goHome();
   }

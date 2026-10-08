@@ -164,6 +164,32 @@ describe("createExportController", () => {
     expect(getAppHistory().canUndo).toBe(true);
   });
 
+  it("stops downloading and never marks anything saved when reset mid-export", async () => {
+    pushHistoryCommand({ do: vi.fn(), undo: vi.fn() });
+    const validation = new ValidationStore();
+    const triggerDownload = vi.fn();
+    const holder: { controller?: ReturnType<typeof createExportController> } =
+      {};
+    const controller = createExportController({
+      getDocument: () => doc,
+      validation,
+      triggerDownload,
+      exportCharacterFiles: async () => ({
+        ok: true,
+        files: [file("a.def"), file("a.air"), file("a.cns")],
+      }),
+      // Resetting during the pause between two downloads, as leaving would.
+      wait: async () => holder.controller?.reset(),
+    });
+    holder.controller = controller;
+
+    await controller.run();
+
+    expect(triggerDownload).toHaveBeenCalledTimes(1);
+    expect(controller.state).toEqual({ phase: "idle" });
+    expect(isDirty()).toBe(true);
+  });
+
   it("does nothing without a loaded document", async () => {
     const triggerDownload = vi.fn();
     const controller = createExportController({

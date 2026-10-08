@@ -66,7 +66,7 @@ export function createHomeView(options: HomeViewOptions): HomeView {
   }
 
   function renderText(): void {
-    document.title = APP_TITLE;
+    document.title = t("home.title", APP_TITLE);
     localeSwitcher.setAttribute("label", t("app.languageLabel", "Language"));
     title.textContent = t("home.title", APP_TITLE);
     hint.textContent = t(

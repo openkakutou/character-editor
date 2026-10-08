@@ -85,7 +85,7 @@ Plain and guiding in French and English: short sentences, format terms kept (Sta
 
 ## Source of truth
 
-`existing — web-ui-kit/src/tokens/{colors,spacing,typography}.css` until the redesign lands; the kit's new tokens (radius, border-control, elevation, motion, control height, density) are then the reference, and this file documents their intent.
+`web-ui-kit/src/tokens/*.css` (kit 0.15+: colours, typography, spacing, radius, elevation, motion, sizing). The editor consumes them as `--wuik-*` custom properties; this file documents their intent.
 
 ## Migration
 

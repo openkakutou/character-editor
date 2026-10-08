@@ -225,7 +225,7 @@
     "spriteEditDeleted": "deleted",
     "spriteEditDescription": "sprite (group {{group}}, image {{image}}) {{verb}}",
     "downloadFile": "Download {{fileName}}",
-    "exportFailed": "Export failed: {{message}}"
+    "exportFailed": "Export failed: {{message}}. Try again, and check the problems listed in the Export section."
   },
   "sounds": {
     "browserHeading": "Sounds ({{count}})",
@@ -247,8 +247,8 @@
     "noPalette": "No palette is declared.",
     "animationDuplicate": "Animation {{number}} is defined more than once.",
     "animationNoFrame": "Animation {{number}} has no frame.",
-    "stateDuplicate": "State {{number}} is defined more than once.",
-    "stateMissingAnimation": "State {{state}} uses animation {{anim}}, which does not exist.",
+    "stateDuplicate": "StateDef {{number}} is defined more than once.",
+    "stateMissingAnimation": "StateDef {{state}} uses animation {{anim}}, which does not exist.",
     "commandNameEmpty": "Command {{n}} has no name.",
     "commandInputEmpty": "Command {{n}} has no input sequence.",
     "animationMissingSprite_one": "Animation {{number}} uses {{count}} sprite that does not exist.",
@@ -261,7 +261,7 @@
     "running": "Export {{done}}/{{total}}",
     "working": "Exporting…",
     "saved": "Saved at {{time}}",
-    "failed": "Export failed"
+    "failed": "Export failed. See the Export section."
   },
   "undo": {
     "announce": "Undone: {{action}}",
@@ -363,7 +363,7 @@
     "title": "Keyboard shortcuts",
     "intro": "The editor shows one section at a time. Pick a section in the left bar; your work in the other sections is kept.",
     "navigation": "Navigation",
-    "nav": "Go to section {{n}}",
+    "nav": "Go to section {{n}}: {{title}}",
     "openHint": "Press ? outside a text field to open this dialog.",
     "editing": "Editing and output"
   },
@@ -375,13 +375,18 @@
     "problems": "Problems",
     "files": "Files to export",
     "noProblem": "No problem found.",
-    "goTo": "Show",
-    "goToLabel": "Show: {{message}}",
+    "goTo": "Go to problem",
+    "goToLabel": "Go to problem: {{message}}",
     "noFiles": "The files cannot be prepared until the problem above is fixed.",
     "filesNote": "Use Export in the toolbar to download all of them.",
     "errors_one": "{{count}} error",
     "errors_other": "{{count}} errors",
     "warnings_one": "{{count}} warning",
-    "warnings_other": "{{count}} warnings"
+    "warnings_other": "{{count}} warnings",
+    "preparing": "Preparing files…",
+    "issueLine": "{{section}} — {{message}}"
+  },
+  "status": {
+    "language": "Language: {{language}}"
   }
 }

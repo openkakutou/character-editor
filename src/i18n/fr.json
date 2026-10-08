@@ -225,7 +225,7 @@
     "spriteEditDeleted": "supprimé",
     "spriteEditDescription": "sprite (groupe {{group}}, image {{image}}) {{verb}}",
     "downloadFile": "Télécharger {{fileName}}",
-    "exportFailed": "Échec de l'export : {{message}}"
+    "exportFailed": "Échec de l'export : {{message}}. Réessayez et vérifiez les problèmes listés dans la section Export."
   },
   "sounds": {
     "browserHeading": "Sons ({{count}})",
@@ -246,9 +246,9 @@
     "noSprite": "Le personnage n'a aucun sprite.",
     "noPalette": "Aucune palette n'est déclarée.",
     "animationDuplicate": "L'animation {{number}} est définie plusieurs fois.",
-    "animationNoFrame": "L'animation {{number}} n'a aucune image.",
-    "stateDuplicate": "L'état {{number}} est défini plusieurs fois.",
-    "stateMissingAnimation": "L'état {{state}} utilise l'animation {{anim}}, qui n'existe pas.",
+    "animationNoFrame": "L'animation {{number}} n'a aucune frame.",
+    "stateDuplicate": "Le StateDef {{number}} est défini plusieurs fois.",
+    "stateMissingAnimation": "Le StateDef {{state}} utilise l'animation {{anim}}, qui n'existe pas.",
     "commandNameEmpty": "La commande {{n}} n'a pas de nom.",
     "commandInputEmpty": "La commande {{n}} n'a pas de séquence de touches.",
     "animationMissingSprite_one": "L'animation {{number}} utilise {{count}} sprite qui n'existe pas.",
@@ -261,7 +261,7 @@
     "running": "Export {{done}}/{{total}}",
     "working": "Export en cours…",
     "saved": "Enregistré à {{time}}",
-    "failed": "Échec de l'export"
+    "failed": "Échec de l'export. Voir la section Export."
   },
   "undo": {
     "announce": "Annulé : {{action}}",
@@ -304,7 +304,7 @@
     },
     "animations": {
       "title": "Animations",
-      "description": "Modifiez les images et leurs boîtes de collision.",
+      "description": "Modifiez les frames et leurs boîtes de collision.",
       "help": "Les boîtes Clsn1 sont les zones où une attaque touche ; les boîtes Clsn2 sont les zones où le personnage peut être touché."
     },
     "output": {
@@ -363,7 +363,7 @@
     "title": "Raccourcis clavier",
     "intro": "L'éditeur affiche une section à la fois. Choisissez une section dans la barre de gauche ; votre travail dans les autres sections est conservé.",
     "navigation": "Navigation",
-    "nav": "Aller à la section {{n}}",
+    "nav": "Aller à la section {{n}} : {{title}}",
     "openHint": "Appuyez sur ? hors d'un champ de saisie pour ouvrir cette fenêtre.",
     "editing": "Édition et sortie"
   },
@@ -375,13 +375,18 @@
     "problems": "Problèmes",
     "files": "Fichiers à exporter",
     "noProblem": "Aucun problème détecté.",
-    "goTo": "Afficher",
-    "goToLabel": "Afficher : {{message}}",
+    "goTo": "Aller au problème",
+    "goToLabel": "Aller au problème : {{message}}",
     "noFiles": "Les fichiers ne peuvent pas être préparés tant que le problème ci-dessus n'est pas corrigé.",
     "filesNote": "Utilisez Exporter dans la barre d'outils pour tous les télécharger.",
     "errors_one": "{{count}} erreur",
     "errors_other": "{{count}} erreurs",
     "warnings_one": "{{count}} avertissement",
-    "warnings_other": "{{count}} avertissements"
+    "warnings_other": "{{count}} avertissements",
+    "preparing": "Préparation des fichiers…",
+    "issueLine": "{{section}} — {{message}}"
+  },
+  "status": {
+    "language": "Langue : {{language}}"
   }
 }

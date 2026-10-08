@@ -85,16 +85,19 @@ export function renderOutputSection(
         badge.setAttribute("label", severityLabel(issue));
         const text = document.createElement("span");
         text.className = "output-section__message";
-        text.textContent = `${sectionTitle(issue.section)} — ${issue.message}`;
+        text.textContent = t("output.issueLine", "{{section}} — {{message}}", {
+          section: sectionTitle(issue.section),
+          message: issue.message,
+        });
         item.append(badge, text);
         if (issue.section !== "output") {
           const go = document.createElement("wuik-button");
           go.setAttribute("variant", "secondary");
           go.dataset.action = "go-to-issue";
-          go.textContent = t("output.goTo", "Show");
+          go.textContent = t("output.goTo", "Go to problem");
           go.setAttribute(
             "aria-label",
-            t("output.goToLabel", "Show: {{message}}", {
+            t("output.goToLabel", "Go to problem: {{message}}", {
               message: issue.message,
             }),
           );
@@ -107,10 +110,14 @@ export function renderOutputSection(
 
     const files = controller.files;
     if (files === null) {
-      filesNote.textContent = t(
-        "output.noFiles",
-        "The files cannot be prepared until the problem above is fixed.",
-      );
+      // Not computed yet is not the same as blocked.
+      const blocked = issues.some((i) => i.section === "output");
+      filesNote.textContent = blocked
+        ? t(
+            "output.noFiles",
+            "The files cannot be prepared until the problem above is fixed.",
+          )
+        : t("output.preparing", "Preparing files…");
       fileList.replaceChildren();
       return;
     }

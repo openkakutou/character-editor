@@ -148,7 +148,7 @@ wuik-button[hidden] {
   flex-direction: column;
   gap: var(--wuik-space-2);
   padding: var(--wuik-space-2);
-  border-left: 3px solid var(--wuik-color-border);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-border);
 }
 
 /* `display: flex` above has the same specificity as the UA stylesheet's
@@ -185,7 +185,7 @@ wuik-button[hidden] {
 .file-input__status--error {
   padding-left: var(--wuik-space-2);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-error);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-error);
 }
 
 .file-input__reset {
@@ -488,7 +488,7 @@ wuik-button[hidden] {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-error);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-error);
   padding-left: var(--wuik-space-2);
 }
 
@@ -514,7 +514,7 @@ wuik-button[hidden] {
 }
 
 .palette-editor__swatch.is-selected {
-  outline: 2px solid var(--wuik-color-primary);
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
   outline-offset: 1px;
 }
 
@@ -578,7 +578,7 @@ wuik-button[hidden] {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-error);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-error);
   padding-left: var(--wuik-space-2);
 }
 
@@ -596,12 +596,12 @@ wuik-button[hidden] {
 }
 
 .animation-editor__box--clsn1 {
-  border: 2px solid var(--wuik-color-error);
+  border: var(--wuik-border-width-strong) solid var(--wuik-color-error);
   background-color: color-mix(in srgb, var(--wuik-color-error) 20%, transparent);
 }
 
 .animation-editor__box--clsn2 {
-  border: 2px solid var(--wuik-color-primary);
+  border: var(--wuik-border-width-strong) solid var(--wuik-color-primary);
   background-color: color-mix(
     in srgb,
     var(--wuik-color-primary) 20%,
@@ -610,7 +610,7 @@ wuik-button[hidden] {
 }
 
 .animation-editor__box:focus-visible {
-  outline: 2px solid var(--wuik-color-focus);
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
   outline-offset: 2px;
 }
 
@@ -734,7 +734,7 @@ wuik-button[hidden] {
 }
 
 .command-editor__input:focus-visible {
-  outline: 2px solid var(--wuik-color-focus);
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
   outline-offset: -2px;
 }
 
@@ -862,6 +862,12 @@ wuik-button[hidden] {
 
 .file-input__dropzone {
   display: block;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.file-input__hint {
+  margin-top: var(--wuik-space-1);
 }
 
 /*

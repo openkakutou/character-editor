@@ -117,6 +117,20 @@ function badgeLabel(counts: SectionCounts): string {
   return parts.join(", ");
 }
 
+/**
+ * Sets an ARIA attribute on a `wuik-button` host and on the native button in
+ * its shadow root: the kit does not forward `aria-*` to the control that
+ * actually takes focus, so a state set only on the host is never announced.
+ */
+function setAria(host: HTMLElement, name: string, value: string | null): void {
+  const inner = host.shadowRoot?.querySelector("button");
+  for (const target of [host, inner]) {
+    if (!target) continue;
+    if (value === null) target.removeAttribute(name);
+    else target.setAttribute(name, value);
+  }
+}
+
 function button(
   action: string,
   variant: "primary" | "secondary" | "ghost",
@@ -139,7 +153,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
   const toolbar = document.createElement("wuik-toolbar");
   const menuButton = button("menu", "ghost");
   menuButton.classList.add("shell__menu");
-  menuButton.setAttribute("aria-expanded", "false");
+  setAria(menuButton, "aria-expanded", "false");
   menuButton.setAttribute("aria-controls", "shell-sidebar");
   const title = element("span", "app-title");
   const openAnotherButton = button("open-another", "ghost");
@@ -279,7 +293,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
     sidebar.classList.toggle("is-collapsed", !narrow && collapsed);
     setInert(sidebar, narrow && !drawerOpen);
     foldButton.hidden = narrow;
-    foldButton.setAttribute("aria-expanded", String(!collapsed));
+    setAria(foldButton, "aria-expanded", String(!collapsed));
   }
 
   function renderBadges(): void {
@@ -312,12 +326,12 @@ export function createAppShell(options: AppShellOptions): AppShell {
                 total: String(exportState.total),
               })
             : label;
-        exportButton.setAttribute("aria-busy", "true");
+        setAria(exportButton, "aria-busy", "true");
         saveStatus.textContent = t("export.working", "Exporting…");
         return;
       case "saved":
         exportButton.textContent = label;
-        exportButton.removeAttribute("aria-busy");
+        setAria(exportButton, "aria-busy", null);
         saveStatus.textContent = modified
           ? ""
           : t("export.saved", "Saved at {{time}}", {
@@ -326,12 +340,15 @@ export function createAppShell(options: AppShellOptions): AppShell {
         return;
       case "error":
         exportButton.textContent = label;
-        exportButton.removeAttribute("aria-busy");
-        saveStatus.textContent = t("export.failed", "Export failed");
+        setAria(exportButton, "aria-busy", null);
+        saveStatus.textContent = t(
+          "export.failed",
+          "Export failed. See the Export section.",
+        );
         return;
       default:
         exportButton.textContent = label;
-        exportButton.removeAttribute("aria-busy");
+        setAria(exportButton, "aria-busy", null);
         saveStatus.textContent = "";
     }
   }
@@ -343,26 +360,26 @@ export function createAppShell(options: AppShellOptions): AppShell {
       version: options.version,
     });
     menuButton.textContent = t("toolbar.menu", "Menu");
-    menuButton.setAttribute(
-      "aria-label",
-      t("toolbar.menuLabel", "Open sections"),
-    );
+    setAria(menuButton, "aria-label", t("toolbar.menuLabel", "Open sections"));
     openAnotherButton.textContent = t(
       "toolbar.openAnother",
       "Open another character",
     );
     undoButton.textContent = t("app.undo", "Undo");
-    undoButton.setAttribute(
+    setAria(
+      undoButton,
       "aria-label",
       t("app.undoAriaLabel", "Undo last change"),
     );
     redoButton.textContent = t("app.redo", "Redo");
-    redoButton.setAttribute(
+    setAria(
+      redoButton,
       "aria-label",
       t("app.redoAriaLabel", "Redo last undone change"),
     );
     helpButton.textContent = t("toolbar.help", "Help");
-    helpButton.setAttribute(
+    setAria(
+      helpButton,
       "aria-label",
       t("toolbar.helpLabel", "Help and keyboard shortcuts"),
     );
@@ -387,25 +404,28 @@ export function createAppShell(options: AppShellOptions): AppShell {
         hint.textContent = sectionHelp(id) ?? "";
       }
     }
-    foldButton.textContent = collapsed
+    const foldLabel = collapsed
       ? t("nav.expand", "Expand sidebar")
       : t("nav.collapse", "Collapse sidebar");
-    foldButton.setAttribute("aria-label", foldButton.textContent);
+    // In the 56 px rail only a glyph fits; the label stays the accessible name.
+    foldButton.textContent = collapsed ? "»" : foldLabel;
+    setAria(foldButton, "aria-label", collapsed ? foldLabel : null);
     narrowNotice.textContent = t(
       "narrow.notice",
       "This window is narrow for editing; widen it to at least 1024 px.",
     );
-    localeStatus.textContent = (
-      getI18n()?.resolvedLanguage ??
-      getI18n()?.language ??
-      "en"
-    ).toUpperCase();
+    const language = getI18n()?.resolvedLanguage ?? getI18n()?.language ?? "en";
+    localeStatus.textContent = language.toUpperCase();
+    localeStatus.setAttribute(
+      "aria-label",
+      t("status.language", "Language: {{language}}", { language }),
+    );
     document.title = documentTitle();
     renderExportState();
   }
 
   function documentTitle(): string {
-    return `${sectionTitle(current)} — ${APP_TITLE}`;
+    return `${sectionTitle(current)} — ${t("home.title", APP_TITLE)}`;
   }
 
   // -- Behaviour -----------------------------------------------------------
@@ -425,7 +445,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
     backdrop.hidden = false;
     for (const el of [toolbarHost, main, statusBar]) setInert(el, true);
     setInert(sidebar, false);
-    menuButton.setAttribute("aria-expanded", "true");
+    setAria(menuButton, "aria-expanded", "true");
     const first = navItems.get(current) ?? navItems.values().next().value;
     first?.shadowRoot?.querySelector("button")?.focus();
   }
@@ -437,7 +457,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
     backdrop.hidden = true;
     for (const el of [toolbarHost, main, statusBar]) setInert(el, false);
     setInert(sidebar, isNarrow());
-    menuButton.setAttribute("aria-expanded", "false");
+    setAria(menuButton, "aria-expanded", "false");
     if (closeOptions.restoreFocus) {
       menuButton.shadowRoot?.querySelector("button")?.focus();
     }
@@ -492,12 +512,18 @@ export function createAppShell(options: AppShellOptions): AppShell {
     redoButton.toggleAttribute("disabled", !canRedo);
   }
 
+  const sayTimers = new WeakMap<HTMLElement, number>();
   function say(region: HTMLElement, message: string): void {
-    // Cleared first so an identical message is announced again.
+    // Cleared first so an identical message is announced again; one timer per
+    // region so two quick messages never interleave.
+    window.clearTimeout(sayTimers.get(region));
     region.textContent = "";
-    window.setTimeout(() => {
-      region.textContent = message;
-    }, 50);
+    sayTimers.set(
+      region,
+      window.setTimeout(() => {
+        region.textContent = message;
+      }, 50),
+    );
   }
 
   return {

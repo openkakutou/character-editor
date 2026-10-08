@@ -99,6 +99,8 @@ export function createExportController(
   let running = false;
   // Ignores the outcome of a computation that a later one has overtaken.
   let token = 0;
+  // Bumped by `reset()`: an export loop that finds it changed stops at once.
+  let epoch = 0;
 
   function notify(): void {
     for (const listener of [...listeners]) listener();
@@ -159,11 +161,13 @@ export function createExportController(
           return;
         }
         options.validation.setIssues(EXPORT_SOURCE, []);
+        const startedEpoch = epoch;
         const total = result.files.length;
         state = { phase: "running", done: 0, total };
         notify();
         for (const [index, file] of result.files.entries()) {
           if (index > 0) await wait(DOWNLOAD_STAGGER_MS);
+          if (epoch !== startedEpoch) return;
           options.triggerDownload(file.bytes, file.fileName);
           state = { phase: "running", done: index + 1, total };
           notify();
@@ -174,9 +178,13 @@ export function createExportController(
         notify();
       } catch (error) {
         fail(
-          t("save.exportFailed", "Export failed: {{message}}", {
-            message: error instanceof Error ? error.message : String(error),
-          }),
+          t(
+            "save.exportFailed",
+            "Export failed: {{message}}. Try again, and check the problems listed in the Export section.",
+            {
+              message: error instanceof Error ? error.message : String(error),
+            },
+          ),
         );
       } finally {
         running = false;
@@ -185,6 +193,7 @@ export function createExportController(
 
     reset() {
       token += 1;
+      epoch += 1;
       state = { phase: "idle" };
       files = null;
       options.validation.setIssues(EXPORT_SOURCE, []);

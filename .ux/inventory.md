@@ -51,11 +51,16 @@
 
 ## Known gaps
 
-- No navigation: 8 editors stacked on a 2935 px page; export is at the very bottom
-- The Keyboard shortcuts panel is always visible and pushes the editors ~500 px down
 - Native file inputs ("Choose Files / No file chosen") are unstyled and English in the French UI; shortcut labels are English
 - StateDef and Animation rows render as tiny default buttons; headings use inconsistent levels and styles
 - No radius, shadow, motion or icon tokens; no sidebar, list, badge, toast or tooltip components in the kit
 - Design system looks generic and its component ergonomics are poor (user feedback)
 - Audit 2026-10-08 (`.ux/audit/2026-10-08.md`): promises without `.catch` leave dead-end "Loading…" states (export, wizard, folder load, previews); collision boxes not keyboard-resizable; English in the French UI (shortcuts, file pickers, raw errors); no toolbar wrap at 390 px
-- `.ux/style.md` is adopted (Studio); no design tokens for it exist yet — `/ux:implement` creates them in `web-ui-kit`
+- Flow 001 deviations still open: see the flow's "Implementation notes" (robust load states, empty-state actions, editor inner content)
+
+## Application shell (flow 001, implemented 2026-10-08)
+
+- Sidebar of 8 sections in 4 groups (`wuik-sidebar-nav`), one visible section at a time with `wuik-section-header` cards, all sections kept mounted; toolbar with Open another, Undo/Redo, modified indicator, Help, language, theme and the single primary Export; status bar; modal drawer below 1024 px; fold to a 56 px rail remembered in localStorage.
+- Home screen: `wuik-file-drop-zone` (redirected to the folder picker), Open folder, New character; the window accepts a dropped folder only while on Home.
+- Validation store (`src/validation/`) feeding the badges and the Export section's problem list; export controller with `Export n/N` and a persistent "Saved at HH:MM"; help and leave dialogs.
+- Kit components in use: sidebar-nav, nav-group, nav-item, section-header, help-hint, badge, button, toolbar, dialog, file-drop-zone, locale-switcher, shortcuts-panel.

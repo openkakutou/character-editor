@@ -1,7 +1,7 @@
 ---
 id: 001
 title: Application shell with sidebar navigation
-status: validated
+status: implemented
 date: 2026-10-08
 finding: F1 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it" and "2 — large workspace for long sessions"
@@ -64,3 +64,18 @@ Section order is the task order, identical everywhere: **Character** 1 Identity 
 - Resizable panels and command palette (later; the fixed shell must not prevent them).
 - Content of each editor, and the robust-states work F2–F5 beyond the shell-level states above (separate design).
 - Native Fyne shell.
+
+## Implementation notes (2026-10-08)
+
+Built in `character-editor` on `web-ui-kit` 0.16 (kit change made for this flow: `CommandStack.markSaved` / `isAtSavedState` / per-command `meta`). Verified in Chromium at 1280 and 900 px (keyboard, drawer, rail, light and dark themes, French and English); 514 unit tests, lint, `tsc`, build green. The three visual baselines were regenerated locally and must be validated on the CI runner.
+
+Not built, left open for later designs (each is a deviation from the spec above, not a change to it):
+
+- Home loading without Cancel or named n/N steps; partial load banner with Replace file; unsupported-version screen; WASM-load banner (flow's own "robust states F2–F5" work).
+- Empty-state entry actions on every section and the Animations-without-sprites link; header-card primary actions.
+- Undo from another section focuses the section title, not the touched element; a badge click opens the section but cannot focus its first problem (the kit nav item has no separate badge activation).
+- Leave dialog: "Export first" cannot be cancelled once started.
+- `home.save.note.fs` and `showDirectoryPicker`: Open folder always uses the `webkitdirectory` picker; the note always says changes are saved by exporting.
+- Shortcuts help is a list of Alt+N rows plus the kit's remap panel, not a grouped table.
+- Section editors keep their own inner headings and native controls (restyled with `:where()` rules); their content is a separate redesign.
+- Known kit gaps: `wuik-button` does not forward `aria-*` to its inner button (worked around in the app), `wuik-file-drop-zone` has no folder mode (click and drop are redirected in the home view).

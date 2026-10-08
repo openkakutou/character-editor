@@ -2,8 +2,8 @@
 slug: app-shell
 title: Application shell
 flow: 001
-status: validated
-source: 
+status: implemented
+source: src/main.ts, src/shell/app-shell.ts, src/shell/output-section.ts, src/shell/sections.ts, src/shell/section-text.ts, src/shell/shell.css
 ---
 
 # Application shell
@@ -62,3 +62,7 @@ Top toolbar (Menu button below 1024 px, Open another character, Undo, Redo, modi
 - **Announcements:** one polite `role="status"` summarizing badge totals (debounced), undo and export progress; errors use `role="alert"`; no per-badge live regions. Badge text is visually hidden text in the item name, not an overriding `aria-label`. Shortcuts exposed through `aria-keyshortcuts` and the help dialog.
 - **Contrast & targets:** active state not colour-only (bar, weight, icon); badge 3:1; hit targets ≥ 24 px (44 px on touch); `Alt+N` never the only route.
 - **Motion:** drawer slide 200 ms and rail fold removed under `prefers-reduced-motion`.
+
+## Captures
+
+`.ux/captures/001-application-shell/`: after-identity-success.png, after-states.png, after-output.png, after-rail.png, after-narrow-closed.png, after-drawer-open.png, after-light-output.png.

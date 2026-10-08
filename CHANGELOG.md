@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The editor is now organised as an application: a sidebar lists the eight sections (Identity, Sprites, Sounds, Palettes, States, Commands, Animations, Export) and only one is shown at a time, with the others kept as you left them. Alt+1…8 jump to a section and `?` opens the help.
+- A new home screen offers Open folder, a folder drop zone and New character; the keyboard shortcuts moved into a Help dialog.
+- Export is one button in the toolbar: it shows its progress, then "Saved at HH:MM". Leaving a character with changes that were not exported asks for confirmation.
+- Undo and Redo move to the section they changed and say what they undid; "modified" clears again when you undo back to the last export.
+- Sections show a badge for real errors and warnings (missing name, duplicated animations, StateDefs or command names, empty command input, animations using a missing sprite…), and the Export section lists them with a way to reach each one.
+- New look from the web-ui-kit "Studio" identity (dark by default, light available); the interface is fully available in English and French, and below 1024 px the sidebar becomes a drawer.
+
 ## [0.17.0] - 2026-10-07
 
 ### Added

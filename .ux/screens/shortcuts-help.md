@@ -2,8 +2,8 @@
 slug: shortcuts-help
 title: Shortcuts and help dialog
 flow: 001
-status: validated
-source: 
+status: implemented
+source: src/shell/help-dialog.ts, src/shell/shell-shortcuts.ts
 ---
 
 # Shortcuts and help dialog
@@ -47,3 +47,7 @@ Native `<dialog>` (`wuik-dialog`), title, short intro, a `<table>` (action / key
 - **Announcements:** dialog name from the title.
 - **Contrast & targets:** `kbd` 4.5:1.
 - **Motion:** none.
+
+## Captures
+
+`.ux/captures/001-application-shell/`: after-help-dialog.png.
