@@ -16,8 +16,15 @@ import { expect, test } from "@playwright/test";
  * lifebar-editor's/stage-editor's own equivalents do.
  */
 
+/**
+ * Creates the basic character through the wizard, then opens `section` in the
+ * application shell (only one section is visible at a time, see
+ * `.ux/flows/001-application-shell.md`) and waits for `readySelector`.
+ */
 async function createBasicCharacter(
   page: import("@playwright/test").Page,
+  section: string,
+  readySelector: string,
 ): Promise<void> {
   await page.goto("/");
   await page.locator('[data-action="open-wizard"]').click();
@@ -33,14 +40,15 @@ async function createBasicCharacter(
     .locator('wuik-text-input[data-field="wizard-name"] input')
     .fill("Visual Test");
   await page.locator('[data-action="create-character"]').click();
-  await expect(page.locator(".sprite-browser")).toBeVisible();
+  await page.locator(`wuik-nav-item[value="${section}"]`).click();
+  await expect(page.locator(readySelector)).toBeVisible();
 }
 
 test.describe("sprite browser", () => {
   test("matches its baseline after expanding a group and decoding a real sprite", async ({
     page,
   }) => {
-    await createBasicCharacter(page);
+    await createBasicCharacter(page, "sprites", ".sprite-browser");
 
     const group = page.locator(".sprite-browser__group").first();
     await group.locator(".sprite-browser__group-toggle").click();
@@ -60,7 +68,7 @@ test.describe("palette editor", () => {
   test("matches its baseline after recoloring a swatch, live in the preview", async ({
     page,
   }) => {
-    await createBasicCharacter(page);
+    await createBasicCharacter(page, "palettes", ".palette-editor");
 
     const panel = page.locator(".palette-editor");
     await panel.locator(".palette-editor__new-blank").click();
@@ -109,7 +117,7 @@ test.describe("animation editor", () => {
   test("matches its baseline after adding, dragging, and resizing Clsn boxes", async ({
     page,
   }) => {
-    await createBasicCharacter(page);
+    await createBasicCharacter(page, "animations", ".animation-editor");
 
     const animationPanel = page.locator(".animation-editor__animation").first();
     await animationPanel.locator(".animation-editor__animation-toggle").click();

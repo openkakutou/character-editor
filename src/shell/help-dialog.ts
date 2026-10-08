@@ -29,6 +29,7 @@ export function createHelpDialog(
 
   const heading = document.createElement("h2");
   heading.slot = "heading";
+  heading.tabIndex = -1;
 
   const intro = document.createElement("p");
 
@@ -83,7 +84,10 @@ export function createHelpDialog(
       return dialog.hasAttribute("open");
     },
     open() {
-      if (!dialog.hasAttribute("open")) dialog.showModal();
+      if (dialog.hasAttribute("open")) return;
+      dialog.showModal();
+      // Focus starts on the title, ahead of the long list of controls.
+      heading.focus();
     },
     close() {
       if (dialog.hasAttribute("open")) dialog.close();

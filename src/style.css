@@ -1,4 +1,40 @@
 /*
+ * Native controls inside the section editors (not yet migrated to kit
+ * components) borrow the kit's control look. `:where()` keeps the specificity
+ * at a single class, and this block sits before every editor rule, so any
+ * editor-specific class below still wins.
+ */
+.shell__content
+  :where(
+    button,
+    input:not([type="checkbox"], [type="radio"], [type="file"]),
+    select,
+    textarea
+  ) {
+  font: inherit;
+  color: var(--wuik-color-text);
+  background: var(--wuik-color-surface-raised);
+  border: var(--wuik-border-width) solid var(--wuik-color-border-control);
+  border-radius: var(--wuik-radius-control);
+}
+
+.shell__content :where(button) {
+  padding: var(--wuik-space-1) var(--wuik-space-3);
+  cursor: pointer;
+}
+
+.shell__content :where(button:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shell__content
+  :where(button:focus-visible, input, select, textarea):focus-visible {
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
+  outline-offset: var(--wuik-focus-ring-offset);
+}
+
+/*
  * Height chain up to the viewport — `wuik-app-shell` only sets its own
  * min-height to 100%, so without this its ancestors collapse to their
  * content size and the shell never actually fills the screen.
@@ -79,36 +115,29 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--wuik-space-4);
-  padding: var(--wuik-space-4);
 }
 
-.file-input__dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--wuik-space-2);
-  padding: var(--wuik-space-4);
-  border: 2px dashed var(--wuik-color-border);
-  border-radius: var(--wuik-space-2);
-}
-
-.file-input__dropzone--dragging {
-  border-color: var(--wuik-color-primary);
-  background-color: var(--wuik-color-surface);
-}
-
-.file-input__dropzone--loading {
-  opacity: 0.6;
+/* A custom element's own display value beats the UA [hidden] rule. */
+wuik-button[hidden] {
+  display: none;
 }
 
 .file-input__label {
+  display: block;
   font-weight: var(--wuik-font-weight-medium);
 }
 
 .file-input__hint {
-  margin: 0;
+  display: block;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text-muted);
+}
+
+.file-input__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-3);
 }
 
 /* The multi-`.def`-candidate picker: a native radiogroup, shown only while
@@ -780,4 +809,142 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: var(--wuik-space-2);
+}
+
+/*
+ * Home screen (UX flow 001): a centred column on the page background.
+ */
+.home {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+  background: var(--wuik-color-bg);
+  color: var(--wuik-color-text);
+  font-family: var(--wuik-font-family-base);
+  font-size: var(--wuik-font-size-base);
+}
+
+.home__chrome {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--wuik-space-3);
+  padding: var(--wuik-space-3) var(--wuik-space-4);
+}
+
+.home__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-4);
+  width: min(100%, 40rem);
+  margin: auto;
+  padding: var(--wuik-space-5) var(--wuik-space-4);
+  box-sizing: border-box;
+}
+
+.home__title {
+  margin: 0;
+  font-size: var(--wuik-font-size-xl);
+  line-height: var(--wuik-line-height-tight);
+}
+
+.home__title:focus-visible {
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
+  outline-offset: var(--wuik-focus-ring-offset);
+}
+
+.home__hint,
+.home__note {
+  margin: 0;
+  color: var(--wuik-color-text-muted);
+}
+
+.file-input__dropzone {
+  display: block;
+}
+
+/*
+ * Export section (UX flow 001): problems with their severity and a way to
+ * reach them, then the files.
+ */
+.output-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+}
+
+.output-section h2 {
+  margin: var(--wuik-space-3) 0 0;
+  font-size: var(--wuik-font-size-md);
+}
+
+.output-section__summary,
+.output-section__note {
+  margin: 0;
+  color: var(--wuik-color-text-muted);
+}
+
+.output-section__problems,
+.output-section__files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.output-section__problem,
+.output-section__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-3);
+  padding: var(--wuik-space-2) var(--wuik-space-3);
+  background: var(--wuik-color-surface);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-radius: var(--wuik-radius-control);
+}
+
+.output-section__message,
+.output-section__file > span {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+/* Dialogs opened from the shell. */
+.help-dialog h3 {
+  margin: var(--wuik-space-4) 0 var(--wuik-space-2);
+  font-size: var(--wuik-font-size-base);
+  color: var(--wuik-color-text-muted);
+}
+
+.help-dialog__nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--wuik-space-1) var(--wuik-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-dialog kbd {
+  padding: 0 var(--wuik-space-1);
+  font-family: var(--wuik-font-family-mono);
+  font-size: var(--wuik-font-size-sm);
+  background: var(--wuik-color-surface-raised);
+  border: var(--wuik-border-width) solid var(--wuik-color-border-control);
+  border-radius: var(--wuik-radius-control);
+}
+
+.leave-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--wuik-space-2);
+}
+
+.leave-dialog__message:empty {
+  display: none;
 }

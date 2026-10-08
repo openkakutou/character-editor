@@ -170,3 +170,9 @@
     padding: var(--wuik-space-3);
   }
 }
+
+/* The toolbar scrolls sideways when crowded instead of wrapping its labels. */
+.shell__toolbar wuik-toolbar > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

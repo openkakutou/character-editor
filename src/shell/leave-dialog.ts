@@ -115,6 +115,9 @@ export function createLeaveDialog(controller: ExportController): LeaveDialog {
       return new Promise<boolean>((resolve) => {
         resolveChoice = resolve;
         dialog.showModal();
+        // The kit focuses the first native control it finds, which is not one
+        // of these shadow-hosted buttons: put the safe choice under focus.
+        cancel.shadowRoot?.querySelector("button")?.focus();
       });
     },
     destroy() {

@@ -57,6 +57,7 @@ const APP_TITLE = "Character Editor";
 
 const DOCUMENT_SOURCE = "document";
 const ANNOUNCE_DEBOUNCE_MS = 600;
+const ACTION_ANNOUNCEMENT_GRACE_MS = 1500;
 
 /**
  * `renderApp` is only ever really invoked once per page (from `mount()`),
@@ -224,6 +225,14 @@ export function renderApp(
 
   let announceTimer: number | undefined;
   let lastAnnouncedTotals = "";
+  // An action announcement ("Undone: …", export done) is the more useful
+  // message: the problem totals that follow within this window are skipped.
+  let lastActionAnnouncementAt = 0;
+
+  function announceAction(message: string): void {
+    lastActionAnnouncementAt = Date.now();
+    shell.announce(message);
+  }
 
   function announceValidationTotals(): void {
     const { errors, warnings } = validation.totals();
@@ -232,6 +241,12 @@ export function renderApp(
     lastAnnouncedTotals = summary;
     window.clearTimeout(announceTimer);
     announceTimer = window.setTimeout(() => {
+      if (
+        Date.now() - lastActionAnnouncementAt <
+        ACTION_ANNOUNCEMENT_GRACE_MS
+      ) {
+        return;
+      }
       if (errors === 0 && warnings === 0) {
         shell.announce(t("validation.allClear", "No problem found."));
         return;
@@ -267,7 +282,7 @@ export function renderApp(
       shell.setExportState(state);
       if (state.phase === "error") shell.alert(state.message);
       if (state.phase === "saved") {
-        shell.announce(
+        announceAction(
           t("export.savedAnnounce", "Export complete. All files downloaded."),
         );
       }
@@ -329,7 +344,7 @@ export function renderApp(
   function requestExport(): void {
     if (validation.totals().errors > 0) {
       goTo("output");
-      shell.announce(
+      announceAction(
         t(
           "export.blockedByErrors",
           "Fix the problems listed here before exporting.",
@@ -348,7 +363,7 @@ export function renderApp(
     if (!done) return;
     onHistoryChange();
     const action = meta?.label ?? "";
-    shell.announce(
+    announceAction(
       direction === "undo"
         ? t("undo.announce", "Undone: {{action}}", { action })
         : t("undo.redone", "Redone: {{action}}", { action }),
