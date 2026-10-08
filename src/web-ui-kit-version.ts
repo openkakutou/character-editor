@@ -3,11 +3,13 @@
  * `0.3.0` added the layout shell (`<wuik-app-shell>`, `<wuik-toolbar>`),
  * `0.4.0` added the form components (`<wuik-button>` among them), `0.6.0`
  * added the `CommandStack` undo/redo history primitive item 010's
- * cross-editor undo/redo is built on. Below that, a required piece of
+ * cross-editor undo/redo is built on, `0.16.0` added the application-shell
+ * components (`<wuik-sidebar-nav>`, `<wuik-section-header>`, `<wuik-badge>`…)
+ * and `CommandStack`'s saved mark and per-command `meta`. Below that, a required piece of
  * markup or API this app relies on simply doesn't exist yet, which would
  * otherwise silently render unstyled/broken or throw at runtime.
  */
-export const MIN_SUPPORTED_WEB_UI_KIT_VERSION = "0.6.0";
+export const MIN_SUPPORTED_WEB_UI_KIT_VERSION = "0.16.0";
 
 const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 

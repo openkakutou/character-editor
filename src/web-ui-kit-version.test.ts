@@ -6,7 +6,7 @@ import {
 
 describe("isWebUiKitVersionSupported", () => {
   it("accepts a version newer than the minimum", () => {
-    expect(isWebUiKitVersionSupported("0.13.0")).toBe(true);
+    expect(isWebUiKitVersionSupported("0.17.0")).toBe(true);
   });
 
   it("accepts a version exactly equal to the minimum", () => {
@@ -20,12 +20,12 @@ describe("isWebUiKitVersionSupported", () => {
   });
 
   it("rejects a version older than the minimum", () => {
-    expect(isWebUiKitVersionSupported("0.3.0")).toBe(false);
+    expect(isWebUiKitVersionSupported("0.15.1")).toBe(false);
   });
 
   it("rejects a patch-level version below the minimum", () => {
-    // Minimum is 0.6.0 — 0.5.9 is close but still below it.
-    expect(isWebUiKitVersionSupported("0.5.9")).toBe(false);
+    // Minimum is 0.16.0 — 0.15.9 is close but still below it.
+    expect(isWebUiKitVersionSupported("0.15.9")).toBe(false);
   });
 
   it("rejects a malformed version string instead of throwing", () => {

@@ -69,7 +69,7 @@ body {
  * Character file input (backlog item 014) — folder selection only, a
  * native `<input webkitdirectory>` picker plus a drag-and-drop zone
  * accepting a dropped folder, replacing item 002's 6-slot per-kind picker
- * outright. Error text uses `--wuik-color-text`, not `--wuik-color-danger`
+ * outright. Error text uses `--wuik-color-text`, not `--wuik-color-error`
  * — see web-ui-kit's own
  * .vibe/decisions/009-error-text-uses-text-token-not-danger.md; the status
  * region's own invalid state still signals non-verbally via a
@@ -93,7 +93,7 @@ body {
 }
 
 .file-input__dropzone--dragging {
-  border-color: var(--wuik-color-accent);
+  border-color: var(--wuik-color-primary);
   background-color: var(--wuik-color-surface);
 }
 
@@ -108,7 +108,7 @@ body {
 .file-input__hint {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /* The multi-`.def`-candidate picker: a native radiogroup, shown only while
@@ -148,7 +148,7 @@ body {
 .file-input__status {
   min-height: 1.2em;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /* Non-verbal error signal via a border, per web-ui-kit's own decision 009 —
@@ -156,13 +156,13 @@ body {
 .file-input__status--error {
   padding-left: var(--wuik-space-2);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-danger);
+  border-left: 3px solid var(--wuik-color-error);
 }
 
 .file-input__reset {
   align-self: flex-start;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
   background: none;
   border: none;
   cursor: pointer;
@@ -194,7 +194,7 @@ body {
   margin: 0;
   font-size: var(--wuik-font-size-base);
   font-weight: var(--wuik-font-weight-medium);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /* Caps a scalar field's width the same as the pre-migration stopgap did —
@@ -284,7 +284,7 @@ body {
 
 .sound-browser__sound[aria-disabled="true"] {
   cursor: not-allowed;
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .sound-browser__empty,
@@ -324,7 +324,7 @@ body {
 
 .sprite-browser__empty {
   margin: 0;
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .sprite-browser__body {
@@ -378,7 +378,7 @@ body {
 
 .sprite-browser__sprite[aria-current="true"] {
   background-color: var(--wuik-color-surface);
-  border-color: var(--wuik-color-accent);
+  border-color: var(--wuik-color-primary);
   font-weight: var(--wuik-font-weight-medium);
 }
 
@@ -407,7 +407,7 @@ body {
   min-height: 1.2em;
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .sprite-browser__actions {
@@ -428,14 +428,14 @@ body {
   margin: 0 0 var(--wuik-space-1);
   font-size: var(--wuik-font-size-base);
   font-weight: var(--wuik-font-weight-medium);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .sprite-browser__deleted ul {
   margin: 0;
   padding-left: var(--wuik-space-4);
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /*
@@ -459,7 +459,7 @@ body {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-danger);
+  border-left: 3px solid var(--wuik-color-error);
   padding-left: var(--wuik-space-2);
 }
 
@@ -485,7 +485,7 @@ body {
 }
 
 .palette-editor__swatch.is-selected {
-  outline: 2px solid var(--wuik-color-accent);
+  outline: 2px solid var(--wuik-color-primary);
   outline-offset: 1px;
 }
 
@@ -504,7 +504,7 @@ body {
 .palette-editor__reserved-note {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .palette-editor__preview {
@@ -525,7 +525,7 @@ body {
   min-height: 1.2em;
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /*
@@ -549,7 +549,7 @@ body {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
   color: var(--wuik-color-text);
-  border-left: 3px solid var(--wuik-color-danger);
+  border-left: 3px solid var(--wuik-color-error);
   padding-left: var(--wuik-space-2);
 }
 
@@ -567,25 +567,25 @@ body {
 }
 
 .animation-editor__box--clsn1 {
-  border: 2px solid var(--wuik-color-danger);
+  border: 2px solid var(--wuik-color-error);
   background-color: color-mix(
     in srgb,
-    var(--wuik-color-danger) 20%,
+    var(--wuik-color-error) 20%,
     transparent
   );
 }
 
 .animation-editor__box--clsn2 {
-  border: 2px solid var(--wuik-color-accent);
+  border: 2px solid var(--wuik-color-primary);
   background-color: color-mix(
     in srgb,
-    var(--wuik-color-accent) 20%,
+    var(--wuik-color-primary) 20%,
     transparent
   );
 }
 
 .animation-editor__box:focus-visible {
-  outline: 2px solid var(--wuik-color-focus-ring);
+  outline: 2px solid var(--wuik-color-focus);
   outline-offset: 2px;
 }
 
@@ -596,7 +596,7 @@ body {
   font-size: 0.65em;
   line-height: 1;
   padding: 1px 3px;
-  color: var(--wuik-color-text-on-accent);
+  color: var(--wuik-color-on-primary);
   background-color: inherit;
   pointer-events: none;
 }
@@ -630,7 +630,7 @@ body {
   min-height: 1.2em;
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .animation-editor__box-fields {
@@ -652,11 +652,11 @@ body {
  * characteristics-editor originally established.
  */
 .command-editor__empty {
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .command-editor__status {
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .command-editor__list {
@@ -709,19 +709,19 @@ body {
 }
 
 .command-editor__input:focus-visible {
-  outline: 2px solid var(--wuik-color-focus-ring);
+  outline: 2px solid var(--wuik-color-focus);
   outline-offset: -2px;
 }
 
 .command-editor__input.is-invalid {
-  border-color: var(--wuik-color-danger);
+  border-color: var(--wuik-color-error);
 }
 
 /* See characteristics-editor's identical rule: keeps the invalid signal
  * visible even while focused, since the inset focus ring would otherwise
  * visually cover the danger border it sits on top of. */
 .command-editor__input.is-invalid:focus-visible {
-  outline-color: var(--wuik-color-danger);
+  outline-color: var(--wuik-color-error);
 }
 
 .command-editor__field-error {
@@ -733,7 +733,7 @@ body {
   flex-basis: 100%;
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 /*
@@ -746,7 +746,7 @@ body {
   margin: var(--wuik-space-2) 0;
   text-align: center;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .new-character-wizard__dialog {
@@ -777,7 +777,7 @@ body {
 .new-character-wizard__status {
   margin: 0;
   font-size: var(--wuik-font-size-sm);
-  color: var(--wuik-color-text-secondary);
+  color: var(--wuik-color-text-muted);
 }
 
 .new-character-wizard__actions {

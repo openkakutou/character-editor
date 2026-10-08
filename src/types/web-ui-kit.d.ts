@@ -12,10 +12,11 @@ declare module "@openkakutou/web-ui-kit" {
   export const version: string;
 
   /** A do/undo pair pushed onto a {@link CommandStack}. Mirrors the package's own `Command` type. */
-  export interface Command {
+  export interface Command<M = unknown> {
     do(): void;
     undo(): void;
     coalesceKey?: string;
+    meta?: M;
   }
 
   export interface CommandStackOptions {
@@ -24,11 +25,18 @@ declare module "@openkakutou/web-ui-kit" {
   }
 
   /** Mirrors the package's own framework-agnostic undo/redo history class. */
-  export class CommandStack {
+  export class CommandStack<M = unknown> {
     constructor(options?: CommandStackOptions);
     readonly canUndo: boolean;
     readonly canRedo: boolean;
-    push(command: Command): void;
+    /** The `meta` of the entry `undo()` would revert. */
+    readonly undoMeta: M | undefined;
+    /** The `meta` of the entry `redo()` would replay. */
+    readonly redoMeta: M | undefined;
+    /** True when the history is back at the position recorded by `markSaved()`. */
+    readonly isAtSavedState: boolean;
+    markSaved(): void;
+    push(command: Command<M>): void;
     undo(): boolean;
     redo(): boolean;
     clear(): void;
