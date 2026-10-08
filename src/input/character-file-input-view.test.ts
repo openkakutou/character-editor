@@ -68,7 +68,9 @@ function status(root: HTMLElement): HTMLElement {
   return root.querySelector('[role="status"]') as HTMLElement;
 }
 
+// A drop is handled at the window, so the view must be in the document.
 function dropZone(root: HTMLElement): HTMLElement {
+  if (!root.isConnected) document.body.appendChild(root);
   return root.querySelector(".file-input__dropzone") as HTMLElement;
 }
 
@@ -101,6 +103,15 @@ function requiredFolderFiles(name?: string): File[] {
       makeFile("ryu.cns", fixtureBytes("sample.cns")),
       "ryu/ryu.cns",
     ),
+  ];
+}
+
+function validFolderEntries(name: string): FileEntryLike[] {
+  return [
+    fakeFileEntry("/p/p.def", makeFile("p.def", defText(name, "p"))),
+    fakeFileEntry("/p/p.air", makeFile("p.air", fixtureBytes("sample.air"))),
+    fakeFileEntry("/p/p.sff", makeFile("p.sff", fixtureBytes("v1-basic.sff"))),
+    fakeFileEntry("/p/p.cns", makeFile("p.cns", fixtureBytes("sample.cns"))),
   ];
 }
 
@@ -283,6 +294,92 @@ describe("renderCharacterFileInput", () => {
     expect(status(root).classList.contains("file-input__status--error")).toBe(
       false,
     );
+  });
+
+  describe("opening a folder from the kit drop zone", () => {
+    it("opens the folder picker when the drop zone is clicked, instead of the zone's loose-file picker", () => {
+      const root = document.createElement("div");
+      renderCharacterFileInput(root, { onLoaded: vi.fn() });
+      const clickSpy = vi.spyOn(picker(root), "click");
+      const zoneClick = vi.fn();
+      dropZone(root).addEventListener("click", zoneClick);
+
+      dropZone(root).click();
+
+      expect(clickSpy).toHaveBeenCalledOnce();
+    });
+
+    it("opens the folder picker on Enter and Space, and ignores other keys", () => {
+      const root = document.createElement("div");
+      renderCharacterFileInput(root, { onLoaded: vi.fn() });
+      const clickSpy = vi.spyOn(picker(root), "click");
+
+      for (const key of ["Enter", " ", "a"]) {
+        dropZone(root).dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      }
+
+      expect(clickSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens the folder picker from the Open folder button", () => {
+      const root = document.createElement("div");
+      renderCharacterFileInput(root, { onLoaded: vi.fn() });
+      const clickSpy = vi.spyOn(picker(root), "click");
+
+      root.querySelector<HTMLElement>('[data-action="open-folder"]')?.click();
+
+      expect(clickSpy).toHaveBeenCalledOnce();
+    });
+
+    it("loads a folder dropped anywhere on the window", async () => {
+      const root = document.createElement("div");
+      const onLoaded = vi.fn();
+      renderCharacterFileInput(root, { onLoaded, bridgeOptions: testOptions });
+      document.body.appendChild(root);
+
+      dispatchDrop(document.body, validFolderEntries("Elsewhere"));
+
+      await vi.waitFor(() => expect(onLoaded).toHaveBeenCalledTimes(1));
+    });
+
+    it("swallows a drop without loading it while the view is inactive", async () => {
+      const root = document.createElement("div");
+      const onLoaded = vi.fn();
+      renderCharacterFileInput(root, {
+        onLoaded,
+        bridgeOptions: testOptions,
+        isActive: () => false,
+      });
+      document.body.appendChild(root);
+
+      dispatchDrop(document.body, validFolderEntries("Ignored"));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(onLoaded).not.toHaveBeenCalled();
+    });
+
+    it("offers Retry after a failed load and runs the same folder again", async () => {
+      const root = document.createElement("div");
+      const onLoaded = vi.fn();
+      renderCharacterFileInput(root, { onLoaded, bridgeOptions: testOptions });
+      const retry = () =>
+        root.querySelector<HTMLElement>('[data-action="retry"]');
+      expect(retry()?.hidden).toBe(true);
+
+      await selectViaPicker(root, [
+        withRelativePath(makeFile("readme.txt"), "pack/readme.txt"),
+      ]);
+      expect(retry()?.hidden).toBe(false);
+
+      retry()?.click();
+      expect(status(root).textContent).not.toBe("");
+    });
   });
 
   describe("localization (backlog item 012)", () => {

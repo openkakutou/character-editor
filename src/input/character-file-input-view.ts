@@ -44,6 +44,14 @@ export interface CharacterFileInputViewOptions {
   onLoaded: (character: CharacterData, files: LoadedFileBytes) => void;
   /** Forwarded to the file-reading/WASM bridge layer; injectable for testing. */
   bridgeOptions?: CharacterFileInputOptions;
+  /**
+   * Whether a folder dropped anywhere on the window should be loaded. The
+   * view listens on the whole window (a drop that misses the zone must not
+   * make the browser navigate to the file); while a character is being edited
+   * it answers `false` and such a drop is swallowed instead of replacing the
+   * open character.
+   */
+  isActive?: () => boolean;
 }
 
 type Phase = "idle" | "loading" | "needs-selection" | "done";
@@ -175,11 +183,11 @@ function formatStatus(descriptor: StatusDescriptor): string {
   }
 }
 
-// Cancels a previous call's live locale-change subscription when
-// `renderCharacterFileInput` is invoked again on the same root — same
-// "replace, don't accumulate" rule this app's other render-owned
+// Cancels a previous call's live subscriptions (locale change, window drop
+// listeners) when `renderCharacterFileInput` is invoked again on the same
+// root — same "replace, don't accumulate" rule this app's other render-owned
 // subscriptions already follow.
-const stopLocaleSubscriptionByRoot = new WeakMap<HTMLElement, () => void>();
+const stopSubscriptionsByRoot = new WeakMap<HTMLElement, () => void>();
 
 /**
  * Renders the folder-based character input into `root`, replacing its
@@ -189,8 +197,8 @@ export function renderCharacterFileInput(
   root: HTMLElement,
   options: CharacterFileInputViewOptions,
 ): void {
-  stopLocaleSubscriptionByRoot.get(root)?.();
-  stopLocaleSubscriptionByRoot.delete(root);
+  stopSubscriptionsByRoot.get(root)?.();
+  stopSubscriptionsByRoot.delete(root);
   root.replaceChildren();
 
   let phase: Phase = "idle";
@@ -200,26 +208,36 @@ export function renderCharacterFileInput(
   let selectedIndex: number | null = null;
   let lastGatheredFiles: GatheredFile[] = [];
 
-  const panel = document.createElement("wuik-panel");
+  const panel = document.createElement("div");
   panel.className = "file-input";
 
-  const dropZone = document.createElement("div");
+  // The kit's drop zone is the drop target and the visible affordance. It can
+  // only pick loose files, so a click or Enter/Space on it is redirected (in
+  // the capture phase, before the zone's own handlers) to the folder picker.
+  const dropZone = document.createElement("wuik-file-drop-zone");
   dropZone.className = "file-input__dropzone";
 
-  const label = document.createElement("label");
+  const label = document.createElement("strong");
   label.className = "file-input__label";
-  label.htmlFor = "character-folder-picker";
+  const hint = document.createElement("span");
+  hint.className = "file-input__hint";
+  dropZone.append(label, hint);
 
   const picker = document.createElement("input");
   picker.type = "file";
   picker.id = "character-folder-picker";
+  picker.hidden = true;
   picker.setAttribute("webkitdirectory", "");
   picker.multiple = true;
+  picker.tabIndex = -1;
 
-  const hint = document.createElement("p");
-  hint.className = "file-input__hint";
+  const openFolderButton = document.createElement("wuik-button");
+  openFolderButton.setAttribute("variant", "primary");
+  openFolderButton.dataset.action = "open-folder";
 
-  dropZone.append(label, picker, hint);
+  const actions = document.createElement("div");
+  actions.className = "file-input__actions";
+  actions.appendChild(openFolderButton);
 
   const selectionContainer = document.createElement("div");
   selectionContainer.className = "file-input__selection";
@@ -236,7 +254,20 @@ export function renderCharacterFileInput(
   resetButton.dataset.action = "reset";
   resetButton.hidden = true;
 
-  panel.append(dropZone, selectionContainer, status, resetButton);
+  const retryButton = document.createElement("wuik-button");
+  retryButton.setAttribute("variant", "secondary");
+  retryButton.dataset.action = "retry";
+  retryButton.hidden = true;
+  actions.appendChild(retryButton);
+
+  panel.append(
+    dropZone,
+    picker,
+    actions,
+    selectionContainer,
+    status,
+    resetButton,
+  );
   root.appendChild(panel);
 
   // Elements created by `renderSelection`, kept so a live locale change can
@@ -255,6 +286,8 @@ export function renderCharacterFileInput(
       "input.dropHint",
       "…or drag and drop a character folder here",
     );
+    openFolderButton.textContent = t("home.open", "Open folder");
+    retryButton.textContent = t("home.retry", "Retry");
     resetButton.textContent = t(
       "input.resetButton",
       "Choose a different folder",
@@ -277,14 +310,14 @@ export function renderCharacterFileInput(
   }
 
   function render(): void {
-    picker.disabled = phase === "loading";
-    dropZone.classList.toggle(
-      "file-input__dropzone--loading",
-      phase === "loading",
-    );
+    const loading = phase === "loading";
+    picker.disabled = loading;
+    dropZone.toggleAttribute("disabled", loading);
+    openFolderButton.toggleAttribute("disabled", loading);
     status.classList.toggle("file-input__status--error", isError);
     status.textContent = formatStatus(currentStatus);
     resetButton.hidden = phase === "idle" || phase === "loading";
+    retryButton.hidden = !(isError && lastGatheredFiles.length > 0);
     selectionContainer.hidden = phase !== "needs-selection";
   }
 
@@ -436,19 +469,42 @@ export function renderCharacterFileInput(
     );
   });
 
-  dropZone.addEventListener("dragenter", (event) => {
+  function openPicker(): void {
+    if (phase !== "loading") picker.click();
+  }
+
+  dropZone.addEventListener(
+    "click",
+    (event) => {
+      event.stopPropagation();
+      openPicker();
+    },
+    true,
+  );
+  dropZone.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      openPicker();
+    },
+    true,
+  );
+  openFolderButton.addEventListener("click", openPicker);
+  retryButton.addEventListener("click", () =>
+    handleGathered(lastGatheredFiles, lastSource),
+  );
+
+  // Window-wide so a drop that misses the zone is handled like one on it,
+  // instead of the browser opening the dropped file.
+  function onWindowDragOver(event: Event): void {
     event.preventDefault();
-    dropZone.classList.add("file-input__dropzone--dragging");
-  });
-  dropZone.addEventListener("dragover", (event) => {
+  }
+  function onWindowDrop(event: Event): void {
     event.preventDefault();
-  });
-  dropZone.addEventListener("dragleave", () => {
-    dropZone.classList.remove("file-input__dropzone--dragging");
-  });
-  dropZone.addEventListener("drop", (event) => {
-    event.preventDefault();
-    dropZone.classList.remove("file-input__dropzone--dragging");
+    if (!root.isConnected || options.isActive?.() === false) return;
+    if (phase === "loading") return;
     const dataTransfer = (event as DragEvent).dataTransfer as unknown as {
       items: readonly DataTransferItemLike[];
     } | null;
@@ -456,7 +512,9 @@ export function renderCharacterFileInput(
     void filesFromDataTransferItems(items).then((files) =>
       handleGathered(files, "drop"),
     );
-  });
+  }
+  window.addEventListener("dragover", onWindowDragOver);
+  window.addEventListener("drop", onWindowDrop);
 
   resetButton.addEventListener("click", () => {
     resetToIdle();
@@ -471,7 +529,11 @@ export function renderCharacterFileInput(
     renderStaticTexts();
     render();
   });
-  stopLocaleSubscriptionByRoot.set(root, stopLocaleSubscription);
+  stopSubscriptionsByRoot.set(root, () => {
+    stopLocaleSubscription();
+    window.removeEventListener("dragover", onWindowDragOver);
+    window.removeEventListener("drop", onWindowDrop);
+  });
 
   renderStaticTexts();
   render();
