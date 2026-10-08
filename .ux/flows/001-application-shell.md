@@ -7,7 +7,7 @@ finding: F1 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it" and "2 — large workspace for long sessions"
 screens: [home, app-shell, shortcuts-help, leave-dialog]
 decision: 002
-prototype: none
+prototype: .ux/prototypes/001-application-shell.html (https://claude.ai/artifact/VfoQekj2jxUcGacUtd9DhR)
 ---
 
 # 001 — Application shell with sidebar navigation

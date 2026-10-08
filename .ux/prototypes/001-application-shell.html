@@ -1,0 +1,415 @@
+<title>Coque Character Editor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Prototype 001 — application shell. Tokens = web-ui-kit v0.15 (Studio), dark first. Copy in French (EN keys are in the specs). */
+:root{
+  --bg:#121214;--surface:#1a1a1e;--raised:#232328;--border:#33333a;--border-control:#6c6c78;
+  --text:#ececf0;--muted:#a4a4b0;--primary:#f59e0b;--on-primary:#1a1200;
+  --error:#f87171;--on-error:#09090b;--success:#4ade80;--warning:#fcd34d;--focus:#f59e0b;
+  --clsn1:#ff6b6b;--clsn2:#4cc9f0;
+  --shadow-card:0 4px 14px rgba(0,0,0,.28);--shadow-overlay:0 12px 32px rgba(0,0,0,.5);
+  --r-control:6px;--r-button:8px;--r-card:12px;--h:34px;
+  --font:'DM Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f3f2f0;--surface:#fffefd;--raised:#ebe9e6;--border:#d9d6d2;--border-control:#85817c;
+  --text:#1c1b1a;--muted:#5f5b57;--primary:#b45309;--on-primary:#fff;--error:#b91c1c;--on-error:#fff;
+  --success:#15803d;--warning:#8a4b00;--focus:#b45309;--clsn1:#c2181b;--clsn2:#0b6fa4;
+  --shadow-card:0 2px 8px rgba(0,0,0,.08);--shadow-overlay:0 10px 28px rgba(0,0,0,.18);color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f3f2f0;--surface:#fffefd;--raised:#ebe9e6;--border:#d9d6d2;--border-control:#85817c;
+  --text:#1c1b1a;--muted:#5f5b57;--primary:#b45309;--on-primary:#fff;--error:#b91c1c;--on-error:#fff;
+  --success:#15803d;--warning:#8a4b00;--focus:#b45309;--clsn1:#c2181b;--clsn2:#0b6fa4;
+  --shadow-card:0 2px 8px rgba(0,0,0,.08);--shadow-overlay:0 10px 28px rgba(0,0,0,.18);color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 .875rem/1.45 var(--font);overflow:hidden}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:8px;top:-60px;background:var(--primary);color:var(--on-primary);padding:8px 12px;border-radius:var(--r-button);z-index:50}
+.skip:focus{top:8px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:var(--h);padding:0 14px;border-radius:var(--r-button);border:1px solid var(--border-control);background:var(--raised);cursor:pointer;font-weight:500;white-space:nowrap;transition:background .16s}
+.btn:hover{background:color-mix(in srgb,var(--raised) 85%,var(--text))}
+.btn.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.btn.primary:hover{background:color-mix(in srgb,var(--primary) 88%,var(--text))}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--raised)}
+.btn.danger{background:transparent;border-color:var(--error);color:var(--text)}
+.btn[aria-disabled="true"],.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.icon{padding:0;width:var(--h);justify-content:center}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* app grid */
+#stage{height:calc(100% - 46px);display:flex;justify-content:center;background:var(--bg)}
+#app{position:relative;display:grid;grid-template-rows:auto 1fr 22px;width:100%;height:100%;min-height:0}
+#app.frame{max-width:900px;border-inline:1px dashed var(--border-control)}
+header.bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+header.bar .brand{font-weight:700;margin-right:8px}
+header.bar .sp{flex:1}
+.mod{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:.8125rem}
+.dot{width:8px;height:8px;border-radius:50%;border:2px solid var(--muted)}
+.mod.on .dot{background:var(--warning);border-color:var(--warning)}
+.body{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:0}
+#app.folded .body{grid-template-columns:56px minmax(0,1fr)}
+#app.narrow .body{grid-template-columns:minmax(0,1fr)}
+nav.side{background:var(--surface);border-right:1px solid var(--border);overflow:auto;padding:12px 8px;min-height:0}
+#app.narrow nav.side{display:none}
+.grp{font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
+#app.folded .grp{font-size:0;padding:6px 0;border-top:1px solid var(--border);margin-top:6px}
+nav.side ul,nav.drawer ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.nav{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:0 10px;border:0;border-radius:var(--r-control);background:transparent;cursor:pointer;text-align:left;color:var(--text)}
+.nav:hover{background:var(--raised)}
+.nav[aria-current="page"]{background:var(--raised);font-weight:500}
+.nav[aria-current="page"]::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--primary)}
+.nav .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav kbd{font:500 .75rem var(--mono);color:var(--muted)}
+#app.folded .nav{justify-content:center;padding:0}
+#app.folded .nav .lbl,#app.folded .nav kbd{display:none}
+.badge{display:inline-flex;align-items:center;gap:3px;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font:500 .75rem var(--mono);justify-content:center}
+.badge.err{background:var(--error);color:var(--on-error)}
+.badge.warn{background:transparent;color:var(--text);border:1px solid var(--warning)}
+.badge.warn::before{content:"!";font-weight:700;color:var(--warning)}
+#app.folded .badge{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;font-size:.625rem}
+.fold{margin:10px 0 0;width:100%}
+main{overflow:auto;min-height:0;padding:24px;position:relative}
+main>.sec{max-width:1100px;margin:0 auto;display:grid;gap:16px}
+.hdr{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:16px 20px;box-shadow:var(--shadow-card);flex-wrap:wrap}
+.hdr h1{font-size:1.25rem;font-weight:700;outline:none}
+.hdr p{color:var(--muted);margin-top:2px;max-width:60ch}
+.hint{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--border-control);background:transparent;color:var(--muted);font:500 .75rem var(--font);cursor:help;margin-left:6px;vertical-align:middle;position:relative}
+.hint .tip{display:none;position:absolute;left:50%;top:26px;transform:translateX(-50%);width:260px;background:var(--raised);border:1px solid var(--border-control);border-radius:var(--r-control);padding:8px 10px;color:var(--text);font-weight:400;text-align:left;z-index:20;box-shadow:var(--shadow-overlay)}
+.hint:hover .tip,.hint:focus-visible .tip{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:16px 20px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+#app.narrow .cols{grid-template-columns:minmax(0,1fr)}
+label.f{display:grid;gap:4px;font-weight:500}
+input.t,select.t{min-height:var(--h);padding:0 10px;border:1px solid var(--border-control);border-radius:var(--r-control);background:var(--raised);font-family:var(--mono)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.row{display:flex;align-items:center;gap:10px;min-height:28px;padding:2px 10px;border-radius:var(--r-control);border:0;background:transparent;width:100%;text-align:left;cursor:pointer}
+.row:hover{background:var(--raised)}
+.row[aria-expanded="true"],.row.sel{background:var(--raised);box-shadow:inset 2px 0 0 var(--primary)}
+.row .m{font-family:var(--mono);color:var(--muted)}
+.check{width:36px;height:36px;border-radius:4px;background:repeating-conic-gradient(#8884 0 25%,#0000 0 50%) 50%/12px 12px;display:grid;place-items:center}
+.empty{display:grid;justify-items:center;gap:10px;text-align:center;padding:40px 16px;color:var(--muted)}
+.empty h2{color:var(--text);font-size:1rem}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:var(--r-control);border:1px solid var(--warning);background:var(--surface)}
+.banner.err{border-color:var(--error)}
+.banner b{display:block}
+.sw{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;max-width:420px}
+.sw span{aspect-ratio:1;min-width:14px;border-radius:2px}
+.view{position:relative;height:300px;border-radius:var(--r-control);border:1px solid var(--border);background:repeating-conic-gradient(#8883 0 25%,#0000 0 50%) 50%/16px 16px;overflow:hidden}
+.view .spr{position:absolute;left:50%;top:50%;width:84px;height:140px;transform:translate(-50%,-50%);border-radius:40px 40px 8px 8px;background:#7c8aa0}
+.box{position:absolute;border:2px solid;box-shadow:0 0 0 1px #0008}
+.box.c1{border-style:dashed;border-color:var(--clsn1);left:58%;top:34%;width:70px;height:36px}
+.box.c2{border-style:solid;border-color:var(--clsn2);left:41%;top:26%;width:70px;height:120px}
+.legend{display:flex;gap:16px;font-size:.8125rem;color:var(--muted);margin-top:8px}
+.skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--raised),var(--border),var(--raised));background-size:200% 100%;animation:sh 1.4s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+footer.status{display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--surface);border-top:1px solid var(--border);font-size:.75rem;color:var(--muted)}
+footer.status .ok{color:var(--text)}
+.ic{display:inline-block;width:14px;height:14px;vertical-align:-2px}
+/* home */
+.home{height:100%;overflow:auto;display:grid;place-items:center;padding:24px}
+.home .col{width:min(560px,100%);display:grid;gap:18px;text-align:left}
+.home h1{font-size:1.75rem;font-weight:700}
+.drop{border:2px dashed var(--border-control);border-radius:var(--r-card);padding:36px 20px;text-align:center;background:var(--surface);display:grid;gap:12px;justify-items:center}
+.drop.over{border-color:var(--primary)}
+.prog{display:grid;gap:8px}
+.bar-p{height:8px;border-radius:99px;background:var(--raised);overflow:hidden}
+.bar-p i{display:block;height:100%;background:var(--primary);width:40%}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:4px;color:var(--muted)}
+.steps .done{color:var(--text)}
+/* drawer + dialogs */
+.scrim{position:absolute;inset:0;background:#0009;z-index:30}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:300px;background:var(--surface);z-index:31;padding:12px 8px;overflow:auto;box-shadow:var(--shadow-overlay)}
+dialog{background:var(--surface);color:var(--text);border:1px solid var(--border-control);border-radius:var(--r-card);padding:20px;box-shadow:var(--shadow-overlay);max-width:min(520px,calc(100vw - 32px))}
+dialog::backdrop{background:#000a}
+dialog h2{font-size:1.125rem;margin-bottom:6px}
+dialog .act{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+table.k{width:100%;border-collapse:collapse;margin-top:10px}
+table.k th{text-align:left;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:4px 0}
+table.k td{padding:5px 0;border-top:1px solid var(--border)}
+kbd{font:500 .75rem var(--mono);background:var(--raised);border:1px solid var(--border-control);border-radius:4px;padding:1px 6px}
+/* prototype bar */
+#pbar{position:fixed;left:0;right:0;bottom:0;height:46px;z-index:100;display:flex;gap:10px;align-items:center;padding:0 12px calc(0px + env(safe-area-inset-bottom,0px));background:#2b1d05;color:#ffe9b8;border-top:2px solid #f59e0b;overflow-x:auto;font-size:.8125rem}
+#pbar b{background:#f59e0b;color:#1a1200;padding:2px 8px;border-radius:4px;white-space:nowrap}
+#pbar label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+#pbar select,#pbar button{background:#1a1200;color:#ffe9b8;border:1px solid #f59e0b;border-radius:4px;padding:2px 6px;font-size:.8125rem;cursor:pointer}
+#pbar :focus-visible{outline:2px solid #fff}
+:root{padding-bottom:0!important}
+/* step markers */
+.mk [data-step]{position:relative}
+.mk [data-step]::after{content:attr(data-step);position:absolute;top:-8px;right:-8px;z-index:60;width:18px;height:18px;border-radius:50%;background:#e11d48;color:#fff;font:700 .6875rem var(--font);display:grid;place-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<a class="skip" href="#main">Aller au contenu</a>
+<div id="stage"><div id="app"></div></div>
+<div id="live" class="sr" role="status" aria-live="polite"></div>
+<dialog id="dHelp" aria-labelledby="dHelpT"></dialog>
+<dialog id="dLeave" role="alertdialog" aria-labelledby="dLeaveT" aria-describedby="dLeaveB"></dialog>
+
+<div id="pbar" role="region" aria-label="Barre du prototype">
+  <b>PROTOTYPE</b>
+  <label>Écran <select id="pScreen"><option value="home">1 · Accueil</option><option value="shell" selected>2 · Coque</option></select></label>
+  <label>État <select id="pState">
+    <option value="success">Succès</option><option value="empty">Vide</option><option value="loading">Chargement</option>
+    <option value="partial">Partiel</option><option value="error">Erreur</option></select></label>
+  <label>Largeur <select id="pWidth"><option value="auto">Réelle</option><option value="narrow">Étroite (&lt;1024)</option></select></label>
+  <button id="pTheme" type="button">Thème</button>
+  <label><input type="checkbox" id="pMk"> Étapes du flux</label>
+  <span id="pHelp">Accueil : Vide, Chargement, Partiel (version non prise en charge), Erreur. Coque : Vide (0 sprite), Chargement, Partiel (fichier illisible), Erreur (échec d'export).</span>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const P={screen:'shell',state:'success',width:'auto',section:'identity',folded:false,drawer:false,modified:false,undo:[],redo:[],exp:'idle',expN:0,saved:null,narrowMsg:true};
+try{P.folded=localStorage.getItem('fold')==='1'}catch(e){}
+const I=d=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const IC={
+ identity:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+ sprites:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+ sounds:'<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+ palettes:'<circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="16" cy="10" r="1"/>',
+ states:'<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7l8 4M8 17l8-4"/>',
+ commands:'<rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4M14 10v4M12 12h4"/>',
+ animations:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="m10 8 5 3-5 3z"/><path d="M7 21h10"/>',
+ export:'<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+ menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', fold:'<path d="m15 6-6 6 6 6"/>', undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>', redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
+ help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', moon:'<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z"/>', folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', warn:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>', plus:'<path d="M12 5v14M5 12h14"/>'
+};
+const SECS=[
+ ['identity','character','Identité','Le nom, l’auteur et les fichiers que le personnage utilise.','Changer un fichier',null],
+ ['sprites','resources','Sprites','Les images de chaque pose, classées par groupe et par numéro.','Importer des sprites',null],
+ ['sounds','resources','Sons','Les sons joués par le personnage, classés comme les sprites.','Remplacer le fichier de sons',null],
+ ['palettes','resources','Palettes','Les 256 couleurs qui recolorent les sprites.','Charger une palette .act',null],
+ ['states','logic','États','Ce que fait le personnage à chaque instant.','Ajouter un StateDef','Un StateDef décrit ce que fait le personnage dans un état (debout, saut, coup…). Il contient des Controllers qui s’exécutent à chaque tick.'],
+ ['commands','logic','Commandes','Les séquences de touches qui déclenchent un état.','Ajouter une commande','Une commande associe une suite de touches à un état de combat, par le nom de la commande.'],
+ ['animations','logic','Animations','Les images d’une animation et leurs boîtes de collision.','Ajouter une animation','Clsn1 est la boîte d’attaque (tirets, repère 1). Clsn2 est la boîte de dégât reçu (trait plein, repère 2).'],
+ ['export','output','Export','Vérifiez le personnage puis téléchargez ses fichiers.','Tout télécharger',null]
+];
+const GRP={character:'Personnage',resources:'Ressources',logic:'Logique',output:'Sortie'};
+const live=m=>{$('#live').textContent='';setTimeout(()=>$('#live').textContent=m,30)};
+const isNarrow=()=>P.width==='narrow'||(P.width==='auto'&&innerWidth<1024);
+function badges(){
+  const s=P.state;
+  if(s==='partial')return{sounds:{e:1,w:0}};
+  if(s==='loading'||s==='error'||s==='empty')return{};
+  return{commands:{e:2,w:1}};
+}
+const totalErr=()=>Object.values(badges()).reduce((a,b)=>a+b.e,0);
+function bname(id){const b=badges()[id];if(!b)return'';const a=[];if(b.e)a.push(b.e+(b.e>1?' erreurs':' erreur'));if(b.w)a.push(b.w+(b.w>1?' avertissements':' avertissement'));return a.join(', ')}
+function badgeHTML(id){const b=badges()[id];if(!b)return'';return(b.e?`<span class="badge err" aria-hidden="true">${b.e}</span>`:'')+(b.w?`<span class="badge warn" aria-hidden="true">${b.w}</span>`:'')+`<span class="sr">, ${bname(id)}</span>`}
+function navHTML(){
+  let h='',last='';
+  SECS.forEach((s,i)=>{
+    if(s[1]!==last){if(last)h+='</ul>';h+=`<div class="grp" role="presentation">${GRP[s[1]]}</div><ul>`;last=s[1]}
+    h+=`<li><button class="nav" type="button" data-nav="${s[0]}" aria-keyshortcuts="Alt+${i+1}" title="${s[2]} (Alt+${i+1})" ${P.section===s[0]?'aria-current="page"':''}>${I(IC[s[0]])}<span class="lbl">${s[2]}</span>${badgeHTML(s[0])}<kbd aria-hidden="true">${i+1}</kbd></button></li>`;
+  });
+  return h+'</ul>';
+}
+function bar(){
+  const u=P.undo.length,r=P.redo.length;
+  return `<header class="bar" data-step="3">
+  ${isNarrow()?`<button class="btn icon ghost" id="bMenu" type="button" aria-label="Menu de navigation" aria-expanded="${P.drawer}" aria-controls="drawer">${I(IC.menu)}</button>`:''}
+  <span class="brand">Éditeur de personnage</span>
+  <button class="btn ghost" id="bOpen" type="button" data-step="8">${I(IC.folder)}${isNarrow()?'':'Ouvrir un autre personnage'}<span class="${isNarrow()?'sr':'sr'}">${isNarrow()?'Ouvrir un autre personnage':''}</span></button>
+  <button class="btn ghost icon" id="bUndo" type="button" aria-label="Annuler${u?' : '+P.undo[u-1].label:''}" ${u?'':'aria-disabled="true"'}>${I(IC.undo)}</button>
+  <button class="btn ghost icon" id="bRedo" type="button" aria-label="Rétablir${r?' : '+P.redo[r-1].label:''}" ${r?'':'aria-disabled="true"'}>${I(IC.redo)}</button>
+  <span class="mod ${P.modified?'on':''}" data-step="4"><span class="dot"></span>${P.modified?'Modifié depuis le dernier export':'À jour'}</span>
+  <span class="sp"></span>
+  <button class="btn ghost icon" id="bHelp" type="button" aria-label="Aide et raccourcis" data-step="7">${I(IC.help)}</button>
+  <select class="t" id="bLang" aria-label="Langue"><option>Français</option><option>English</option></select>
+  <button class="btn ghost icon" id="bTheme" type="button" aria-label="Changer de thème">${I(IC.moon)}</button>
+  ${exportBtn()}
+</header>`;
+}
+function exportBtn(){
+  const busy=P.exp==='run',dis=P.state==='loading';
+  const lbl=busy?`Export ${P.expN}/12…`:(dis?'Export…':'Exporter');
+  const tip=dis?' title="Disponible quand le personnage est chargé"':'';
+  return `<button class="btn primary" id="bExport" type="button" data-step="5" ${busy||dis?'aria-disabled="true"':''}${tip} aria-describedby="expInfo">${I(IC.export)}${lbl}</button><span id="expInfo" class="sr">${totalErr()?totalErr()+' erreurs à corriger avant l’export, la liste s’ouvre dans Export.':''}</span>`;
+}
+function hdr(s){
+  const hint=s[5]?`<button class="hint" type="button" aria-label="Explication : ${s[2]}">?<span class="tip" role="tooltip">${s[5]}</span></button>`:'';
+  return `<div class="hdr"><div><h1 id="h1" tabindex="-1">${s[2]}${hint}</h1><p>${s[3]}</p></div><button class="btn" type="button" data-act="${s[0]}">${I(IC.plus)}${s[4]}</button></div>`;
+}
+const fold=(a,t)=>a?`<div class="card"><div class="skel" style="width:40%"></div><br><div class="skel"></div><br><div class="skel" style="width:70%"></div></div>`:t;
+function section(id){
+  const s=SECS.find(x=>x[0]===id);let b='';
+  if(P.state==='loading')return hdr(s)+fold(true);
+  if(id==='identity')b=`<div class="card"><div class="grid2">
+   <label class="f">Nom<input class="t" value="Kung Fu Man"></label><label class="f">Nom affiché<input class="t" value="Kung Fu Man — édition longue pour tester le retour à la ligne"></label>
+   <label class="f">Auteur<input class="t" value="Équipe OpenKakutou"></label><label class="f">Version<input class="t" value="2026-10-08"></label></div></div>
+   <div class="card"><b>Fichiers utilisés</b><div class="grid2" style="margin-top:8px"><label class="f">Sprites<input class="t" value="kfm.sff"></label><label class="f">Animations<input class="t" value="kfm.air"></label><label class="f">Sons<input class="t" value="kfm.snd"></label><label class="f">Commandes<input class="t" value="kfm.cmd"></label></div></div>`;
+  if(id==='sprites'){
+    if(P.state==='empty')b=`<div class="card empty">${I(IC.sprites)}<h2>Aucun sprite pour l’instant</h2><p>Les sprites sont les images de chaque pose. Importez un fichier .sff ou des PNG pour commencer.</p><button class="btn" type="button">Importer des sprites</button></div>`;
+    else b=`<div class="card"><button class="row" aria-expanded="true"><b>Groupe 0 — Debout</b><span class="m">12 sprites</span></button><div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px 14px">${[0,1,2,3,4,5,6,7].map(n=>`<div style="text-align:center"><div class="check"><div style="width:16px;height:26px;background:#7c8aa0;border-radius:8px 8px 2px 2px"></div></div><span class="m" style="font:500 .75rem var(--mono)">0,${n}</span></div>`).join('')}</div>
+      <button class="row" aria-expanded="false"><b>Groupe 20 — Marche</b><span class="m">8 sprites</span></button><button class="row" aria-expanded="false"><b>Groupe 200 — Coup de poing</b><span class="m">6 sprites</span></button></div>`;
+  }
+  if(id==='sounds'){
+    b=`<div class="card">`+(P.state==='partial'?`<div class="banner err">${I(IC.warn)}<div><b>Le fichier de sons n’a pas pu être lu</b>Le format n’est pas reconnu. Remplacez-le par un fichier .snd valide.<br><br><button class="btn" type="button">Remplacer le fichier</button></div></div>`:
+      ['Groupe 0 — Coup léger','Groupe 5 — Saut','Groupe 8 — Chute'].map(n=>`<button class="row"><b>${n}</b><span class="m">lire</span></button>`).join(''))+`</div>`;
+  }
+  if(id==='palettes')b=`<div class="card"><div class="sw">${Array.from({length:256},(_,i)=>`<span style="background:hsl(${(i*7)%360} ${30+(i%16)*4}% ${20+Math.floor(i/16)*4}%)"></span>`).join('')}</div></div>`;
+  if(id==='states'){
+    b=`<div class="cols"><div class="card"><button class="row sel" aria-expanded="true"><b>StateDef 0 — Debout</b><span class="m">3 contrôleurs</span></button>
+      <div style="padding:8px 10px 12px;display:grid;gap:8px"><label class="f">Type de contrôleur<input class="t" data-edit="StateDef 0" value="ChangeAnim"></label></div>
+      <button class="row" aria-expanded="false"><b>StateDef 20 — Marche</b><span class="m">2 contrôleurs</span></button>
+      <button class="row" aria-expanded="false"><b>StateDef 200 — Coup de poing debout</b><span class="m">5 contrôleurs</span></button></div>
+      <aside class="card"><b>Propriétés</b><p style="color:var(--muted);margin:6px 0 10px">Contrôleur sélectionné</p><label class="f">Valeur<input class="t" data-edit="valeur du contrôleur" value="anim = 0"></label></aside></div>`;
+  }
+  if(id==='commands')b=`<div class="card"><button class="row"><b>QCF_x</b><span class="m">~D, DF, F, x → État 1000</span></button>
+    <button class="row"><b>QCF_x</b><span class="m">doublon</span><span class="badge err" aria-hidden="true">!</span></button>
+    <button class="row"><b>(sans nom)</b><span class="m">B, F, y</span><span class="badge err" aria-hidden="true">!</span></button>
+    <button class="row"><b>dash</b><span class="m">F, F → état inconnu</span><span class="badge warn" aria-hidden="true"></span></button></div>`;
+  if(id==='animations'){
+    if(P.state==='empty')b=`<div class="banner">${I(IC.warn)}<div><b>Aucun sprite disponible</b>Une animation montre des sprites. <a href="#" data-goto="sprites" style="color:var(--text)">Importez d’abord des sprites dans Ressources › Sprites</a>.</div></div>`;
+    else b=`<div class="cols"><div class="card"><div class="view" role="img" aria-label="Aperçu de l’animation 0, image 1, avec une boîte d’attaque et une boîte de dégât"><div class="spr"></div><div class="box c1"></div><div class="box c2"></div></div>
+      <div class="legend"><span style="color:var(--clsn1)">▭ 1 — Clsn1 attaque (tirets)</span><span style="color:var(--clsn2)">▭ 2 — Clsn2 dégât reçu (trait plein)</span></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn">Lecture</button><button class="btn ghost">Image précédente</button><button class="btn ghost">Image suivante</button></div></div>
+      <aside class="card"><b>Propriétés de l’image</b><div class="grid2" style="margin-top:10px"><label class="f">Durée (ticks)<input class="t" value="4"></label><label class="f">Décalage X<input class="t" value="0"></label></div>
+      <p style="color:var(--muted);margin-top:10px">Boîte sélectionnée : flèches pour déplacer, <kbd>Alt</kbd>+flèches pour redimensionner.</p></aside></div>`;
+  }
+  if(id==='export'){
+    const n=totalErr(),probs=P.state==='partial'?[['Sons','Le fichier de sons n’a pas pu être lu.','sounds']]:(n?[['Commandes','Nom en double : QCF_x.','commands'],['Commandes','Une commande n’a pas de nom.','commands'],['Commandes','État cible inconnu pour « dash » (avertissement).','commands']]:[]);
+    let st='';
+    if(P.exp==='run')st=`<div class="banner"><div><b>Export en cours : ${P.expN}/12 fichiers</b></div></div>`;
+    else if(P.exp==='fail')st=`<div class="banner err" role="alert">${I(IC.warn)}<div><b>L’export a échoué</b>Le fichier kfm.cmd n’a pas pu être préparé : séquence de touches invalide. Corrigez la commande, puis réessayez.<br><br><button class="btn" data-retry type="button">Réessayer</button></div></div>`;
+    else if(P.saved)st=`<div class="banner" style="border-color:var(--success)"><div><b>Enregistré à ${P.saved}</b>12 fichiers téléchargés. Le personnage est à jour.</div></div>`;
+    b=st+`<div class="card"><b>Problèmes à corriger (${probs.length})</b>${probs.length?probs.map(p=>`<button class="row" data-goto="${p[2]}"><b>${p[0]}</b><span class="m">${p[1]}</span></button>`).join(''):'<p style="color:var(--muted);margin-top:6px">Aucun problème. Le personnage peut être exporté.</p>'}</div>
+     <div class="card"><b>Fichiers</b>${['kfm.def','kfm.air','kfm.cns','kfm.cmd','kfm.sff','kfm.snd'].map(f=>`<div class="row" style="cursor:default"><span class="m">${f}</span></div>`).join('')}</div>`;
+  }
+  const banner=(P.state==='partial'&&id!=='sounds')?'':'';
+  return hdr(s)+banner+b;
+}
+function render(keepFocus){
+  const app=$('#app'),narrow=isNarrow();
+  app.className=(P.width==='narrow'?'frame ':'')+(narrow?'narrow ':'')+(P.folded&&!narrow?'folded':'');
+  if(P.screen==='home'){app.style.gridTemplateRows='1fr';app.innerHTML=homeHTML();wireHome();return}
+  app.style.gridTemplateRows='auto 1fr 22px';
+  const sec=SECS.find(s=>s[0]===P.section);
+  const banner=P.state==='partial'?`<div class="banner err" style="margin-bottom:16px" data-step="2">${I(IC.warn)}<div><b>1 fichier n’a pas pu être chargé</b>kfm.snd est illisible. Le reste du personnage est ouvert. Voir la section Sons.</div></div>`:
+    P.state==='error'?`<div class="banner err" style="margin-bottom:16px" role="alert">${I(IC.warn)}<div><b>Le module de lecture des sprites n’a pas démarré</b>Sprites et Palettes sont indisponibles, le reste reste modifiable.<br><br><button class="btn" type="button">Réessayer</button></div></div>`:'';
+  const note=narrow&&P.narrowMsg?`<div class="banner" style="margin-bottom:16px">Cette fenêtre est étroite pour l’édition. Élargissez-la à au moins 1024 px.</div>`:'';
+  app.innerHTML=bar()+`<div class="body">${narrow?'':`<nav class="side" aria-label="Sections" data-step="3">${navHTML()}<button class="btn ghost fold" id="bFold" type="button" aria-label="${P.folded?'Déplier':'Replier'} la barre latérale" aria-expanded="${!P.folded}">${I(IC.fold)}${P.folded?'':' Replier'}</button></nav>`}<main id="main" tabindex="-1"><div class="sec">${note}${banner}${section(P.section)}</div></main></div>
+   <footer class="status"><span class="${P.saved&&!P.modified?'ok':''}">${P.saved&&!P.modified?'Enregistré à '+P.saved:(P.modified?'Modifications non exportées':'Aucune modification')}</span><span style="flex:1"></span><span>Français</span></footer>`;
+  if(P.drawer&&narrow){app.insertAdjacentHTML('beforeend',`<div class="scrim" id="scrim"></div><nav class="drawer" id="drawer" aria-label="Sections">${navHTML()}</nav>`)}
+  document.title=sec[2]+' – Éditeur de personnage';
+  wireShell();
+  if(keepFocus==='h1')$('#h1')?.focus();
+  else if(keepFocus==='menu')$('#bMenu')?.focus();
+  else if(keepFocus==='drawer')$('#drawer .nav')?.focus();
+}
+function homeHTML(){
+  const st=P.state;
+  let mid='';
+  if(st==='loading')mid=`<div class="drop prog" role="status"><b>Ouverture de « kfm » (40 Mo)…</b><ul class="steps"><li class="done">✓ Lecture des fichiers : 6/6</li><li class="done">✓ Chargement des modules</li><li>• Analyse des états…</li></ul><div class="bar-p"><i style="width:68%"></i></div><button class="btn" type="button">Annuler</button></div>`;
+  else if(st==='error')mid=`<div class="banner err" role="alert" data-step="2">${I(IC.warn)}<div><b>Impossible de lire ce dossier</b>Le fichier kfm.sff est tronqué à l’octet 4096. Réessayez, ou choisissez un autre dossier.<br><br><div style="display:flex;gap:8px"><button class="btn" type="button">Réessayer</button><button class="btn" type="button">Choisir un autre dossier</button></div></div></div>`;
+  else if(st==='partial')mid=`<div class="banner err" role="alert">${I(IC.warn)}<div><b>Version non prise en charge</b>Ce personnage a été créé avec la version 2.0 ; l’éditeur lit les versions 1.0 à 1.1. Rien n’a été modifié. Choisissez un autre dossier.<br><br><button class="btn" type="button">Retour à l’accueil</button></div></div>`;
+  else mid=`<div class="drop" id="drop" data-step="1">${I(IC.folder)}<b>Déposez un dossier de personnage ici</b><span style="color:var(--muted)">ou</span><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn primary" id="hOpen" type="button">Ouvrir un dossier</button><button class="btn" type="button" id="hNew">Nouveau personnage</button></div></div>`;
+  return `<div class="home"><div class="col"><h1>Éditeur de personnage</h1><p style="color:var(--muted)">Déposez un dossier de personnage, ou partez de zéro.</p>${mid}<p style="color:var(--muted)">Les modifications sont enregistrées par export. <span style="opacity:.8">(Chrome : dans le dossier.)</span></p><div style="display:flex;gap:8px"><select class="t" aria-label="Langue"><option>Français</option><option>English</option></select><button class="btn ghost" id="hTheme" type="button">Thème</button></div></div></div>`;
+}
+function wireHome(){
+  $('#hOpen')?.addEventListener('click',()=>{P.screen='shell';P.state='success';$('#pScreen').value='shell';$('#pState').value='success';P.section='identity';render('h1');live('Identité')});
+  $('#hTheme')?.addEventListener('click',toggleTheme);
+  $('#hNew')?.addEventListener('click',()=>live('Assistant Nouveau personnage'));
+}
+function go(id,focus=true){
+  if(id===P.section)return;
+  P.section=id;P.drawer=false;
+  const label=SECS.find(s=>s[0]===id)[2];
+  render(focus?'h1':null);live(label);
+}
+function wireShell(){
+  const app=$('#app');
+  app.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.nav)));
+  app.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();P.drawer=false;const id=b.dataset.goto;P.section=id;render('h1');live(SECS.find(s=>s[0]===id)[2])}));
+  $('#bFold')?.addEventListener('click',()=>{P.folded=!P.folded;try{localStorage.setItem('fold',P.folded?'1':'0')}catch(e){};render();$('#bFold')?.focus()});
+  $('#bMenu')?.addEventListener('click',()=>{P.drawer=!P.drawer;render(P.drawer?'drawer':'menu')});
+  $('#scrim')?.addEventListener('click',()=>{P.drawer=false;render('menu')});
+  $('#bHelp')?.addEventListener('click',openHelp);
+  $('#bTheme')?.addEventListener('click',toggleTheme);
+  $('#bOpen')?.addEventListener('click',()=>{ if(P.modified)openLeave(); else {P.screen='home';P.state='empty';$('#pScreen').value='home';$('#pState').value='empty';render()} });
+  $('#bUndo')?.addEventListener('click',undo);
+  $('#bRedo')?.addEventListener('click',redo);
+  $('#bExport')?.addEventListener('click',doExport);
+  app.querySelector('[data-retry]')?.addEventListener('click',doExport);
+  app.querySelectorAll('[data-edit]').forEach(i=>i.addEventListener('change',()=>{P.undo.push({section:'states',label:'Modifier '+i.dataset.edit,sel:'[data-edit="'+i.dataset.edit+'"]'});P.redo=[];P.modified=true;render();live('Modifié : '+i.dataset.edit)}));
+  app.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.act==='export')doExport()}));
+  $('#drawer')?.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){P.drawer=false;render('menu')}
+    if(e.key==='Tab'){const f=[...$('#drawer').querySelectorAll('button')];const a=document.activeElement;if(e.shiftKey&&a===f[0]){e.preventDefault();f.at(-1).focus()}else if(!e.shiftKey&&a===f.at(-1)){e.preventDefault();f[0].focus()}}
+  });
+  $('#drawer')?.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.nav)));
+}
+function undo(){
+  const a=P.undo.pop();if(!a){return}
+  P.redo.push(a);P.modified=P.undo.length>0;
+  const was=P.section;P.section=a.section;render();
+  const el=$(a.sel)||$('#h1');el?.focus();
+  live('Annulé : '+a.label+(was!==a.section?' — section '+SECS.find(s=>s[0]===a.section)[2]:''));
+}
+function redo(){const a=P.redo.pop();if(!a)return;P.undo.push(a);P.modified=true;P.section=a.section;render('h1');live('Rétabli : '+a.label)}
+let timer;
+function doExport(){
+  if(P.exp==='run')return;
+  if(P.state==='loading')return;
+  if(totalErr()>0&&P.state!=='error'){P.section='export';render('h1');live(totalErr()+' erreurs à corriger. Liste dans Export.');return}
+  P.exp='run';P.expN=0;P.section='export';render('h1');
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    P.expN++;
+    if(P.state==='error'&&P.expN===3){clearInterval(timer);P.exp='fail';render();live('L’export a échoué. Voir le message.');return}
+    if(P.expN>=12){clearInterval(timer);P.exp='idle';const d=new Date();P.saved=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');P.modified=false;P.undo=[];P.redo=[];render();live('Enregistré à '+P.saved)}
+    else {render();}
+  },180);
+}
+function openHelp(){
+  const d=$('#dHelp');
+  const rows=[['Navigation',[['Section 1 à 8','Alt+1…8'],['Ouvrir cette aide','?']]],['Édition',[['Annuler','Ctrl+Z'],['Rétablir','Ctrl+Shift+Z'],['Ajouter un StateDef','Alt+Shift+S']]],['Sortie',[['Exporter','Ctrl+E']]]];
+  d.innerHTML=`<h2 id="dHelpT" tabindex="-1">Raccourcis clavier</h2><p style="color:var(--muted)">La barre latérale reste le chemin principal. Alt+chiffre peut être pris par certains navigateurs.</p>
+   <table class="k"><thead><tr><th>Action</th><th>Touches</th></tr></thead><tbody>${rows.map(g=>`<tr><td colspan="2" style="font-weight:700;padding-top:12px">${g[0]}</td></tr>`+g[1].map(r=>`<tr><td>${r[0]}</td><td>${r[1].split('+').map(k=>`<kbd>${k}</kbd>`).join(' + ')}</td></tr>`).join('')).join('')}</tbody></table>
+   <div class="act"><button class="btn" id="hClose" type="button">Fermer</button></div>`;
+  d._prev=document.activeElement;d.showModal();$('#dHelpT').focus();
+  $('#hClose').onclick=()=>d.close();
+}
+$('#dHelp').addEventListener('close',e=>e.target._prev?.focus?.());
+function openLeave(){
+  const d=$('#dLeave');
+  d.innerHTML=`<h2 id="dLeaveT">Quitter ce personnage ?</h2><p id="dLeaveB">Les modifications faites depuis le dernier export seront perdues.</p>
+   <div class="act"><button class="btn primary" id="lExp" type="button">Exporter d’abord</button><button class="btn danger" id="lDis" type="button">Abandonner les modifications</button><button class="btn" id="lCan" type="button" autofocus>Annuler</button></div>`;
+  d._prev=document.activeElement;d.showModal();$('#lCan').focus();
+  $('#lCan').onclick=()=>d.close();
+  $('#lExp').onclick=()=>{d.close();doExport()};
+  $('#lDis').onclick=()=>{d.close();P.modified=false;P.undo=[];P.screen='home';P.state='empty';$('#pScreen').value='home';$('#pState').value='empty';render()};
+}
+$('#dLeave').addEventListener('close',e=>{if(P.screen==='shell')e.target._prev?.focus?.()});
+function toggleTheme(){
+  const r=document.documentElement,cur=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+  r.setAttribute('data-theme',cur==='dark'?'light':'dark');
+}
+addEventListener('keydown',e=>{
+  if(document.querySelector('dialog[open]'))return;
+  if(P.screen!=='shell')return;
+  if(e.altKey&&!e.ctrlKey&&!e.metaKey&&/^Digit[1-8]$/.test(e.code)){e.preventDefault();go(SECS[+e.code.slice(5)-1][0])}
+  if(e.key==='?'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)){e.preventDefault();openHelp()}
+});
+$('#pScreen').onchange=e=>{P.screen=e.target.value;render()};
+$('#pState').onchange=e=>{
+  P.state=e.target.value;P.exp='idle';clearInterval(timer);
+  if(P.screen==='shell'&&P.state==='empty')P.section='sprites';
+  if(P.screen==='shell'&&P.state==='partial')P.section='identity';
+  render();
+};
+$('#pWidth').onchange=e=>{P.width=e.target.value;P.drawer=false;render()};
+$('#pTheme').onclick=toggleTheme;
+$('#pMk').onchange=e=>document.body.classList.toggle('mk',e.target.checked);
+addEventListener('resize',()=>render());
+render();
+</script>
