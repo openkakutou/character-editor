@@ -584,6 +584,7 @@ wuik-button[hidden] {
 
 .animation-editor__overlay-wrapper {
   display: inline-block;
+  position: relative;
 }
 
 .animation-editor__canvas {
@@ -591,6 +592,7 @@ wuik-button[hidden] {
 }
 
 .animation-editor__box {
+  position: absolute;
   box-sizing: border-box;
   cursor: move;
 }
@@ -627,6 +629,8 @@ wuik-button[hidden] {
 }
 
 .animation-editor__box-handle {
+  position: absolute;
+  transform: translate(-50%, -50%);
   box-sizing: border-box;
   background-color: var(--wuik-color-bg);
   border: 1px solid var(--wuik-color-text);
@@ -953,4 +957,54 @@ wuik-button[hidden] {
 
 .leave-dialog__message:empty {
   display: none;
+}
+
+/* One look for the native disclosure buttons that open a group of rows (sprite
+ * groups, animations, sound groups): the kit has no list-row component. */
+.animation-editor__animation-toggle,
+.sprite-browser__group-toggle,
+.sound-browser__group-toggle,
+.sound-browser__sound,
+.sprite-browser__sprite {
+  font: inherit;
+  min-height: var(--wuik-control-height);
+}
+
+.animation-editor__animation-toggle {
+  display: block;
+  width: 100%;
+  padding: var(--wuik-space-1) var(--wuik-space-3);
+  text-align: left;
+  color: var(--wuik-color-text);
+  background: var(--wuik-color-surface);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-radius: var(--wuik-radius-button);
+  cursor: pointer;
+}
+
+.animation-editor__animation-toggle:hover,
+.sprite-browser__group-toggle:hover,
+.sound-browser__group-toggle:hover,
+.sound-browser__sound:hover {
+  background: color-mix(
+    in srgb,
+    var(--wuik-color-surface) 85%,
+    var(--wuik-color-text)
+  );
+}
+
+.animation-editor__animation-toggle:focus-visible,
+.sprite-browser__group-toggle:focus-visible,
+.sound-browser__group-toggle:focus-visible,
+.sound-browser__sound:focus-visible,
+.sprite-browser__sprite:focus-visible {
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
+  outline-offset: var(--wuik-focus-ring-offset);
+}
+
+.animation-editor__animation-toggle[aria-expanded="true"],
+.sprite-browser__group-toggle[aria-expanded="true"],
+.sound-browser__group-toggle[aria-expanded="true"] {
+  border-color: var(--wuik-color-border-control);
+  font-weight: var(--wuik-font-weight-medium);
 }

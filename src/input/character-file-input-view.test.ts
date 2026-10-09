@@ -218,14 +218,14 @@ describe("renderCharacterFileInput", () => {
     expect(root.textContent).toContain("ryu/ryu.def");
     expect(root.textContent).toContain("ken/ken.def");
 
-    const confirmButton = root.querySelector<HTMLButtonElement>(
+    const confirmButton = root.querySelector<HTMLElement>(
       '[data-action="confirm-selection"]',
     );
-    expect(confirmButton?.disabled).toBe(true);
+    expect(confirmButton?.hasAttribute("disabled")).toBe(true);
 
     options[0].checked = true;
     options[0].dispatchEvent(new Event("click", { bubbles: true }));
-    expect(confirmButton?.disabled).toBe(false);
+    expect(confirmButton?.hasAttribute("disabled")).toBe(false);
 
     confirmButton?.dispatchEvent(new Event("click", { bubbles: true }));
 

@@ -5,6 +5,11 @@
 import type { CharacterDocument } from "../document/character-document.ts";
 import { markClean } from "../history/app-history.ts";
 import { t } from "../i18n/i18n.ts";
+import {
+  type Problem,
+  detailOf,
+  problemSentence,
+} from "../problems/problem.ts";
 import type { ValidationIssue } from "../validation/character-validation.ts";
 import type { ValidationStore } from "../validation/validation-store.ts";
 import {
@@ -70,19 +75,27 @@ export function describeBlockedReason(reason: ExportBlockedReason): string {
       "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.",
     );
   }
-  return t(
-    "save.blockedSerializeError",
-    "Export is blocked: {{fileName}} could not be saved ({{message}}).",
-    { fileName: reason.fileName, message: reason.message },
-  );
+  return problemSentence(blockedProblem(reason));
 }
 
-function exportIssue(message: string): ValidationIssue {
+/** The serialize failure as a problem: the engine's own text is only its detail. */
+function blockedProblem(reason: ExportBlockedReason): Problem {
+  return {
+    code: "export.fileFailed",
+    params: {
+      fileName: reason.kind === "serialize-error" ? reason.fileName : "",
+    },
+    detail: reason.kind === "serialize-error" ? reason.message : undefined,
+  };
+}
+
+function exportIssue(message: string, problem?: Problem): ValidationIssue {
   return {
     id: "output:export-failed:last",
     section: "output",
     severity: "error",
     message,
+    problem,
   };
 }
 
@@ -108,9 +121,11 @@ export function createExportController(
     for (const listener of [...listeners]) listener();
   }
 
-  function fail(message: string): void {
+  function fail(message: string, problem?: Problem): void {
     state = { phase: "error", message };
-    options.validation.setIssues(EXPORT_SOURCE, [exportIssue(message)]);
+    options.validation.setIssues(EXPORT_SOURCE, [
+      exportIssue(message, problem),
+    ]);
     notify();
   }
 
@@ -146,7 +161,12 @@ export function createExportController(
       if (result === null) return;
       if (!result.ok) {
         options.validation.setIssues(EXPORT_SOURCE, [
-          exportIssue(describeBlockedReason(result.reason)),
+          exportIssue(
+            describeBlockedReason(result.reason),
+            result.reason.kind === "serialize-error"
+              ? blockedProblem(result.reason)
+              : undefined,
+          ),
         ]);
       } else {
         options.validation.setIssues(EXPORT_SOURCE, []);
@@ -167,7 +187,12 @@ export function createExportController(
           return;
         }
         if (!result.ok) {
-          fail(describeBlockedReason(result.reason));
+          fail(
+            describeBlockedReason(result.reason),
+            result.reason.kind === "serialize-error"
+              ? blockedProblem(result.reason)
+              : undefined,
+          );
           return;
         }
         options.validation.setIssues(EXPORT_SOURCE, []);
@@ -188,15 +213,12 @@ export function createExportController(
         notify();
       } catch (error) {
         options.onEngineFailure?.(error);
-        fail(
-          t(
-            "save.exportFailed",
-            "Export failed: {{message}}. Try again, and check the problems listed in the Export section.",
-            {
-              message: error instanceof Error ? error.message : String(error),
-            },
-          ),
-        );
+        const problem: Problem = {
+          code: "export.failed",
+          params: {},
+          detail: detailOf(error),
+        };
+        fail(problemSentence(problem), problem);
       } finally {
         running = false;
       }

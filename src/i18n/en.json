@@ -100,7 +100,18 @@
       "title": "{{section}} can't be shown",
       "engineTitle": "{{section}} needs the editor engine"
     },
-    "labelSeparator": " — "
+    "labelSeparator": " — ",
+    "export": {
+      "failed": {
+        "title": "The export didn't finish",
+        "action": "Try again, and check the problems listed in the Export section."
+      },
+      "fileFailed": {
+        "title": "The export is blocked",
+        "cause": "{{fileName}} could not be saved.",
+        "action": "Check the problems listed in the Export section, then try again."
+      }
+    }
   },
   "input": {
     "folderLabel": "Select a character folder (containing its .def file, e.g. kfm.def)",
@@ -302,7 +313,6 @@
     "refreshExport": "Refresh export",
     "preparingExport": "Preparing export…",
     "blockedPendingSpriteEdits": "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.",
-    "blockedSerializeError": "Export is blocked: {{fileName}} could not be saved ({{message}}).",
     "fileNameWithStatus": "{{fileName}} ({{status}})",
     "unchanged": "unchanged",
     "modified": "modified",
@@ -312,8 +322,7 @@
     "spriteEditReplaced": "replaced",
     "spriteEditDeleted": "deleted",
     "spriteEditDescription": "sprite (group {{group}}, image {{image}}) {{verb}}",
-    "downloadFile": "Download {{fileName}}",
-    "exportFailed": "Export failed: {{message}}. Try again, and check the problems listed in the Export section."
+    "downloadFile": "Download {{fileName}}"
   },
   "sounds": {
     "browserHeading": "Sounds ({{count}})",

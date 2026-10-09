@@ -376,8 +376,8 @@ export function renderCharacterFileInput(
   errorContainer.hidden = true;
   let errorView: ProblemView | null = null;
 
-  const resetButton = document.createElement("button");
-  resetButton.type = "button";
+  const resetButton = document.createElement("wuik-button");
+  resetButton.setAttribute("variant", "ghost");
   resetButton.className = "file-input__reset";
   resetButton.dataset.action = "reset";
   resetButton.hidden = true;
@@ -406,7 +406,7 @@ export function renderCharacterFileInput(
   // drop the user's in-progress radio selection).
   let selectionPrompt: HTMLElement | null = null;
   let selectionGroup: HTMLElement | null = null;
-  let selectionConfirmButton: HTMLButtonElement | null = null;
+  let selectionConfirmButton: HTMLElement | null = null;
 
   function renderStaticTexts(): void {
     label.textContent = t(
@@ -610,14 +610,14 @@ export function renderCharacterFileInput(
     );
     selectionGroup = group;
 
-    const confirmButton = document.createElement("button");
-    confirmButton.type = "button";
+    const confirmButton = document.createElement("wuik-button");
+    confirmButton.setAttribute("variant", "primary");
     confirmButton.dataset.action = "confirm-selection";
     confirmButton.textContent = t(
       "input.confirmSelection",
       "Load selected file",
     );
-    confirmButton.disabled = true;
+    confirmButton.setAttribute("disabled", "");
     selectionConfirmButton = confirmButton;
 
     candidates.forEach((candidate, index) => {
@@ -632,7 +632,7 @@ export function renderCharacterFileInput(
       // the same workaround `stage-editor`/`lifebar-editor` use.
       input.addEventListener("click", () => {
         selectedIndex = index;
-        confirmButton.disabled = false;
+        confirmButton.removeAttribute("disabled");
       });
       optionLabel.append(
         input,

@@ -100,7 +100,18 @@
       "title": "{{section}} ne peut pas être affiché",
       "engineTitle": "{{section}} a besoin du moteur de l'éditeur"
     },
-    "labelSeparator": " : "
+    "labelSeparator": " : ",
+    "export": {
+      "failed": {
+        "title": "L'export ne s'est pas terminé",
+        "action": "Réessayez, et vérifiez les problèmes listés dans la section Export."
+      },
+      "fileFailed": {
+        "title": "L'export est bloqué",
+        "cause": "{{fileName}} n'a pas pu être enregistré.",
+        "action": "Vérifiez les problèmes listés dans la section Export, puis réessayez."
+      }
+    }
   },
   "input": {
     "folderLabel": "Sélectionnez un dossier de personnage (contenant son fichier .def, par ex. kfm.def)",
@@ -302,7 +313,6 @@
     "refreshExport": "Actualiser l'exportation",
     "preparingExport": "Préparation de l'exportation…",
     "blockedPendingSpriteEdits": "L'exportation est bloquée : les modifications de sprites en attente ne peuvent pas encore être enregistrées dans un fichier .sff. Annulez les modifications ci-dessous pour exporter, ou attendez que cette prise en charge soit disponible.",
-    "blockedSerializeError": "L'exportation est bloquée : {{fileName}} n'a pas pu être enregistré ({{message}}).",
     "fileNameWithStatus": "{{fileName}} ({{status}})",
     "unchanged": "inchangé",
     "modified": "modifié",
@@ -312,8 +322,7 @@
     "spriteEditReplaced": "remplacé",
     "spriteEditDeleted": "supprimé",
     "spriteEditDescription": "sprite (groupe {{group}}, image {{image}}) {{verb}}",
-    "downloadFile": "Télécharger {{fileName}}",
-    "exportFailed": "Échec de l'export : {{message}}. Réessayez et vérifiez les problèmes listés dans la section Export."
+    "downloadFile": "Télécharger {{fileName}}"
   },
   "sounds": {
     "browserHeading": "Sons ({{count}})",

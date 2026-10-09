@@ -3,6 +3,7 @@
 // exported. The Export button itself lives in the toolbar.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { tCount } from "../i18n/plural.ts";
+import { createProblemView } from "../problems/problem-view.ts";
 import type { ExportController } from "../save/export-controller.ts";
 import type { ValidationIssue } from "../validation/character-validation.ts";
 import type { ValidationStore } from "../validation/validation-store.ts";
@@ -90,6 +91,12 @@ export function renderOutputSection(
           message: issue.message,
         });
         item.append(badge, text);
+        if (issue.problem?.detail) {
+          // The raw text of a failure is available, never the message itself.
+          item.appendChild(
+            createProblemView(issue.problem, { detailsOnly: true }).element,
+          );
+        }
         if (issue.section !== "output") {
           const go = document.createElement("wuik-button");
           go.setAttribute("variant", "secondary");

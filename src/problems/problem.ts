@@ -16,6 +16,8 @@ export const PROBLEM_CODES = [
   "preview.failed",
   "wizard.createFailed",
   "engine.loadFailed",
+  "export.failed",
+  "export.fileFailed",
   "unknown",
 ] as const;
 
@@ -97,6 +99,15 @@ export const PROBLEM_DEFAULTS: Record<ProblemCode, ProblemDefaults> = {
   "engine.loadFailed": {
     title: "The editor engine didn't load",
     action: "Check your connection, then retry.",
+  },
+  "export.failed": {
+    title: "The export didn't finish",
+    action: "Try again, and check the problems listed in the Export section.",
+  },
+  "export.fileFailed": {
+    title: "The export is blocked",
+    cause: "{{fileName}} could not be saved.",
+    action: "Check the problems listed in the Export section, then try again.",
   },
   unknown: {
     title: "Something went wrong",

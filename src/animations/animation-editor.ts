@@ -576,7 +576,6 @@ export function renderAnimationEditor(
     viewport.className = "animation-editor__viewport";
     const overlayWrapper = document.createElement("div");
     overlayWrapper.className = "animation-editor__overlay-wrapper";
-    overlayWrapper.style.position = "relative";
     const canvas = document.createElement("canvas");
     canvas.className = "animation-editor__canvas";
     canvas.hidden = true;
@@ -659,7 +658,6 @@ export function renderAnimationEditor(
       el.dataset.kind = kind;
       el.dataset.boxIndex = String(index);
       el.setAttribute("role", "group");
-      el.style.position = "absolute";
       applyBoxRect(el, box, kind, index);
 
       const badge = document.createElement("span");
@@ -671,12 +669,10 @@ export function renderAnimationEditor(
         const handleEl = document.createElement("div");
         handleEl.className = `animation-editor__box-handle animation-editor__box-handle--${handle}`;
         handleEl.dataset.handle = handle;
-        handleEl.style.position = "absolute";
         handleEl.style.width = `${HANDLE_SIZE}px`;
         handleEl.style.height = `${HANDLE_SIZE}px`;
         handleEl.style.left = HANDLE_OFFSET[handle].left;
         handleEl.style.top = HANDLE_OFFSET[handle].top;
-        handleEl.style.transform = "translate(-50%, -50%)";
         wireResizeDrag(handleEl, el, kind, index, handle);
         el.appendChild(handleEl);
       }

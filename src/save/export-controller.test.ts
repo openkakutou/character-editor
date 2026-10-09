@@ -141,6 +141,14 @@ describe("createExportController", () => {
     expect(controller.state.phase).toBe("error");
   });
 
+  it("keeps the raw error out of the message and in the problem detail", async () => {
+    const { controller, validation } = setup(new Error("boom"));
+    await controller.run();
+    const [issue] = validation.issues;
+    expect(issue.message).not.toContain("boom");
+    expect(issue.problem?.detail).toBe("boom");
+  });
+
   it("clears the export problem after a successful export", async () => {
     const validation = new ValidationStore();
     let ok = false;
