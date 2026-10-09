@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Opening a folder shows its steps (reading, finding the character, reading files, engine, opening) with a Cancel button; cancelling returns to Home with nothing opened.
+- A character whose sprite sheet, sound, command or script file cannot be read now opens anyway: a banner lists each file with "Replace file" (undoable), the sections that need it say so, and exporting asks first, naming the files left out.
+- A sprite sheet from an unsupported version gets its own screen with the found and supported versions and a way back.
+- Failures are explained in plain words in English and French, with the technical text behind "Show details" and "Copy details".
+
+### Fixed
+
+- The new-character dialog no longer stays stuck on "Creating…" when creation fails: it keeps your entries and shows what went wrong.
+- Sprite and palette previews no longer stay on "Loading…" or show a stale image: a failed preview has its own Retry, and the engine failing shows a banner with Retry instead of an unhandled error.
+- Failed sprite and palette imports are explained under the control, counted on the section badge and dismissable.
+
 ### Changed
 
 - The editor is now organised as an application: a sidebar lists the eight sections (Identity, Sprites, Sounds, Palettes, States, Commands, Animations, Export) and only one is shown at a time, with the others kept as you left them. Alt+1…8 jump to a section and `?` opens the help.

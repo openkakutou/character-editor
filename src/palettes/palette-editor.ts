@@ -157,6 +157,8 @@ let currentUnsubscribeLocaleChange: (() => void) | undefined;
  * click (item 010) reflect a *history* change instead — see
  * `PaletteEditorHandle`'s own doc comment.
  */
+let teardownUploadFailure: (() => void) | undefined;
+
 export function renderPaletteEditor(
   root: HTMLElement,
   character: CharacterData | null,
@@ -166,6 +168,9 @@ export function renderPaletteEditor(
   root.replaceChildren();
   currentUnsubscribeLocaleChange?.();
   currentUnsubscribeLocaleChange = undefined;
+  // A message that vanishes with this screen leaves the registry too.
+  teardownUploadFailure?.();
+  teardownUploadFailure = undefined;
   if (character === null || sffBytes === null) return NOOP_HANDLE;
   const characterNonNull = character;
   const sffBytesNonNull = sffBytes;
@@ -271,6 +276,7 @@ export function renderPaletteEditor(
     sink: options.problems,
     onDismiss: () => uploadInputEl.focus(),
   });
+  teardownUploadFailure = () => uploadFailure.destroy();
   const sourceErrorEl = uploadFailure.element;
   sourceErrorEl.classList.add("palette-editor__source-error");
 

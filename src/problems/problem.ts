@@ -60,7 +60,7 @@ export const PROBLEM_DEFAULTS: Record<ProblemCode, ProblemDefaults> = {
     action: "Choose another folder.",
   },
   "format.unsupportedVersion": {
-    title: "This version can't be opened",
+    title: "This file version isn't supported",
     cause:
       "{{fileName}} uses version {{version}}, which this editor can't open.",
     action: "Export it from a supported version or choose another file.",
@@ -72,7 +72,7 @@ export const PROBLEM_DEFAULTS: Record<ProblemCode, ProblemDefaults> = {
   },
   "import.sprite": {
     title: "Couldn't import this sprite",
-    cause: "The sprite can't be added.",
+    cause: "The sprite sheet rejected this image.",
     action: "Check the image and try again.",
   },
   "import.palette": {
@@ -91,7 +91,8 @@ export const PROBLEM_DEFAULTS: Record<ProblemCode, ProblemDefaults> = {
   },
   "wizard.createFailed": {
     title: "Couldn't create the character",
-    action: "Your entries are kept. Retry, or cancel to go back.",
+    action:
+      "Your entries are kept. Select Create to try again, or cancel to go back.",
   },
   "engine.loadFailed": {
     title: "The editor engine didn't load",

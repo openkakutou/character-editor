@@ -740,6 +740,8 @@ export function renderCharacterFileInput(
       };
       renderSelection(result.candidates);
       render();
+      // The progress panel (and Cancel) just left: keep focus in the choice.
+      selectionContainer.querySelector<HTMLElement>("input")?.focus();
       return;
     }
 

@@ -2,8 +2,8 @@
 slug: version-blocked
 title: Unsupported version
 flow: 002
-status: validated
-source:
+status: implemented
+source: src/problems/, src/shell/home-view.ts, src/main.ts, src/wizard/new-character-wizard-view.ts
 ---
 
 # Unsupported version
@@ -51,3 +51,7 @@ Replaces the Home column (no shell is mounted). Heading, one sentence with the f
 - **Announcements:** one assertive announcement of the title through the shell alert region; no extra live node.
 - **Contrast & targets:** fixed high-contrast colours, targets ≥ 34 px.
 - **Motion:** none.
+
+## Captures
+
+`.ux/captures/002-robust-states/after-*.png`.

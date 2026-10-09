@@ -34,7 +34,7 @@
     },
     "format": {
       "unsupportedVersion": {
-        "title": "This version can't be opened",
+        "title": "This file version isn't supported",
         "cause": "{{fileName}} uses version {{version}}, which this editor can't open.",
         "action": "Export it from a supported version or choose another file."
       }
@@ -47,7 +47,7 @@
       },
       "sprite": {
         "title": "Couldn't import this sprite",
-        "cause": "The sprite can't be added.",
+        "cause": "The sprite sheet rejected this image.",
         "action": "Check the image and try again."
       },
       "palette": {
@@ -75,7 +75,7 @@
     "wizard": {
       "createFailed": {
         "title": "Couldn't create the character",
-        "action": "Your entries are kept. Retry, or cancel to go back."
+        "action": "Your entries are kept. Select Create to try again, or cancel to go back."
       }
     },
     "engine": {
@@ -99,7 +99,8 @@
     "dependency": {
       "title": "{{section}} can't be shown",
       "engineTitle": "{{section}} needs the editor engine"
-    }
+    },
+    "labelSeparator": " — "
   },
   "input": {
     "folderLabel": "Select a character folder (containing its .def file, e.g. kfm.def)",
@@ -136,7 +137,6 @@
     "create": "Create",
     "nameRequired": "A name is required.",
     "creating": "Creating…",
-    "genericFailure": "Could not create the character.",
     "nameRequiredToCreate": "A name is required to create a new character."
   },
   "shortcuts": {
@@ -320,7 +320,7 @@
     "groupToggle": "Group {{index}} ({{count}})",
     "rowPlay": "{{key}} — Play",
     "rowStop": "{{key}} — Stop",
-    "rowUndecodable": "{{key}} — Cannot be decoded",
+    "rowUndecodable": "{{key}} — Can't be played",
     "noAudioData": "no audio data",
     "nowPlaying": "Playing {{key}}",
     "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
@@ -517,14 +517,14 @@
     "region": "Problems"
   },
   "version": {
-    "found": "Found",
-    "supported": "Supported",
+    "found": "Version found",
+    "supported": "Versions supported",
     "back": "Back to Home"
   },
   "exportConfirm": {
-    "title": "Export without all the files?",
-    "body_one": "This file could not be read and will be left out: {{names}}.",
-    "body_other": "These files could not be read and will be left out: {{names}}.",
+    "title": "Export with missing files?",
+    "body_one": "This file could not be read and will be left out: {{names}}. The exported character will be incomplete.",
+    "body_other": "These files could not be read and will be left out: {{names}}. The exported character will be incomplete.",
     "confirm": "Export anyway",
     "cancel": "Cancel"
   }

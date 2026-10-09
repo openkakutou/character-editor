@@ -2,8 +2,8 @@
 slug: new-character-dialog
 title: New character dialog
 flow: 002
-status: validated
-source:
+status: implemented
+source: src/problems/, src/shell/home-view.ts, src/main.ts, src/wizard/new-character-wizard-view.ts
 ---
 
 # New character dialog
@@ -48,3 +48,7 @@ Existing `wuik-dialog` with name field, template radio group, footer Create (pri
 - **Announcements:** failure once through the shell alert region; the region inside the dialog is plain DOM with no live attribute.
 - **Contrast & targets:** per `style.md`.
 - **Motion:** none.
+
+## Captures
+
+`.ux/captures/002-robust-states/after-*.png`.

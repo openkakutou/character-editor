@@ -12,7 +12,7 @@ import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { tCount } from "../i18n/plural.ts";
 import type { UnreadableFile } from "../input/character-file-input.ts";
 import { type ProblemView, createProblemView } from "./problem-view.ts";
-import { type Problem, describeProblem } from "./problem.ts";
+import { type Problem, describeProblem, problemSentence } from "./problem.ts";
 
 export interface BannerFile {
   file: UnreadableFile;
@@ -111,9 +111,8 @@ export function createProblemsBanner(
     const section = document.createElement("div");
     section.className = "problems-banner__engine";
     section.dataset.key = "engine";
-    const text = describeProblem(engine.problem);
     const sentence = document.createElement("p");
-    sentence.textContent = [text.title, text.action].filter(Boolean).join(". ");
+    sentence.textContent = problemSentence(engine.problem);
     const retry = document.createElement("wuik-button");
     retry.setAttribute("variant", "primary");
     retry.dataset.action = "retry-engine";
@@ -169,9 +168,14 @@ export function createProblemsBanner(
     return item;
   }
 
+  let shownCount = 0;
   function render(): void {
     const hasEngine = state.engine !== undefined;
     const hasFiles = state.files.length > 0;
+    const count = state.files.length + (hasEngine ? 1 : 0);
+    // A new problem must never appear hidden behind a collapsed banner.
+    if (count > shownCount) collapsed = false;
+    shownCount = count;
     if (!hasEngine && !hasFiles) {
       rowViews.clear();
       host.replaceChildren();

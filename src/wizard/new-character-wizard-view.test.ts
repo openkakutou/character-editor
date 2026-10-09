@@ -303,7 +303,7 @@ describe("renderNewCharacterWizard", () => {
         "Couldn't create the character",
       );
       expect(onFailure.mock.calls[0][0]).toContain(
-        "Your entries are kept. Retry, or cancel to go back.",
+        "Your entries are kept. Select Create to try again, or cancel to go back.",
       );
       expect(onFailure.mock.calls[0][0]).not.toContain("boom");
     });

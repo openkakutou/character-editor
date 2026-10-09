@@ -206,4 +206,13 @@ describe("problems banner", () => {
     banner.focusHeading();
     expect(document.activeElement).toBe(host.querySelector("h2"));
   });
+
+  it("expands a collapsed banner when a new problem appears, so it is never hidden", () => {
+    banner.setState(files(sff));
+    action("toggle-banner").click();
+    banner.setState(files(sff, snd));
+    expect(
+      host.querySelector<HTMLElement>(".problems-banner__body")?.hidden,
+    ).toBe(false);
+  });
 });

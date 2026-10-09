@@ -40,6 +40,10 @@ export function createExportConfirmDialog(): ExportConfirmDialog {
   const proceed = actionButton("export-confirm-proceed", "primary");
   // Cancel first in the tab order, so it is the focused default.
   actions.append(cancel, proceed);
+  heading.id = "export-confirm-title";
+  body.id = "export-confirm-body";
+  dialog.setAttribute("aria-labelledby", heading.id);
+  dialog.setAttribute("aria-describedby", body.id);
   dialog.append(heading, body, actions);
 
   let names: readonly string[] = [];
@@ -48,13 +52,13 @@ export function createExportConfirmDialog(): ExportConfirmDialog {
   function renderText(): void {
     heading.textContent = t(
       "exportConfirm.title",
-      "Export without all the files?",
+      "Export with missing files?",
     );
     body.textContent = tCount(
       "exportConfirm.body",
       names.length,
       {
-        one: "This file could not be read and will be left out: {{names}}.",
+        one: "This file could not be read and will be left out: {{names}}. The exported character will be incomplete.",
         other: "These files could not be read and will be left out: {{names}}.",
       },
       { names: names.join(", ") },

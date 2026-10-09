@@ -47,7 +47,7 @@ import {
   engineIssues,
   loadIssues,
 } from "./problems/problem-issues.ts";
-import { type Problem, problemSentence } from "./problems/problem.ts";
+import { type Problem, detailOf, problemSentence } from "./problems/problem.ts";
 import {
   type BannerState,
   createProblemsBanner,
@@ -206,7 +206,9 @@ export function renderApp(
     onEngineFailure: (error) => engine.report(error),
   });
   const helpDialog = createHelpDialog();
-  const leaveDialog = createLeaveDialog(exportController);
+  const leaveDialog = createLeaveDialog(exportController, () =>
+    confirmIncompleteExport(),
+  );
   const exportConfirmDialog = createExportConfirmDialog();
   const engine = createEngineRetry(() => warmUpEngine(options.bridgeOptions));
   // Failed user actions (a refused import…): shown under the control, counted
@@ -249,7 +251,14 @@ export function renderApp(
       isActive: () => shell.element.hidden,
     },
     wizard: {
-      onCreated: handleCharacterLoaded,
+      onCreated: (character, files) => {
+        handleCharacterLoaded(character, files);
+        // A new character starts with its name: put the cursor there.
+        shell.content.identity
+          .querySelector<HTMLElement>('[data-field="name"]')
+          ?.shadowRoot?.querySelector("input")
+          ?.focus();
+      },
       bridgeOptions: options.bridgeOptions,
     },
   });
@@ -410,12 +419,26 @@ export function renderApp(
     replacing.add(file.kind);
     replaceFailures.delete(file.kind);
     refreshBanner();
-    const check = await checkReplacement(
-      doc,
-      file.kind,
-      picked,
-      options.bridgeOptions,
-    );
+    let check: Awaited<ReturnType<typeof checkReplacement>>;
+    try {
+      check = await checkReplacement(
+        doc,
+        file.kind,
+        picked,
+        options.bridgeOptions,
+      );
+    } catch (error) {
+      // The engine itself rejected: say so, and never leave the row busy.
+      engine.report(error);
+      check = {
+        ok: false,
+        problem: {
+          code: "file.unreadable",
+          params: { fileName: picked.name },
+          detail: detailOf(error),
+        },
+      };
+    }
     replacing.delete(file.kind);
     // Another character was opened while the file was being checked.
     if (getCharacterDocument() !== doc) return;
@@ -448,6 +471,12 @@ export function renderApp(
   async function retryEngine(): Promise<void> {
     const recovered = await engine.retry();
     if (!recovered) return;
+    // Previews that failed for lack of the engine ask again.
+    const doc = getCharacterDocument();
+    if (doc) {
+      renderDocumentBackedEditors(doc.character, doc.files);
+      mountResourceEditors(doc.character, doc.files);
+    }
     // The banner is gone: keep keyboard focus in the user's work.
     shell.goTo(shell.current, { focus: true });
   }
@@ -520,16 +549,16 @@ export function renderApp(
       );
       return;
     }
+    void confirmIncompleteExport().then((proceed) => {
+      if (proceed) void exportController.run();
+    });
+  }
+
+  /** Asks first when files could not be read, so nothing is exported as if complete. */
+  async function confirmIncompleteExport(): Promise<boolean> {
     const unreadable = getCharacterDocument()?.unreadable ?? [];
-    if (unreadable.length > 0) {
-      void exportConfirmDialog
-        .confirm(unreadable.map((file) => file.fileName))
-        .then((proceed) => {
-          if (proceed) void exportController.run();
-        });
-      return;
-    }
-    void exportController.run();
+    if (unreadable.length === 0) return true;
+    return exportConfirmDialog.confirm(unreadable.map((file) => file.fileName));
   }
 
   function stepHistory(direction: "undo" | "redo"): void {

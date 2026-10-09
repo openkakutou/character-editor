@@ -2,8 +2,8 @@
 slug: section-problems
 title: Section problems (local errors, imports, previews)
 flow: 002
-status: validated
-source:
+status: implemented
+source: src/problems/, src/shell/home-view.ts, src/main.ts, src/wizard/new-character-wizard-view.ts
 ---
 
 # Section problems
@@ -60,3 +60,7 @@ Sidebar badge counts registry problems for the section; the engine failure also 
 - **Announcements:** each failure once via the shell alert region, only for the section in view (otherwise the message names the section); no `role="alert"` on the inline DOM.
 - **Contrast & targets:** text uses the text token, danger colour on border only; icon + "Error" + message; targets ≥ 34 px (24 px minimum inside dense lists).
 - **Motion:** no animation, no pulsing; static glyph for loading.
+
+## Captures
+
+`.ux/captures/002-robust-states/after-*.png`.

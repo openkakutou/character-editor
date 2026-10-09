@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Robust loading, error and partial states
-status: validated
+status: implemented
 date: 2026-10-09
 finding: F2 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it"
@@ -74,3 +74,14 @@ One **problem registry** feeds three views of the same fact: a message next to t
 - Persisting the unreadable-file list across reloads; reopening the last folder (needs IndexedDB handles).
 - Writing back to the folder (File System Access): export remains the only save path.
 - Native Fyne desktop states.
+
+## Implementation notes (2026-10-09)
+
+Built as specified, with these deviations:
+
+- An unreadable `.sff` opens with the bundled blank sheet as stand-in (the engine needs all four files); Sprites, Palettes and Animations then show the dependency card. Unreadable `.def`, `.air` and `.cns` stay a total failure (no safe stand-in).
+- A sprite sheet is "unsupported" when its header major version is not 1 or 2 (the library treats anything but 2 as 1).
+- "Retry all" (`errors.preview.summary` / `retryAll`) is not built: there is one preview per view, each with its own Retry. Keys are in the catalogs.
+- The engine can only fail at first load or on a later call that rejects, so the banner and cards for it are driven by a real rejected call (preview, export, replace), not a simulated state.
+- Undo label reads "replacement of <file>"; "Choose a different folder" is the existing wording.
+- Not covered: raw engine text inside the Export section's own messages (flow 001).

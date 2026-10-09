@@ -1312,6 +1312,29 @@ describe("renderApp", () => {
       await vi.waitFor(() => expect(downloads.length).toBeGreaterThan(0));
     });
 
+    it("also asks before exporting from the leave dialog when files are left out", async () => {
+      const downloads: string[] = [];
+      const root = await openPartialCharacter((_bytes, name) =>
+        downloads.push(name),
+      );
+      const nameInput = root.querySelector<HTMLElement>('[data-field="name"]');
+      if (nameInput) typeIntoTextInput(nameInput, "Edited");
+      root.querySelector<HTMLElement>('[data-action="open-another"]')?.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".leave-dialog")?.hasAttribute("open")).toBe(
+          true,
+        ),
+      );
+
+      root.querySelector<HTMLElement>('[data-action="leave-export"]')?.click();
+      await vi.waitFor(() =>
+        expect(
+          root.querySelector(".export-confirm-dialog")?.hasAttribute("open"),
+        ).toBe(true),
+      );
+      expect(downloads).toEqual([]);
+    });
+
     it("clears the banner when another character is opened", async () => {
       const root = await openPartialCharacter();
       root.querySelector<HTMLElement>('[data-action="open-another"]')?.click();
@@ -1343,7 +1366,7 @@ describe("renderApp", () => {
       expect(root.querySelector<HTMLElement>(".shell")?.hidden).toBe(true);
       expect(getCharacterDocument()).toBeNull();
       expect(root.querySelector(".version-blocked h1")?.textContent).toBe(
-        "This version can't be opened",
+        "This file version isn't supported",
       );
       expect(root.querySelector(".version-blocked")?.textContent).toContain(
         "ryu.sff uses version 3.0.1.0",

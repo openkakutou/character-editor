@@ -139,6 +139,9 @@ interface DeletedEntry {
 // mount never accumulates or fires against content no longer on the page.
 // See .vibe/decisions/015-i18n-integration-approach.md.
 let currentUnsubscribeLocaleChange: (() => void) | undefined;
+// A failed import or replace is also counted in the registry: when the screen
+// is rebuilt, the messages that vanish with it must leave the registry too.
+let teardownInlineErrors: (() => void) | undefined;
 
 export function renderSpriteBrowser(
   root: HTMLElement,
@@ -150,6 +153,8 @@ export function renderSpriteBrowser(
   root.replaceChildren();
   currentUnsubscribeLocaleChange?.();
   currentUnsubscribeLocaleChange = undefined;
+  teardownInlineErrors?.();
+  teardownInlineErrors = undefined;
   if (character === null || sffBytes === null) return;
   const sffBytesNonNull: Uint8Array = sffBytes;
   const characterNonNull: CharacterData = character;
@@ -190,6 +195,11 @@ export function renderSpriteBrowser(
   let importFileInput: HTMLInputElement;
   let importError: HTMLParagraphElement;
   let importFailure: InlineError;
+  let replaceFailure: InlineError | undefined;
+  teardownInlineErrors = () => {
+    importFailure?.destroy();
+    replaceFailure?.destroy();
+  };
   let retranslateImportSection: () => void = () => {};
 
   const importSection = renderImportSection();
@@ -615,16 +625,19 @@ export function renderSpriteBrowser(
     replaceFile.className = "sprite-browser__replace-file";
     replaceLabel.appendChild(replaceFile);
 
-    const replaceFailure = createInlineError({
+    // The previous selection's message goes away with its controls.
+    replaceFailure?.destroy();
+    const failure = createInlineError({
       section: "sprites",
       key: "replace",
       sink: options.problems,
       onDismiss: () => replaceFile.focus(),
     });
-    replaceFailure.element.classList.add("sprite-browser__replace-error");
+    replaceFailure = failure;
+    failure.element.classList.add("sprite-browser__replace-error");
 
     replaceFile.addEventListener("change", () => {
-      void handleReplace(sprite, replaceFile, replaceFailure);
+      void handleReplace(sprite, replaceFile, failure);
     });
 
     const deleteButton = document.createElement("wuik-button");
@@ -634,7 +647,7 @@ export function renderSpriteBrowser(
       renderActionsConfirmingDelete(actions, sprite, preview),
     );
 
-    actions.append(replaceLabel, replaceFailure.element, deleteButton);
+    actions.append(replaceLabel, failure.element, deleteButton);
   }
 
   async function handleReplace(

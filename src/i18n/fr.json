@@ -34,7 +34,7 @@
     },
     "format": {
       "unsupportedVersion": {
-        "title": "Cette version ne peut pas être ouverte",
+        "title": "La version de ce fichier n'est pas prise en charge",
         "cause": "{{fileName}} utilise la version {{version}}, que l'éditeur ne peut pas ouvrir.",
         "action": "Réexportez-le depuis une version prise en charge ou choisissez un autre fichier."
       }
@@ -47,7 +47,7 @@
       },
       "sprite": {
         "title": "Impossible d'importer ce sprite",
-        "cause": "Le sprite ne peut pas être ajouté.",
+        "cause": "La planche de sprites a refusé cette image.",
         "action": "Vérifiez l'image et réessayez."
       },
       "palette": {
@@ -75,7 +75,7 @@
     "wizard": {
       "createFailed": {
         "title": "Impossible de créer le personnage",
-        "action": "Vos saisies sont conservées. Réessayez ou annulez pour revenir en arrière."
+        "action": "Vos saisies sont conservées. Sélectionnez Créer pour réessayer, ou annulez pour revenir en arrière."
       }
     },
     "engine": {
@@ -95,11 +95,12 @@
       "copied": "Copié"
     },
     "label": "Erreur",
-    "dismiss": "Ignorer",
+    "dismiss": "Fermer",
     "dependency": {
       "title": "{{section}} ne peut pas être affiché",
       "engineTitle": "{{section}} a besoin du moteur de l'éditeur"
-    }
+    },
+    "labelSeparator": " : "
   },
   "input": {
     "folderLabel": "Sélectionnez un dossier de personnage (contenant son fichier .def, par ex. kfm.def)",
@@ -136,7 +137,6 @@
     "create": "Créer",
     "nameRequired": "Un nom est requis.",
     "creating": "Création…",
-    "genericFailure": "Impossible de créer le personnage.",
     "nameRequiredToCreate": "Un nom est requis pour créer un nouveau personnage."
   },
   "shortcuts": {
@@ -320,7 +320,7 @@
     "groupToggle": "Groupe {{index}} ({{count}})",
     "rowPlay": "{{key}} — Lire",
     "rowStop": "{{key}} — Arrêter",
-    "rowUndecodable": "{{key}} — Décodage impossible",
+    "rowUndecodable": "{{key}} — Lecture impossible",
     "noAudioData": "aucune donnée audio",
     "nowPlaying": "Lecture de {{key}}",
     "empty": "Ce personnage n'a pas de fichier de sons. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
@@ -517,14 +517,14 @@
     "region": "Problèmes"
   },
   "version": {
-    "found": "Trouvée",
-    "supported": "Prise en charge",
+    "found": "Version trouvée",
+    "supported": "Versions prises en charge",
     "back": "Retour à l'accueil"
   },
   "exportConfirm": {
-    "title": "Exporter sans tous les fichiers ?",
-    "body_one": "Ce fichier n'a pas pu être lu et sera exclu : {{names}}.",
-    "body_other": "Ces fichiers n'ont pas pu être lus et seront exclus : {{names}}.",
+    "title": "Exporter avec des fichiers manquants ?",
+    "body_one": "Ce fichier n'a pas pu être lu et sera exclu : {{names}}. Le personnage exporté sera incomplet.",
+    "body_other": "Ces fichiers n'ont pas pu être lus et seront exclus : {{names}}. Le personnage exporté sera incomplet.",
     "confirm": "Exporter quand même",
     "cancel": "Annuler"
   }

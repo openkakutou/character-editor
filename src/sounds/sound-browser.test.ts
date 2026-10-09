@@ -153,7 +153,7 @@ describe("renderSoundBrowser", () => {
     expandAll(root);
 
     const [good, bad] = rows(root);
-    expect(bad.textContent).toContain("Cannot be decoded");
+    expect(bad.textContent).toContain("Can't be played");
     // The raw reason is not the message: it sits behind "Show details".
     expect(bad.textContent).not.toContain("decoding failed: bad wav");
     expect(root.querySelector(".problem__detail")?.textContent).toBe(
@@ -186,7 +186,7 @@ describe("renderSoundBrowser", () => {
 
     for (const row of rows(root)) {
       expect(row.getAttribute("aria-disabled")).toBe("true");
-      expect(row.textContent).toContain("Cannot be decoded");
+      expect(row.textContent).toContain("Can't be played");
     }
   });
 
@@ -200,7 +200,7 @@ describe("renderSoundBrowser", () => {
 
     rows(root)[0].click();
 
-    expect(rows(root)[0].textContent).toContain("Cannot be decoded");
+    expect(rows(root)[0].textContent).toContain("Can't be played");
     expect(root.querySelector(".problem__detail")?.textContent).toBe(
       "unsupported sample rate",
     );

@@ -116,8 +116,8 @@ export function createHomeView(options: HomeViewOptions): HomeView {
     blockedAction.textContent = text.action ?? "";
     versions.replaceChildren();
     for (const [label, value] of [
-      [t("version.found", "Found"), blockedInfo.version],
-      [t("version.supported", "Supported"), blockedInfo.supported],
+      [t("version.found", "Version found"), blockedInfo.version],
+      [t("version.supported", "Versions supported"), blockedInfo.supported],
     ]) {
       const term = document.createElement("dt");
       term.textContent = label;

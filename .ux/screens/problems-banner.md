@@ -2,8 +2,8 @@
 slug: problems-banner
 title: Problems banner
 flow: 002
-status: validated
-source:
+status: implemented
+source: src/problems/, src/shell/home-view.ts, src/main.ts, src/wizard/new-character-wizard-view.ts
 ---
 
 # Problems banner
@@ -63,3 +63,7 @@ A labelled region (`<section aria-labelledby>`) between the toolbar and the work
 - **Announcements:** appearance through the shell's alert region for the engine ("The editor engine didn't load") and polite for the partial-open summary ("Opened, 2 files unreadable"); no live attribute on the banner itself; not re-announced on re-render or locale change; several unreadable files merge into one message.
 - **Contrast & targets:** text 4.5:1, border 3:1, targets ≥ 34 px; severity shown by icon + count, not colour alone.
 - **Motion:** appears instantly under reduced motion; no pulsing.
+
+## Captures
+
+`.ux/captures/002-robust-states/after-*.png`.

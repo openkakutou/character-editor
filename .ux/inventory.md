@@ -55,7 +55,7 @@
 - StateDef and Animation rows render as tiny default buttons; headings use inconsistent levels and styles
 - No radius, shadow, motion or icon tokens; no sidebar, list, badge, toast or tooltip components in the kit
 - Design system looks generic and its component ergonomics are poor (user feedback)
-- Audit 2026-10-08 (`.ux/audit/2026-10-08.md`): promises without `.catch` leave dead-end "Loading…" states (export, wizard, folder load, previews); collision boxes not keyboard-resizable; English in the French UI (shortcuts, file pickers, raw errors); no toolbar wrap at 390 px
+- Audit 2026-10-08 (`.ux/audit/2026-10-08.md`): the dead-end "Loading…" states are fixed by flow 002 (2026-10-09); collision boxes not keyboard-resizable; English in the French UI (shortcuts, file pickers, raw errors); no toolbar wrap at 390 px
 - Flow 001 deviations still open: see the flow's "Implementation notes" (robust load states, empty-state actions, editor inner content)
 
 ## Application shell (flow 001, implemented 2026-10-08)
@@ -64,3 +64,10 @@
 - Home screen: `wuik-file-drop-zone` (redirected to the folder picker), Open folder, New character; the window accepts a dropped folder only while on Home.
 - Validation store (`src/validation/`) feeding the badges and the Export section's problem list; export controller with `Export n/N` and a persistent "Saved at HH:MM"; help and leave dialogs.
 - Kit components in use: sidebar-nav, nav-group, nav-item, section-header, help-hint, badge, button, toolbar, dialog, file-drop-zone, locale-switcher, shortcuts-panel.
+
+## Robust states (flow 002, implemented 2026-10-09)
+
+- Problem registry: typed codes + params localized at render (`src/problems/problem.ts`, FR/EN completeness test); validation sources `load`, `engine`, `action` feed badges, the Output list, the banner and section cards.
+- Components: `problem-view` (message, cause, next step, Show/Copy details), `problems-banner`, `dependency-cards` (section message cards with Replace file or Retry), `inline-error` (under the failed control, dismissable), `preview-failure` + `preview-guard` (request token, Retry, dimmed last frame), `engine-retry` (one in-flight attempt), `replace-file` (checks with the engine before one undoable command), `export-confirm-dialog`.
+- Home: named progress steps after 300 ms with Cancel; version-blocked screen; failures announced once through a Home alert region.
+- Not built: "N previews unavailable / Retry all" (the editor has one preview per view); `showDirectoryPicker`.

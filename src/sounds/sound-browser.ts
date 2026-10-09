@@ -173,12 +173,13 @@ export function renderSoundBrowser(
     const row = document.createElement("button");
     row.type = "button";
     row.className = "sound-browser__sound";
+    row.dataset.key = key;
     const reason = undecodableReason(sound) ?? playbackErrors.get(key);
     if (reason !== undefined) {
       row.setAttribute("aria-disabled", "true");
       row.textContent = t(
         "sounds.rowUndecodable",
-        "{{key}} — Cannot be decoded",
+        "{{key}} — Can't be played",
         { key },
       );
     } else {
@@ -224,6 +225,20 @@ export function renderSoundBrowser(
   }
 
   function render(): void {
+    // Rebuilding the list would drop the focused row: put focus back on it.
+    const focusedKey = (document.activeElement as HTMLElement | null)?.dataset
+      ?.key;
+    renderContent();
+    if (focusedKey !== undefined) {
+      panel
+        .querySelector<HTMLElement>(
+          `.sound-browser__sound[data-key="${focusedKey}"]`,
+        )
+        ?.focus();
+    }
+  }
+
+  function renderContent(): void {
     heading.textContent = t("sounds.browserHeading", "Sounds ({{count}})", {
       count: String(totalCount()),
     });

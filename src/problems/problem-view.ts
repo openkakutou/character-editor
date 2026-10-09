@@ -74,7 +74,7 @@ export function createProblemView(
 
   function render(): void {
     const text = describeProblem(problem);
-    label.textContent = `${t("errors.label", "Error")} — `;
+    label.textContent = `${t("errors.label", "Error")}${t("errors.labelSeparator", " — ")}`;
     title.textContent = text.title;
     cause.textContent = text.cause ?? "";
     head.hidden = viewOptions.detailsOnly === true;

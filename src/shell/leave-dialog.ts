@@ -26,7 +26,11 @@ function actionButton(
   return el;
 }
 
-export function createLeaveDialog(controller: ExportController): LeaveDialog {
+export function createLeaveDialog(
+  controller: ExportController,
+  /** Asked before an export starts; `false` keeps the user in the dialog. */
+  beforeExport: () => Promise<boolean> = async () => true,
+): LeaveDialog {
   const dialog = document.createElement("wuik-dialog") as DialogElement;
   dialog.className = "leave-dialog";
   dialog.setAttribute("role", "alertdialog");
@@ -86,6 +90,7 @@ export function createLeaveDialog(controller: ExportController): LeaveDialog {
   discard.addEventListener("click", () => finish(true));
   exportFirst.addEventListener("click", async () => {
     message.textContent = "";
+    if (!(await beforeExport())) return;
     setBusy(true);
     await controller.run();
     setBusy(false);

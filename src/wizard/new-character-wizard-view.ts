@@ -124,7 +124,6 @@ export function renderNewCharacterWizard(
 
   const statusEl = document.createElement("p");
   statusEl.className = "new-character-wizard__status";
-  statusEl.setAttribute("role", "status");
   dialogEl.appendChild(statusEl);
 
   const actions = document.createElement("div");
@@ -258,10 +257,22 @@ export function renderNewCharacterWizard(
     currentStatus = null;
     renderErrorAndStatus();
     close();
+    // Back where the user came from.
+    trigger.shadowRoot?.querySelector("button")?.focus();
   }
 
   trigger.addEventListener("click", open);
   cancelButton.addEventListener("click", cancel);
+
+  // Escape and the backdrop close the dialog themselves: that is a cancel too,
+  // and a creation still in flight must not open a character afterwards.
+  dialogEl.addEventListener("wuik-close", () => {
+    if (!dialogEl.hasAttribute("open") && !busy) return;
+    attempt += 1;
+    setBusy(false);
+    currentStatus = null;
+    renderErrorAndStatus();
+  });
 
   templateGroup.addEventListener("wuik-change", (event) => {
     const value = (event as CustomEvent<{ value: string }>).detail.value;

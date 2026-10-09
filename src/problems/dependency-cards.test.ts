@@ -69,9 +69,20 @@ describe("dependency cards", () => {
     expect(onReplace).not.toHaveBeenCalled();
   });
 
-  it("needs no card for a file no section depends on", () => {
+  it("puts a card on States for an unreadable script file, and only there", () => {
     cards.update({ files: [{ file: zss, busy: false }] });
-    for (const id of SECTION_IDS) expect(card(id)).toBeNull();
+    expect(card("states")).not.toBeNull();
+    for (const id of SECTION_IDS.filter((section) => section !== "states")) {
+      expect(card(id)).toBeNull();
+    }
+  });
+
+  it("also blocks palettes and animations while the sprite sheet is unreadable, since they would read its blank stand-in", () => {
+    cards.update({ files: [{ file: sff, busy: false }] });
+    for (const id of ["sprites", "palettes", "animations"] as const) {
+      expect(card(id)?.textContent).toContain("Couldn't read kfm.sff");
+    }
+    expect(card("sounds")).toBeNull();
   });
 
   it("removes the card and unblocks the section once the file is replaced", () => {

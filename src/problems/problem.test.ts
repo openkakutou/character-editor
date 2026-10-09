@@ -66,7 +66,7 @@ describe("describeProblem", () => {
       code: "format.unsupportedVersion",
       params: { fileName: "kfm.sff", version: "3.0" },
     });
-    expect(text.title).toBe("This version can't be opened");
+    expect(text.title).toBe("This file version isn't supported");
     expect(text.cause).toBe(
       "kfm.sff uses version 3.0, which this editor can't open.",
     );

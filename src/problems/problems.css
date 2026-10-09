@@ -102,7 +102,6 @@
 
 .file-input__progress-note {
   margin: 0;
-  min-height: 1.2em;
   color: var(--wuik-color-text-muted);
   font-size: var(--wuik-font-size-sm);
 }
@@ -144,7 +143,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--wuik-space-3);
-  max-height: 40vh;
+  max-height: min(40vh, 16rem);
   overflow-y: auto;
 }
 
@@ -190,16 +189,27 @@
   gap: var(--wuik-space-3);
 }
 
-/* A row is one wrapped line of text plus its tools, so a few files do not
- * push the workspace off the screen. */
+/* A row is one card holding the message and its Replace button, so the
+ * button always reads as belonging to its file. */
+.problems-banner__row {
+  padding: var(--wuik-space-2) var(--wuik-space-3);
+  background: var(--wuik-color-bg);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-error);
+  border-radius: var(--wuik-radius-card);
+  align-items: center;
+}
+
 .problems-banner__row .problem {
-  flex: 1 1 24rem;
+  flex: 1 1 20rem;
   min-width: 0;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--wuik-space-1) var(--wuik-space-2);
-  padding: var(--wuik-space-2) var(--wuik-space-3);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 
 .problems-banner__row .problem__tools {
@@ -213,6 +223,20 @@
 /* Narrow: rows stack and the buttons fill the width. */
 .shell.is-narrow .problems-banner {
   padding-inline: var(--wuik-space-3);
+}
+
+.shell.is-narrow .problems-banner__row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.shell.is-narrow .problems-banner__row .problem {
+  flex-basis: auto;
+  flex-direction: column;
+}
+
+.shell.is-narrow .problems-banner__row .problem__tools {
+  margin-inline-start: 0;
 }
 
 .shell.is-narrow .problems-banner__row wuik-button,

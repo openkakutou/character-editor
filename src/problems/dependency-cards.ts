@@ -7,7 +7,7 @@ import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { sectionTitle } from "../shell/section-text.ts";
 import type { SectionId } from "../shell/sections.ts";
 import { type ProblemView, createProblemView } from "./problem-view.ts";
-import { describeProblem } from "./problem.ts";
+import { problemSentence } from "./problem.ts";
 import {
   type BannerEngine,
   type BannerFile,
@@ -22,7 +22,11 @@ export const SECTION_NEEDING_FILE: Readonly<
   sff: "sprites",
   snd: "sounds",
   cmd: "commands",
+  zss: "states",
 };
+
+/** Sections that also read the sprite sheet: they cannot work against its blank stand-in. */
+const ALSO_NEEDING_SFF: readonly SectionId[] = ["palettes", "animations"];
 
 /** The sections that cannot work without the engine. */
 export const SECTIONS_NEEDING_ENGINE: readonly SectionId[] = [
@@ -30,6 +34,13 @@ export const SECTIONS_NEEDING_ENGINE: readonly SectionId[] = [
   "palettes",
   "animations",
 ];
+
+function needsFile(kind: UnreadableKind, section: SectionId): boolean {
+  return (
+    SECTION_NEEDING_FILE[kind] === section ||
+    (kind === "sff" && ALSO_NEEDING_SFF.includes(section))
+  );
+}
 
 export interface DependencyState {
   files: readonly BannerFile[];
@@ -117,9 +128,8 @@ export function createDependencyCards(
   function renderEngine(card: Card, engine: BannerEngine): HTMLElement {
     const block = document.createElement("div");
     block.className = "dependency-card__block";
-    const text = describeProblem(engine.problem);
     const sentence = document.createElement("p");
-    sentence.textContent = [text.title, text.action].filter(Boolean).join(". ");
+    sentence.textContent = problemSentence(engine.problem);
     let view = card.views.get("engine");
     if (view === undefined) {
       view = createProblemView(engine.problem, { detailsOnly: true });
@@ -146,6 +156,9 @@ export function createDependencyCards(
     for (const entry of state.files) {
       const section = SECTION_NEEDING_FILE[entry.file.kind];
       if (section) wanted.add(section);
+      if (entry.file.kind === "sff") {
+        for (const other of ALSO_NEEDING_SFF) wanted.add(other);
+      }
     }
     if (state.engine) {
       for (const section of SECTIONS_NEEDING_ENGINE) wanted.add(section);
@@ -163,22 +176,18 @@ export function createDependencyCards(
         focused?.closest<HTMLElement>("[data-action]")?.dataset.action;
       card.title.textContent = t(
         state.engine &&
-          !state.files.some(
-            (entry) => SECTION_NEEDING_FILE[entry.file.kind] === section,
-          )
+          !state.files.some((entry) => needsFile(entry.file.kind, section))
           ? "errors.dependency.engineTitle"
           : "errors.dependency.title",
         state.engine &&
-          !state.files.some(
-            (entry) => SECTION_NEEDING_FILE[entry.file.kind] === section,
-          )
+          !state.files.some((entry) => needsFile(entry.file.kind, section))
           ? "{{section}} needs the editor engine"
           : "{{section}} can't be shown",
         { section: sectionTitle(section) },
       );
       const blocks: HTMLElement[] = [];
       for (const entry of state.files) {
-        if (SECTION_NEEDING_FILE[entry.file.kind] === section) {
+        if (needsFile(entry.file.kind, section)) {
           blocks.push(renderFile(card, entry));
         }
       }

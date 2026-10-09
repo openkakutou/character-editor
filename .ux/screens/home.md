@@ -3,7 +3,7 @@ slug: home
 title: Home
 flow: 001
 status: implemented
-revised-by: 002
+revised-by: 002 (implemented)
 source: src/shell/home-view.ts, src/input/character-file-input-view.ts, src/wizard/new-character-wizard-view.ts
 ---
 
