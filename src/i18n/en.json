@@ -463,7 +463,9 @@
     "navigation": "Navigation",
     "nav": "Go to section {{n}}: {{title}}",
     "openHint": "Press ? outside a text field to open this dialog.",
-    "editing": "Editing and output"
+    "editing": "Editing and output",
+    "colShortcut": "Shortcut",
+    "colAction": "Action"
   },
   "output": {
     "severity": {

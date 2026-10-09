@@ -1335,6 +1335,39 @@ describe("renderApp", () => {
       expect(downloads).toEqual([]);
     });
 
+    it("lets the user cancel an export started from the leave dialog, which stops the remaining downloads", async () => {
+      const downloads: string[] = [];
+      const root = newRoot();
+      renderApp(root, "0.1.0", "0.17.0", {
+        bridgeOptions,
+        triggerDownload: (_bytes, name) => downloads.push(name),
+      });
+      await loadCharacter(root);
+      const nameInput = root.querySelector<HTMLElement>('[data-field="name"]');
+      if (nameInput) typeIntoTextInput(nameInput, "Edited");
+      root.querySelector<HTMLElement>('[data-action="open-another"]')?.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".leave-dialog")?.hasAttribute("open")).toBe(
+          true,
+        ),
+      );
+
+      root.querySelector<HTMLElement>('[data-action="leave-export"]')?.click();
+      await vi.waitFor(() => expect(downloads.length).toBe(1));
+      const cancel = root.querySelector<HTMLElement>(
+        '[data-action="leave-cancel"]',
+      );
+      expect(cancel?.hasAttribute("disabled")).toBe(false);
+      cancel?.click();
+
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      expect(downloads).toHaveLength(1);
+      expect(root.querySelector(".leave-dialog")?.hasAttribute("open")).toBe(
+        false,
+      );
+      expect(root.querySelector<HTMLElement>(".home")?.hidden).toBe(true);
+    });
+
     it("clears the banner when another character is opened", async () => {
       const root = await openPartialCharacter();
       root.querySelector<HTMLElement>('[data-action="open-another"]')?.click();

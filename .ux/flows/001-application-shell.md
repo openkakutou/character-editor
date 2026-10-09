@@ -71,11 +71,13 @@ Built in `character-editor` on `web-ui-kit` 0.16 (kit change made for this flow:
 
 Not built, left open for later designs (each is a deviation from the spec above, not a change to it):
 
-- Home loading without Cancel or named n/N steps; partial load banner with Replace file; unsupported-version screen; WASM-load banner (flow's own "robust states F2–F5" work).
+- ~~Home loading, partial load banner, unsupported-version screen, WASM banner~~ Done by flow 002 (2026-10-09).
 - Empty-state entry actions on every section and the Animations-without-sprites link; header-card primary actions.
 - Undo from another section focuses the section title, not the touched element; a badge click opens the section but cannot focus its first problem (the kit nav item has no separate badge activation).
-- Leave dialog: "Export first" cannot be cancelled once started.
+- ~~Leave dialog: "Export first" cannot be cancelled once started.~~ Done 2026-10-09: Cancel (and Esc) stays active and stops the remaining downloads.
 - `home.save.note.fs` and `showDirectoryPicker`: Open folder always uses the `webkitdirectory` picker; the note always says changes are saved by exporting.
-- Shortcuts help is a list of Alt+N rows plus the kit's remap panel, not a grouped table.
+- ~~Shortcuts help is a list~~ Done 2026-10-09: the navigation shortcuts are a Shortcut / Action table above the kit's remap panel.
 - Section editors keep their own inner headings and native controls (restyled with `:where()` rules); their content is a separate redesign.
 - Former kit gaps (`wuik-button` not forwarding `aria-*`, `wuik-file-drop-zone` without folder mode) are closed by kit 0.17.0; the app's workarounds were removed.
+
+Still open after 2026-10-09 (decided not to build now): empty-state entry actions beyond the "Add" buttons already under each empty message, the Animations-without-sprites link, Undo focusing the touched element (needs per-command targets), and `showDirectoryPicker` (only useful with write-back, which stays out of scope: export is the only save path).

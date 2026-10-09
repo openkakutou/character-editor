@@ -336,3 +336,21 @@ canvas.is-outdated {
 .dependency-card__block p {
   margin: 0;
 }
+
+/* The help dialog's navigation shortcuts as a table: shortcut, then action. */
+.help-dialog__nav {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.help-dialog__nav th,
+.help-dialog__nav td {
+  padding: var(--wuik-space-1) var(--wuik-space-3);
+  text-align: left;
+  border-bottom: var(--wuik-border-width) solid var(--wuik-color-border);
+}
+
+.help-dialog__nav th {
+  color: var(--wuik-color-text-muted);
+  font-weight: var(--wuik-font-weight-medium);
+}

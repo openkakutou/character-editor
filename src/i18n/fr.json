@@ -463,7 +463,9 @@
     "navigation": "Navigation",
     "nav": "Aller à la section {{n}} : {{title}}",
     "openHint": "Appuyez sur ? hors d'un champ de saisie pour ouvrir cette fenêtre.",
-    "editing": "Édition et sortie"
+    "editing": "Édition et sortie",
+    "colShortcut": "Raccourci",
+    "colAction": "Action"
   },
   "output": {
     "severity": {

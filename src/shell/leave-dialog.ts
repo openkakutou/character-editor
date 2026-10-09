@@ -62,7 +62,8 @@ export function createLeaveDialog(
 
   function setBusy(next: boolean): void {
     busy = next;
-    for (const el of [cancel, discard, exportFirst]) {
+    // Cancel stays available: it stops an export that is under way.
+    for (const el of [discard, exportFirst]) {
       el.toggleAttribute("disabled", next);
     }
   }
@@ -86,7 +87,10 @@ export function createLeaveDialog(
   }
   renderText();
 
-  cancel.addEventListener("click", () => finish(false));
+  cancel.addEventListener("click", () => {
+    if (busy) controller.reset();
+    finish(false);
+  });
   discard.addEventListener("click", () => finish(true));
   exportFirst.addEventListener("click", async () => {
     message.textContent = "";
@@ -94,6 +98,8 @@ export function createLeaveDialog(
     setBusy(true);
     await controller.run();
     setBusy(false);
+    // Cancelled while it ran: the dialog is already closed.
+    if (resolveChoice === undefined) return;
     const state = controller.state;
     if (state.phase === "saved") {
       finish(true);
@@ -103,7 +109,7 @@ export function createLeaveDialog(
   });
   // Escape and backdrop close the dialog itself: that is a cancel.
   dialog.addEventListener("wuik-close", () => {
-    if (busy) return;
+    if (busy) controller.reset();
     const resolve = resolveChoice;
     resolveChoice = undefined;
     resolve?.(false);

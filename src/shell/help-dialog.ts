@@ -34,7 +34,7 @@ export function createHelpDialog(
   const intro = document.createElement("p");
 
   const navTitle = document.createElement("h3");
-  const navList = document.createElement("ul");
+  const navList = document.createElement("table");
   navList.className = "help-dialog__nav";
 
   const openNote = document.createElement("p");
@@ -55,23 +55,36 @@ export function createHelpDialog(
       "The editor shows one section at a time. Pick a section in the left bar; your work in the other sections is kept.",
     );
     navTitle.textContent = t("help.navigation", "Navigation");
-    navList.replaceChildren(
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (const text of [
+      t("help.colShortcut", "Shortcut"),
+      t("help.colAction", "Action"),
+    ]) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = text;
+      headRow.appendChild(cell);
+    }
+    head.appendChild(headRow);
+    const body = document.createElement("tbody");
+    body.append(
       ...SECTION_IDS.map((id) => {
-        const item = document.createElement("li");
+        const row = document.createElement("tr");
+        const keyCell = document.createElement("td");
         const keys = document.createElement("kbd");
         keys.textContent = `Alt+${sectionNumber(id)}`;
-        item.append(
-          keys,
-          document.createTextNode(
-            ` ${t("help.nav", "Go to section {{n}}: {{title}}", {
-              n: String(sectionNumber(id)),
-              title: sectionTitle(id),
-            })}`,
-          ),
-        );
-        return item;
+        keyCell.appendChild(keys);
+        const action = document.createElement("td");
+        action.textContent = t("help.nav", "Go to section {{n}}: {{title}}", {
+          n: String(sectionNumber(id)),
+          title: sectionTitle(id),
+        });
+        row.append(keyCell, action);
+        return row;
       }),
     );
+    navList.replaceChildren(head, body);
     openNote.textContent = t(
       "help.openHint",
       "Press ? outside a text field to open this dialog.",
