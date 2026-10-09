@@ -7,3 +7,5 @@
 - `DecodedImage`, `ImageDecodeResult`, `ImageDecodeOptions`, `decodeImageFile(file, options?): Promise<ImageDecodeResult>` (image-decode.ts)
 - `SpriteBrowserOptions`, `renderSpriteBrowser(root, character, sffBytes, spriteEdits, options?): void`, `defaultDrawPixels(canvas, pixels, width, height): void` (sprite-browser.ts)
 **Depends on:** `modules/wasm.md` (`resolveSpritePixels`, `CharacterData`), `modules/i18n.md`, `@openkakutou/web-ui-kit` (`<wuik-viewport>`, `<wuik-button>`, `<wuik-panel>`)
+
+Previews carry a request token and show a placeholder with Retry on failure; import and replace failures appear under their control as inline errors that count on the Sprites badge and leave the registry when dismissed or when the screen is rebuilt.

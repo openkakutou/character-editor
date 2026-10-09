@@ -5,3 +5,5 @@
 **Depends on:** the `character.wasm` + `wasm_exec.js` build fetched into `public/wasm/` (gitignored, via `scripts/download-wasm.mjs`)
 
 **Sounds (item 017):** `loadCharacter` accepts `options.sndBytes` (the WASM `load`'s optional fifth argument); `CharacterData.sounds?: SoundGroup[]` (`Sound`: group, sample, sampleRate, channels, bitsPerSample, pcm, optional `error` for an entry that failed to decode). Requires `character` WASM >= v0.10.0 for per-sound errors.
+
+`warmUpEngine(options)` starts or joins the one memoized instantiation (a failed attempt is forgotten, so Retry tries again).

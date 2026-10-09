@@ -132,3 +132,19 @@ A `.cmd` file's model, parsed separately from `CharacterData` via `wasm.loadCmd`
 | Command | time, bufferTime | number | This command's own recognition-window override; 0 means "not set" |
 
 Defined in: `src/wasm/types.ts`
+
+## Problem
+| Field | Type | Notes |
+|---|---|---|
+| code | ProblemCode | one of `PROBLEM_CODES`; every code needs English and French texts (tested) |
+| params | Record<string,string> | interpolated into title, cause and action; `cause` overrides the default cause, `retry: "1"` offers Retry |
+| detail | string? | raw technical text, shown only behind "Show details" |
+Defined in: `src/problems/problem.ts`
+
+## UnreadableFile
+| Field | Type | Notes |
+|---|---|---|
+| kind | FileKind \| "snd" | sff, snd, cmd or zss reach the list |
+| fileName | string | |
+| detail | string | the browser's raw error |
+Defined in: `src/input/character-file-input.ts`; held in `CharacterDocument.unreadable`.

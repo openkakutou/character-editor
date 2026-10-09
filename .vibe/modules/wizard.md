@@ -3,3 +3,5 @@
 **Files:** `src/wizard/new-character-wizard.ts`, `src/wizard/new-character-wizard-view.ts`
 **Exports:** `WizardTemplate`, `CreateCharacterOptions`, `buildCharacterInfo(name): CharacterInfoFields`, `buildAnimations(template): Animation[]`, `buildStateDefs(template): StateDef[]`, `createCharacterFromWizard(name, template, options?): Promise<CharacterInputResult>` (new-character-wizard.ts); `NewCharacterWizardOptions`, `renderNewCharacterWizard(root, options): void` (new-character-wizard-view.ts)
 **Depends on:** `modules/wasm.md` (`saveDef`/`saveAir`/`saveCns`/`saveCmd`/`loadCharacter`), `modules/input.md` (`CharacterInputResult`/`LoadedFileBytes`, the same result shape the file input produces), `modules/commands.md` (reuses `emptyCommandFile`), `modules/i18n.md`
+
+**Robust creation (UX flow 002):** creation always ends in a `finally`; a failure keeps the dialog open with the entries, shows a localized problem (raw text behind details), announces once through `onFailure`, ignores a second press and a cancelled attempt (attempt counter), and Cancel/Esc return focus to the trigger.

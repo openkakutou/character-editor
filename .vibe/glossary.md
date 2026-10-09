@@ -54,3 +54,12 @@ _Sources: `src/editors/state-editor.ts`_
 A named input sequence (e.g. a fighting-game special-move motion) a player can perform, with its own optional timing-window overrides, defined in a `.cmd` file. Optionally mapped to a target State: recognizing the Command changes the character into that State. The mapping is not a dedicated field — it flows through a ChangeState State controller's trigger, keyed by the Command's name.
 **Do not confuse with:** State controller, the mechanism a Command's mapping is implemented through, not a concept of its own.
 _Sources: `src/wasm/types.ts`, `src/commands/command-editor.ts`, `src/commands/command-logic.ts`_
+
+## Unreadable file
+A file of the character folder that the browser could not read when it was opened. The character still opens; the file is listed in the banner and in its section until the user replaces it, and an export names it as left out.
+**Do not confuse with:** an unsupported version, where the file is read but its format is not accepted.
+_Sources: `src/input/character-file-input.ts`, `src/document/character-document.ts`, `src/problems/problems-banner.ts`_
+
+## Stand-in sprite sheet
+The bundled blank `.sff` the engine receives when the real sprite sheet is unreadable, so the rest of the character can still be parsed. Sections that read sprites are blocked while it is in use.
+_Sources: `src/input/character-file-input.ts`, `src/problems/dependency-cards.ts`_

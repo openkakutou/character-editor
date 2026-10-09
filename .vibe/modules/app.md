@@ -3,3 +3,5 @@
 **Files:** `src/main.ts`, `src/version.ts`, `src/web-ui-kit-version.ts`, `src/style.css`, `src/types/web-ui-kit.d.ts`
 **Exports:** `appVersion: string`, `renderApp(root, version, installedWebUiKitVersion, options?): void`, `RenderAppOptions`, `MIN_SUPPORTED_WEB_UI_KIT_VERSION: string`, `isWebUiKitVersionSupported(version): boolean`
 **Depends on:** `@openkakutou/web-ui-kit` (external — layout shell, tokens, button/dialog/radio-group/viewport/locale-switcher components, `CommandStack`, `ShortcutManager`), `modules/input.md`, `modules/document.md`, `modules/editors.md`, `modules/sprites.md`, `modules/palettes.md`, `modules/animations.md`, `modules/commands.md`, `modules/save.md`, `modules/history.md`, `modules/wizard.md`, `modules/shortcuts.md`, `modules/i18n.md`
+
+**Wiring (UX flow 002):** `main.ts` owns the registry state — unreadable files, replacement in progress or failed, action problems from editors (`ProblemSink`), the engine retry — and feeds the banner, the dependency cards, the badges and the Output list from it; it confirms an export when files were left out (toolbar and leave dialog alike).

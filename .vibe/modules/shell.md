@@ -1,0 +1,5 @@
+# Module: shell
+**Role:** The application shell (UX flow 001): `app-shell.ts` (toolbar, banner host, sectioned sidebar, one section visible at a time, status bar, drawer below 1024 px, polite and alert live regions), `home-view.ts` (Home with the folder input, New character and the blocking unsupported-version screen, plus its own alert region), `sections.ts`/`section-text.ts`/`section-icons.ts`, dialogs (`help-dialog.ts` with a shortcut table, `leave-dialog.ts` whose Export first can be cancelled, `export-confirm-dialog.ts` naming files left out of an export), `output-section.ts` (the Export section and its problem list), `shell-shortcuts.ts` (Alt+1…8, `?`), `theme-toggle.ts`.
+**Files:** `src/shell/*.ts`, `src/shell/shell.css`
+**Exports:** `createAppShell`, `createHomeView`, `createHelpDialog`, `createLeaveDialog`, `createExportConfirmDialog`, `renderOutputSection`, `SECTION_IDS`, `SectionId`
+**Depends on:** `modules/problems.md`, `modules/input.md`, `modules/wizard.md`, `modules/save.md`, `modules/i18n.md`

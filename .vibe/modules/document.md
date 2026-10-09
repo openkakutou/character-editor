@@ -3,3 +3,5 @@
 **Files:** `src/document/character-document.ts`
 **Exports:** `getCharacterDocument(): CharacterDocument | null`, `setCharacterDocument(doc: LoadedCharacter | null): void`, `updateCharacterFields(patch: Partial<CharacterData>): void`, `addSpriteEdit(edit: SpriteEdit): void`, `setCommandFile(commandFile: CommandFile): void`, `seedCommandFile(commandFile: CommandFile): void`, `resetCharacterDocumentForTests(): void`, `CharacterDocument`, `LoadedCharacter`
 **Depends on:** `modules/wasm.md` (for `CharacterData`/`CommandFile`), `modules/input.md` (for `LoadedFileBytes`), `modules/sprites.md` (for `SpriteEdit`), `modules/commands.md` (for `emptyCommandFile`), `modules/history.md` (for `pushHistoryCommand`/`getAppHistory`/`markClean`/`resetAppHistoryForTests`)
+
+**Unreadable files:** `CharacterDocument.unreadable` lists files the load could not read; `replaceUnreadableFile` installs a replacement, merges what re-parsing changed and removes the entry as one undoable history command.

@@ -5,3 +5,5 @@
 - `Color`, `PALETTE_COLOR_COUNT`, `PALETTE_BYTE_LENGTH`, `RESERVED_INDEX`, `blankPalette()`, `duplicatePalette(source)`, `colorAt(palette, index)`, `withColor(palette, index, color)`, `isReservedIndex(index)`, `reversePaletteByteOrder(bytes)`, `parseActBytes(raw): ParseActResult`, `serializeActBytes(palette)`, `colorToHex(color)`, `hexToColor(hex)` — DOM-free pure logic (palette.ts)
 - `PaletteEditorOptions`, `PaletteEditorHandle`, `renderPaletteEditor(root, character, sffBytes, options?): PaletteEditorHandle`, `defaultReadFileBytes(file)`, `defaultTriggerDownload(bytes, fileName)` (palette-editor.ts)
 **Depends on:** `modules/wasm.md` (`resolveSpritePixels`, `CharacterData`), `modules/sprites.md` (reuses `defaultDrawPixels`), `modules/history.md` (`pushHistoryCommand`), `modules/i18n.md`, `@openkakutou/web-ui-kit` (`<wuik-color-picker>`, `<wuik-button>`, `<wuik-panel>`)
+
+The recolored preview and the `.act` upload report failures like the sprite browser (placeholder with Retry, last good frame dimmed; inline error with the raw text behind details).

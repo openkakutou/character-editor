@@ -3,3 +3,5 @@
 **Files:** `src/sounds/sound-browser.ts`
 **Exports:** `renderSoundBrowser(root, character, files, options?): void`, `createWebAudioPlayer(): SoundPlayer`, `SoundPlayer`, `SoundBrowserOptions`, `SoundBrowserFiles`
 **Depends on:** `modules/wasm.md` (`CharacterData.sounds`, `Sound`), `modules/i18n.md`, `@openkakutou/web-ui-kit` (`<wuik-panel>`)
+
+A sound that cannot be played shows a localized row; its raw reason sits behind "Show details". A `.snd` that could not be loaded shows a plain message with the same disclosure.

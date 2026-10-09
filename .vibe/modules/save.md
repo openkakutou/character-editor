@@ -3,3 +3,5 @@
 **Files:** `src/save/character-export.ts`, `src/save/export-panel.ts`
 **Exports:** `exportCharacterFiles(doc, options?): Promise<ExportResult>`, `describeSpriteEdit(edit): string`, `ExportFileKind`, `ExportedFile`, `ExportOptions`, `ExportResult`, `ExportBlockedReason`, `PendingSpriteEditsBlockedReason`, `SerializeErrorBlockedReason` (character-export.ts) — DOM-free logic; `renderExportPanel(root, options?): void`, `ExportPanelOptions` (export-panel.ts) — the DOM layer
 **Depends on:** `modules/wasm.md` (`saveDef`/`saveAir`/`saveCns`/`saveCmd`, `CharacterInfoFields`), `modules/document.md` (`CharacterDocument`), `modules/sprites.md` (`SpriteEdit`), `modules/palettes.md` (reuses `defaultTriggerDownload`), `modules/history.md` (`markClean`), `modules/i18n.md`
+
+**Engine failures and errors (UX flow 002):** a rejected serialize call is handed to `onEngineFailure` instead of leaving an unhandled rejection; export errors are problems (`export.failed`, `export.fileFailed`) whose raw text is only the detail.
