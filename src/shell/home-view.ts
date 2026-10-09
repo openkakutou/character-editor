@@ -26,6 +26,8 @@ export interface HomeView {
   reset(): void;
   /** Moves keyboard focus to the title. */
   focusTitle(): void;
+  /** Announces a failure assertively. The shell is hidden here, so Home has its own live region. */
+  alert(message: string): void;
   destroy(): void;
 }
 
@@ -43,6 +45,19 @@ export function createHomeView(options: HomeViewOptions): HomeView {
   const themeToggle = createThemeToggle();
   chrome.append(localeSwitcher, themeToggle.element);
 
+  const alertRegion = document.createElement("div");
+  alertRegion.className = "shell__live";
+  alertRegion.setAttribute("role", "alert");
+  let alertTimer: number | undefined;
+  function alert(message: string): void {
+    // Cleared first so an identical message is announced again.
+    window.clearTimeout(alertTimer);
+    alertRegion.textContent = "";
+    alertTimer = window.setTimeout(() => {
+      alertRegion.textContent = message;
+    }, 50);
+  }
+
   const column = document.createElement("main");
   column.className = "home__column";
   const title = document.createElement("h1");
@@ -55,12 +70,16 @@ export function createHomeView(options: HomeViewOptions): HomeView {
   const note = document.createElement("p");
   note.className = "home__note";
   column.append(title, hint, inputRoot, note);
-  element.append(chrome, column);
+  element.append(chrome, column, alertRegion);
 
   function mount(): void {
     renderNewCharacterWizard(wizardRoot, options.wizard);
     renderCharacterFileInput(inputRoot, {
       ...options.fileInput,
+      onFailure: (message) => {
+        alert(message);
+        options.fileInput.onFailure?.(message);
+      },
       extraActions: [wizardRoot],
     });
   }
@@ -89,7 +108,9 @@ export function createHomeView(options: HomeViewOptions): HomeView {
     focusTitle() {
       title.focus();
     },
+    alert,
     destroy() {
+      window.clearTimeout(alertTimer);
       stopLocale();
       themeToggle.destroy();
       element.remove();

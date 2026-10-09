@@ -3,6 +3,7 @@ import "@openkakutou/web-ui-kit";
 import { version as webUiKitVersion } from "@openkakutou/web-ui-kit";
 import "./style.css";
 import "./shell/shell.css";
+import "./problems/problems.css";
 import { renderAnimationEditor } from "./animations/animation-editor.ts";
 import { renderCommandEditor } from "./commands/command-editor.ts";
 import {

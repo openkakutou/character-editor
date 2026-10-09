@@ -11,6 +11,7 @@ import {
   resolveDefCandidates,
   resolveReferencedFile,
   resolveZssFile,
+  unsupportedSffVersion,
 } from "./character-file-input.ts";
 import type { GatheredFile } from "./folder-entries.ts";
 
@@ -432,5 +433,155 @@ describe("loadCharacterFromChosenDef / loadCharacterFromFolderFiles", () => {
     );
 
     expect(result.status).toBe("success");
+  });
+
+  describe("robust loading (flow 002)", () => {
+    it("reports each named step in order, with the file count", async () => {
+      const steps: string[] = [];
+      await loadCharacterFromFolderFiles(completeFolder(), {
+        ...testOptions,
+        onProgress: (progress) =>
+          steps.push(
+            progress.step === "files" && progress.total !== undefined
+              ? `files ${progress.done}/${progress.total}`
+              : progress.step,
+          ),
+      });
+      expect(steps[0]).toBe("definition");
+      expect(steps).toContain("files 0/3");
+      expect(steps).toContain("files 3/3");
+      expect(steps.slice(-2)).toEqual(["engine", "open"]);
+    });
+
+    it("returns cancelled, and never reaches the engine, when aborted during a read", async () => {
+      const controller = new AbortController();
+      let engineReached = false;
+      const result = await loadCharacterFromFolderFiles(completeFolder(), {
+        ...testOptions,
+        signal: controller.signal,
+        readFileBytes: async (file) => {
+          controller.abort();
+          return readFileAsBytes(file);
+        },
+        onProgress: (progress) => {
+          if (progress.step === "engine") engineReached = true;
+        },
+      });
+      expect(result.status).toBe("cancelled");
+      expect(engineReached).toBe(false);
+    });
+
+    it("returns cancelled when aborted while the engine parses", async () => {
+      const controller = new AbortController();
+      const result = await loadCharacterFromFolderFiles(completeFolder(), {
+        ...testOptions,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (progress.step === "engine") controller.abort();
+        },
+      });
+      expect(result.status).toBe("cancelled");
+    });
+
+    it("opens with a stand-in sprite sheet and lists the unreadable one", async () => {
+      const result = await loadCharacterFromFolderFiles(completeFolder(), {
+        ...testOptions,
+        readFileBytes: async (file) => {
+          if (file.name.endsWith(".sff")) throw new Error("NotReadableError");
+          return readFileAsBytes(file);
+        },
+        fetchBlankSffBytes: async () => fixtureBytes("v1-basic.sff"),
+      });
+      expect(result.status).toBe("success");
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.unreadable).toEqual([
+        { kind: "sff", fileName: "ryu.sff", detail: "NotReadableError" },
+      ]);
+    });
+
+    it("still fails with a read error when the stand-in sprite sheet cannot be fetched either", async () => {
+      const result = await loadCharacterFromFolderFiles(completeFolder(), {
+        ...testOptions,
+        readFileBytes: async (file) => {
+          if (file.name.endsWith(".sff")) throw new Error("NotReadableError");
+          return readFileAsBytes(file);
+        },
+        fetchBlankSffBytes: async () => {
+          throw new Error("offline");
+        },
+      });
+      expect(result.status).toBe("read-error");
+    });
+
+    it("fails with a read error when an animation or constants file is unreadable", async () => {
+      for (const extension of [".air", ".cns"]) {
+        const result = await loadCharacterFromFolderFiles(completeFolder(), {
+          ...testOptions,
+          readFileBytes: async (file) => {
+            if (file.name.endsWith(extension)) throw new Error("denied");
+            return readFileAsBytes(file);
+          },
+        });
+        expect(result.status, extension).toBe("read-error");
+      }
+    });
+
+    it("opens without an unreadable optional .cmd and lists it", async () => {
+      const folder = [
+        gathered("ryu/ryu.def", `${defText()}cmd = ryu.cmd\n`),
+        ...completeFolder().slice(1),
+        gathered("ryu/ryu.cmd", fixtureBytes("sample.cmd")),
+      ];
+      const result = await loadCharacterFromFolderFiles(folder, {
+        ...testOptions,
+        readFileBytes: async (file) => {
+          if (file.name.endsWith(".cmd")) throw new Error("denied");
+          return readFileAsBytes(file);
+        },
+      });
+      expect(result.status).toBe("success");
+      if (result.status !== "success") throw new Error("expected success");
+      expect(result.unreadable?.map((file) => file.kind)).toEqual(["cmd"]);
+      expect(result.files.cmd).toBeUndefined();
+    });
+
+    it("rejects a sprite sheet whose major version the editor cannot open", async () => {
+      const newer = new Uint8Array(fixtureBytes("v1-basic.sff"));
+      newer[15] = 3;
+      const result = await loadCharacterFromFolderFiles(
+        completeFolder().map((entry) =>
+          entry.file.name.endsWith(".sff")
+            ? gathered("ryu/ryu.sff", newer)
+            : entry,
+        ),
+        testOptions,
+      );
+      expect(result).toEqual({
+        status: "unsupported-version",
+        fileName: "ryu.sff",
+        version: "3.0.1.0",
+        supported: "1 – 2",
+      });
+    });
+  });
+
+  describe("unsupportedSffVersion", () => {
+    it("accepts versions 1 and 2, and files that are not a sprite sheet", () => {
+      const v1 = fixtureBytes("v1-basic.sff");
+      expect(unsupportedSffVersion(v1)).toBeUndefined();
+      const v2 = new Uint8Array(v1);
+      v2[15] = 2;
+      expect(unsupportedSffVersion(v2)).toBeUndefined();
+      expect(
+        unsupportedSffVersion(textBytes("not a sheet at all")),
+      ).toBeUndefined();
+      expect(unsupportedSffVersion(new Uint8Array(4))).toBeUndefined();
+    });
+
+    it("names the version of a header with another major version", () => {
+      const newer = new Uint8Array(fixtureBytes("v1-basic.sff"));
+      newer[15] = 0;
+      expect(unsupportedSffVersion(newer)).toBe("0.0.1.0");
+    });
   });
 });

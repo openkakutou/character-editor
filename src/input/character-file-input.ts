@@ -205,9 +205,19 @@ export type CharacterInputResult =
       character: CharacterData;
       files: LoadedFileBytes;
       zssAmbiguousCount?: number;
+      /** Files the browser could not read: the character opens without them (UX flow 002). */
+      unreadable?: UnreadableFile[];
     }
   | { status: "read-error"; error: FileReadError }
   | { status: "bridge-error"; message: string };
+
+/** A file that could not be read at load time but does not stop the character from opening. */
+export interface UnreadableFile {
+  kind: FileKind | "snd";
+  fileName: string;
+  /** Raw technical text from the browser, for the "Show details" disclosure. */
+  detail: string;
+}
 
 /**
  * Every outcome a folder-based load can produce: `CharacterInputResult`'s
@@ -219,6 +229,13 @@ export type CharacterFolderLoadResult =
   | CharacterInputResult
   | { status: "no-files" }
   | { status: "no-candidate" }
+  | { status: "cancelled" }
+  | {
+      status: "unsupported-version";
+      fileName: string;
+      version: string;
+      supported: string;
+    }
   | { status: "needs-selection"; candidates: GatheredFile[] }
   | {
       status: "reference-not-found";
@@ -255,9 +272,50 @@ export function readFileAsBytes(file: File): Promise<Uint8Array> {
   });
 }
 
+/** The named steps of a load, in order; `files` also reports `done` of `total`. */
+export interface LoadProgress {
+  step: "definition" | "files" | "engine" | "open";
+  done?: number;
+  total?: number;
+}
+
 export interface CharacterFileInputOptions extends WasmBridgeOptions {
   /** Reads a File's bytes. Defaults to `readFileAsBytes`; injectable for testing. */
   readFileBytes?: (file: File) => Promise<Uint8Array>;
+  /** Aborts the load: a read that finishes late is ignored and the result is `cancelled`. */
+  signal?: AbortSignal;
+  /** Called as each named step starts, so a view can show where the load is. */
+  onProgress?: (progress: LoadProgress) => void;
+  /** Fetches the placeholder `.sff` that stands in for an unreadable one. Defaults to the bundled blank sheet. */
+  fetchBlankSffBytes?: () => Promise<Uint8Array>;
+}
+
+const SUPPORTED_SFF_VERSIONS = "1 – 2";
+const SFF_SIGNATURE = "ElecbyteSpr\0";
+
+/**
+ * The version of a `.sff` whose header names a major version the editor
+ * cannot open, or `undefined` when the file is supported or is not a `.sff`
+ * header at all (the engine then reports its own parse error). The library
+ * treats anything that is not v2 as v1, so this is checked up front.
+ */
+export function unsupportedSffVersion(bytes: Uint8Array): string | undefined {
+  if (bytes.length < 16) return undefined;
+  const signature = String.fromCharCode(...bytes.subarray(0, 12));
+  if (signature !== SFF_SIGNATURE) return undefined;
+  const major = bytes[15];
+  if (major === 1 || major === 2) return undefined;
+  return `${major}.${bytes[14]}.${bytes[13]}.${bytes[12]}`;
+}
+
+async function defaultFetchBlankSffBytes(): Promise<Uint8Array> {
+  const response = await fetch("./wizard/blank-character.sff");
+  if (!response.ok) {
+    throw new Error(
+      `failed to fetch the blank sprite sheet: ${response.status}`,
+    );
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 async function readKindBytes(
@@ -291,7 +349,13 @@ async function readOptionalSound(
   referencedPath: string,
   files: readonly GatheredFile[],
   readFileBytes: (file: File) => Promise<Uint8Array>,
-): Promise<{ bytes?: Uint8Array; fileName: string; issue?: string }> {
+): Promise<{
+  bytes?: Uint8Array;
+  fileName: string;
+  issue?: string;
+  /** Set when the file was found but the browser could not read it. */
+  unreadableDetail?: string;
+}> {
   const resolution = resolveReferencedFile(referencedPath, files);
   if (resolution.status === "no-reference") return { fileName: "" };
   const fileName = referencedBasename(referencedPath);
@@ -308,7 +372,11 @@ async function readOptionalSound(
     return { bytes: await readFileBytes(resolution.entry.file), fileName };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { fileName, issue: `${fileName}: ${message}` };
+    return {
+      fileName,
+      issue: `${fileName}: ${message}`,
+      unreadableDetail: message,
+    };
   }
 }
 
@@ -368,8 +436,12 @@ export async function loadCharacterFromChosenDef(
   options: CharacterFileInputOptions = {},
 ): Promise<CharacterFolderLoadResult> {
   const readFileBytes = options.readFileBytes ?? readFileAsBytes;
+  const cancelled = (): boolean => options.signal?.aborted === true;
+  const cancelledResult = { status: "cancelled" } as const;
+  options.onProgress?.({ step: "definition" });
 
   const defAttempt = await readKindBytes("def", entry.file, readFileBytes);
+  if (cancelled()) return cancelledResult;
   if (!defAttempt.ok) return { status: "read-error", error: defAttempt.error };
   const defBytes = defAttempt.bytes;
 
@@ -430,10 +502,62 @@ export async function loadCharacterFromChosenDef(
   if (zssEntry) toRead.push({ kind: "zss", entry: zssEntry });
 
   const bytesByKind = { def: defBytes } as LoadedFileBytes;
-  for (const { kind, entry: fileEntry } of toRead) {
+  const unreadable: UnreadableFile[] = [];
+  for (const [index, { kind, entry: fileEntry }] of toRead.entries()) {
+    options.onProgress?.({ step: "files", done: index, total: toRead.length });
     const attempt = await readKindBytes(kind, fileEntry.file, readFileBytes);
-    if (!attempt.ok) return { status: "read-error", error: attempt.error };
-    bytesByKind[kind] = attempt.bytes;
+    if (cancelled()) return cancelledResult;
+    if (attempt.ok) {
+      bytesByKind[kind] = attempt.bytes;
+      continue;
+    }
+    // The character opens without a sprite sheet, command or script file it
+    // could not read; air and cns carry the logic and have no safe stand-in.
+    if (kind === "air" || kind === "cns") {
+      return { status: "read-error", error: attempt.error };
+    }
+    unreadable.push({
+      kind,
+      fileName: attempt.error.fileName,
+      detail: attempt.error.message,
+    });
+  }
+  options.onProgress?.({
+    step: "files",
+    done: toRead.length,
+    total: toRead.length,
+  });
+
+  const sffBytes = bytesByKind.sff as Uint8Array | undefined;
+  if (sffBytes !== undefined) {
+    const version = unsupportedSffVersion(sffBytes);
+    if (version !== undefined) {
+      return {
+        status: "unsupported-version",
+        fileName: sffResolved.entry.file.name,
+        version,
+        supported: SUPPORTED_SFF_VERSIONS,
+      };
+    }
+  } else {
+    // The engine needs a sprite sheet to parse the rest: a blank one stands
+    // in until the user replaces the unreadable file.
+    try {
+      bytesByKind.sff = await (
+        options.fetchBlankSffBytes ?? defaultFetchBlankSffBytes
+      )();
+    } catch {
+      const failure = unreadable.find((file) => file.kind === "sff");
+      return {
+        status: "read-error",
+        error: {
+          kind: "sff",
+          fileName: failure?.fileName ?? sffResolved.entry.file.name,
+          message: failure?.detail ?? "",
+        },
+      };
+    }
+    if (cancelled()) return cancelledResult;
   }
 
   const sound = await readOptionalSound(
@@ -441,9 +565,18 @@ export async function loadCharacterFromChosenDef(
     files,
     readFileBytes,
   );
+  if (cancelled()) return cancelledResult;
   if (sound.bytes) bytesByKind.snd = sound.bytes;
   if (sound.issue) bytesByKind.sndIssue = sound.issue;
+  if (sound.unreadableDetail !== undefined) {
+    unreadable.push({
+      kind: "snd",
+      fileName: sound.fileName,
+      detail: sound.unreadableDetail,
+    });
+  }
 
+  options.onProgress?.({ step: "engine" });
   const loadWith = (sndBytes?: Uint8Array) =>
     loadCharacter(
       bytesByKind.def,
@@ -454,10 +587,12 @@ export async function loadCharacterFromChosenDef(
     );
 
   let result = await loadWith(sound.bytes);
+  if (cancelled()) return cancelledResult;
   if (!result.ok && sound.bytes) {
     // A wholly invalid .snd must not stop the rest of the character from
     // loading: retry without it and surface why the sounds are missing.
     const withoutSounds = await loadWith(undefined);
+    if (cancelled()) return cancelledResult;
     if (withoutSounds.ok) {
       bytesByKind.snd = undefined;
       bytesByKind.sndIssue = `${sound.fileName}: ${result.error}`;
@@ -466,6 +601,7 @@ export async function loadCharacterFromChosenDef(
   }
   if (!result.ok) return { status: "bridge-error", message: result.error };
 
+  options.onProgress?.({ step: "open" });
   return {
     status: "success",
     character: result.character,
@@ -473,6 +609,7 @@ export async function loadCharacterFromChosenDef(
     ...(zssResolution.status === "ambiguous"
       ? { zssAmbiguousCount: zssResolution.candidates.length }
       : {}),
+    ...(unreadable.length > 0 ? { unreadable } : {}),
   };
 }
 

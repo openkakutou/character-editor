@@ -1,0 +1,108 @@
+/* Problems (UX flow 002). Text uses the text token; the danger colour is an
+ * accent on the border only, and severity is carried by the icon and the word
+ * "Error", never by colour alone (style.md). Nothing animates, so reduced
+ * motion needs no special case. */
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-3) var(--wuik-space-4);
+  background: var(--wuik-color-surface);
+  color: var(--wuik-color-text);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-error);
+  border-radius: var(--wuik-radius-card);
+  text-align: start;
+}
+
+.problem:focus-visible {
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
+  outline-offset: var(--wuik-focus-ring-offset);
+}
+
+.problem p {
+  margin: 0;
+}
+
+.problem__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--wuik-space-2);
+}
+
+.problem__label {
+  font-weight: var(--wuik-font-weight-medium);
+  color: var(--wuik-color-text-muted);
+}
+
+.problem__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wuik-space-2);
+}
+
+.problem__tools[hidden],
+.problem__detail[hidden],
+.problem [hidden] {
+  display: none;
+}
+
+.problem__detail {
+  margin: 0;
+  padding: var(--wuik-space-2);
+  overflow-x: auto;
+  user-select: text;
+  font-family: var(--wuik-font-family-mono);
+  font-size: var(--wuik-font-size-sm);
+  background: var(--wuik-color-bg);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-radius: var(--wuik-radius-button);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.file-input__error[hidden],
+.file-input__progress[hidden],
+.file-input__dropzone[hidden] {
+  display: none;
+}
+
+.file-input__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  padding: var(--wuik-space-4);
+  background: var(--wuik-color-surface);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-radius: var(--wuik-radius-card);
+}
+
+.file-input__progress-title {
+  margin: 0;
+  font-size: var(--wuik-font-size-lg);
+}
+
+.file-input__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-1);
+}
+
+.file-input__steps li[data-state="current"] {
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.file-input__steps li[data-state="pending"] {
+  color: var(--wuik-color-text-muted);
+}
+
+.file-input__progress-note {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--wuik-color-text-muted);
+  font-size: var(--wuik-font-size-sm);
+}

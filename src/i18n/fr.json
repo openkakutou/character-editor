@@ -13,7 +13,83 @@
   },
   "errors": {
     "versionMismatchHeading": "Cette application ne peut pas démarrer",
-    "versionMismatchBody": "{{title}} nécessite @openkakutou/web-ui-kit v{{minVersion}} ou une version plus récente, mais v{{installedVersion}} a été trouvée. Mettez à jour la dépendance web-ui-kit et rechargez la page."
+    "versionMismatchBody": "{{title}} nécessite @openkakutou/web-ui-kit v{{minVersion}} ou une version plus récente, mais v{{installedVersion}} a été trouvée. Mettez à jour la dépendance web-ui-kit et rechargez la page.",
+    "file": {
+      "unreadable": {
+        "title": "Impossible de lire {{fileName}}",
+        "cause": "Le fichier est peut-être endommagé.",
+        "action": "Remplacez-le."
+      }
+    },
+    "load": {
+      "partial": {
+        "title": "Ouvert avec des fichiers illisibles",
+        "action": "Remplacez-les pour exporter un personnage complet."
+      },
+      "failed": {
+        "title": "Impossible d'ouvrir ce dossier",
+        "action": "Choisissez un autre dossier.",
+        "actionRetry": "Réessayez ou choisissez un autre dossier."
+      }
+    },
+    "format": {
+      "unsupportedVersion": {
+        "title": "Cette version ne peut pas être ouverte",
+        "cause": "{{fileName}} utilise la version {{version}}, que l'éditeur ne peut pas ouvrir.",
+        "action": "Réexportez-le depuis une version prise en charge ou choisissez un autre fichier."
+      }
+    },
+    "import": {
+      "image": {
+        "title": "Impossible d'importer ce sprite",
+        "cause": "L'image n'a pas pu être décodée.",
+        "action": "Choisissez un fichier PNG ou PCX."
+      },
+      "sprite": {
+        "title": "Impossible d'importer ce sprite",
+        "cause": "Le sprite ne peut pas être ajouté.",
+        "action": "Vérifiez l'image et réessayez."
+      },
+      "palette": {
+        "title": "Impossible d'importer cette palette",
+        "cause": "Le fichier de palette n'a pas pu être lu.",
+        "action": "Choisissez un fichier de palette .act."
+      },
+      "sound": {
+        "title": "Impossible d'importer ce son",
+        "cause": "Le fichier son n'a pas pu être lu.",
+        "action": "Choisissez un fichier WAV."
+      }
+    },
+    "preview": {
+      "failed": {
+        "title": "Aperçu indisponible pour ce sprite",
+        "action": "Remplacez l'image ou supprimez le sprite."
+      }
+    },
+    "wizard": {
+      "createFailed": {
+        "title": "Impossible de créer le personnage",
+        "action": "Vos saisies sont conservées. Réessayez ou annulez pour revenir en arrière."
+      }
+    },
+    "engine": {
+      "loadFailed": {
+        "title": "Le moteur de l'éditeur ne s'est pas chargé",
+        "action": "Vérifiez votre connexion, puis réessayez."
+      }
+    },
+    "unknown": {
+      "title": "Une erreur est survenue",
+      "action": "Réessayez. Si cela persiste, copiez les détails."
+    },
+    "details": {
+      "show": "Afficher les détails",
+      "hide": "Masquer les détails",
+      "copy": "Copier les détails",
+      "copied": "Copié"
+    },
+    "label": "Erreur"
   },
   "input": {
     "folderLabel": "Sélectionnez un dossier de personnage (contenant son fichier .def, par ex. kfm.def)",
@@ -35,7 +111,9 @@
     "errorReadFile": "Impossible de lire {{fileName}} : {{message}}",
     "errorReferenceMissingKey": "Le fichier .def sélectionné ne référence aucun fichier {{extension}}.",
     "errorReferenceNotFound": "Le fichier .def sélectionné référence « {{referencedName}} » pour son fichier {{extension}}, mais ce fichier est introuvable dans le dossier sélectionné.",
-    "errorReferenceAmbiguous": "Le fichier .def sélectionné référence « {{referencedName}} » pour son fichier {{extension}}, mais {{count}} fichiers du dossier portent ce nom — impossible de déterminer lequel utiliser."
+    "errorReferenceAmbiguous": "Le fichier .def sélectionné référence « {{referencedName}} » pour son fichier {{extension}}, mais {{count}} fichiers du dossier portent ce nom — impossible de déterminer lequel utiliser.",
+    "causeRead": "Impossible de lire {{fileName}}.",
+    "causeParse": "L'éditeur n'a pas compris ces fichiers de personnage."
   },
   "wizard": {
     "trigger": "Nouveau personnage",
@@ -388,5 +466,24 @@
   },
   "status": {
     "language": "Langue : {{language}}"
+  },
+  "progress": {
+    "title": "Ouverture du personnage",
+    "cancel": "Annuler",
+    "cancelled": "Chargement annulé",
+    "stillWorking": "Toujours en cours… les gros dossiers peuvent prendre un moment.",
+    "file": "Fichier {{done}} sur {{total}}",
+    "status": {
+      "done": "Terminé",
+      "current": "En cours",
+      "pending": "En attente"
+    },
+    "step": {
+      "folder": "Lecture du dossier",
+      "definition": "Recherche du fichier du personnage",
+      "files": "Lecture des fichiers",
+      "engine": "Chargement du moteur",
+      "open": "Ouverture du personnage"
+    }
   }
 }

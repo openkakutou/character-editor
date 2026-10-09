@@ -13,7 +13,83 @@
   },
   "errors": {
     "versionMismatchHeading": "This app can't start",
-    "versionMismatchBody": "{{title}} requires @openkakutou/web-ui-kit v{{minVersion}} or newer, but found v{{installedVersion}}. Update the web-ui-kit dependency and reload."
+    "versionMismatchBody": "{{title}} requires @openkakutou/web-ui-kit v{{minVersion}} or newer, but found v{{installedVersion}}. Update the web-ui-kit dependency and reload.",
+    "file": {
+      "unreadable": {
+        "title": "Couldn't read {{fileName}}",
+        "cause": "The file may be damaged.",
+        "action": "Replace it."
+      }
+    },
+    "load": {
+      "partial": {
+        "title": "Opened with unreadable files",
+        "action": "Replace them to export a complete character."
+      },
+      "failed": {
+        "title": "Couldn't open this folder",
+        "action": "Choose another folder.",
+        "actionRetry": "Try again or choose another folder."
+      }
+    },
+    "format": {
+      "unsupportedVersion": {
+        "title": "This version can't be opened",
+        "cause": "{{fileName}} uses version {{version}}, which this editor can't open.",
+        "action": "Export it from a supported version or choose another file."
+      }
+    },
+    "import": {
+      "image": {
+        "title": "Couldn't import this sprite",
+        "cause": "The image can't be decoded.",
+        "action": "Choose a PNG or PCX file."
+      },
+      "sprite": {
+        "title": "Couldn't import this sprite",
+        "cause": "The sprite can't be added.",
+        "action": "Check the image and try again."
+      },
+      "palette": {
+        "title": "Couldn't import this palette",
+        "cause": "The palette file can't be read.",
+        "action": "Choose an .act palette file."
+      },
+      "sound": {
+        "title": "Couldn't import this sound",
+        "cause": "The sound file can't be read.",
+        "action": "Choose a WAV file."
+      }
+    },
+    "preview": {
+      "failed": {
+        "title": "Preview unavailable for this sprite",
+        "action": "Replace the image or delete the sprite."
+      }
+    },
+    "wizard": {
+      "createFailed": {
+        "title": "Couldn't create the character",
+        "action": "Your entries are kept. Retry, or cancel to go back."
+      }
+    },
+    "engine": {
+      "loadFailed": {
+        "title": "The editor engine didn't load",
+        "action": "Check your connection, then retry."
+      }
+    },
+    "unknown": {
+      "title": "Something went wrong",
+      "action": "Try again. If it keeps happening, copy the details."
+    },
+    "details": {
+      "show": "Show details",
+      "hide": "Hide details",
+      "copy": "Copy details",
+      "copied": "Copied"
+    },
+    "label": "Error"
   },
   "input": {
     "folderLabel": "Select a character folder (containing its .def file, e.g. kfm.def)",
@@ -35,7 +111,9 @@
     "errorReadFile": "Could not read {{fileName}}: {{message}}",
     "errorReferenceMissingKey": "The selected .def doesn't reference a {{extension}} file at all.",
     "errorReferenceNotFound": "The selected .def references \"{{referencedName}}\" for its {{extension}} file, but that file wasn't found anywhere in the selected folder.",
-    "errorReferenceAmbiguous": "The selected .def references \"{{referencedName}}\" for its {{extension}} file, but {{count}} files in the folder share that name — could not tell which one to use."
+    "errorReferenceAmbiguous": "The selected .def references \"{{referencedName}}\" for its {{extension}} file, but {{count}} files in the folder share that name — could not tell which one to use.",
+    "causeRead": "Couldn't read {{fileName}}.",
+    "causeParse": "The editor couldn't understand these character files."
   },
   "wizard": {
     "trigger": "New character",
@@ -388,5 +466,24 @@
   },
   "status": {
     "language": "Language: {{language}}"
+  },
+  "progress": {
+    "title": "Opening the character",
+    "cancel": "Cancel",
+    "cancelled": "Loading cancelled",
+    "stillWorking": "Still working… large folders can take a moment.",
+    "file": "File {{done}} of {{total}}",
+    "status": {
+      "done": "Done",
+      "current": "In progress",
+      "pending": "Waiting"
+    },
+    "step": {
+      "folder": "Reading the folder",
+      "definition": "Finding the character file",
+      "files": "Reading the files",
+      "engine": "Loading the engine",
+      "open": "Opening the character"
+    }
   }
 }
