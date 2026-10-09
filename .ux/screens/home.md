@@ -3,6 +3,7 @@ slug: home
 title: Home
 flow: 001
 status: implemented
+revised-by: 002
 source: src/shell/home-view.ts, src/input/character-file-input-view.ts, src/wizard/new-character-wizard-view.ts
 ---
 
@@ -21,10 +22,11 @@ Centred column on the page background: product title, one sentence, a large `wui
 | State | Trigger | What the user sees | Primary action |
 |---|---|---|---|
 | Empty | App start | Drop zone, Open and New | Open folder |
-| Loading | Folder dropped or picked | Named steps (reading files, loading modules, parsing) with n/N when known, Cancel; picker disabled only while loading | Cancel |
-| Partial | Some files unreadable | Shell opens; banner "N files could not be loaded" with the list | Replace file |
+| Loading | Folder dropped or picked | Flow 002: ordered list of named steps shown after ~300 ms, current step marked with a status word, n/N when known after ~1 s, "still working" after ~10 s, Cancel always enabled; aria-busy on the progress region only | Cancel |
+| Partial | Some files unreadable | Shell opens on Identity; problems banner and badges (flow 002, screen problems-banner) | Replace file |
 | Success | Character ready | Shell on Identity, focus on its title | n/a |
-| Error | Read or parse failure, unsupported version | Cause, next step, Retry and Choose another folder; unsupported version shows found vs supported versions | Retry |
+| Error | Read or parse failure | Localized cause and next step (errors.load.failed), Retry only for transient causes, Choose another folder, Show/Copy details; unsupported version goes to screen version-blocked | Retry or Choose another folder |
+| Cancelled | Cancel pressed during loading | Home idle, picker enabled, "Loading cancelled" announced, focus on Open folder | Open folder |
 
 ## Interactions
 
