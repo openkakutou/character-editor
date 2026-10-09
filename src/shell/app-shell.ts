@@ -117,18 +117,10 @@ function badgeLabel(counts: SectionCounts): string {
   return parts.join(", ");
 }
 
-/**
- * Sets an ARIA attribute on a `wuik-button` host and on the native button in
- * its shadow root: the kit does not forward `aria-*` to the control that
- * actually takes focus, so a state set only on the host is never announced.
- */
+/** Sets or removes an attribute; the kit forwards `aria-*` to its inner button. */
 function setAria(host: HTMLElement, name: string, value: string | null): void {
-  const inner = host.shadowRoot?.querySelector("button");
-  for (const target of [host, inner]) {
-    if (!target) continue;
-    if (value === null) target.removeAttribute(name);
-    else target.setAttribute(name, value);
-  }
+  if (value === null) host.removeAttribute(name);
+  else host.setAttribute(name, value);
 }
 
 function button(

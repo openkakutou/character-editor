@@ -213,10 +213,10 @@ export function renderCharacterFileInput(
   const panel = document.createElement("div");
   panel.className = "file-input";
 
-  // The kit's drop zone is the drop target and the visible affordance. It can
-  // only pick loose files, so a click or Enter/Space on it is redirected (in
-  // the capture phase, before the zone's own handlers) to the folder picker.
+  // The kit's drop zone, in folder mode, is both the drop target and a folder
+  // picker of its own (click, Enter/Space).
   const dropZone = document.createElement("wuik-file-drop-zone");
+  dropZone.setAttribute("directory", "");
   dropZone.className = "file-input__dropzone";
 
   const label = document.createElement("strong");
@@ -493,24 +493,16 @@ export function renderCharacterFileInput(
     if (phase !== "loading") picker.click();
   }
 
-  dropZone.addEventListener(
-    "click",
-    (event) => {
-      event.stopPropagation();
-      openPicker();
-    },
-    true,
-  );
-  dropZone.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
-      openPicker();
-    },
-    true,
-  );
+  dropZone.addEventListener("wuik-files-selected", (event) => {
+    if (phase === "loading") return;
+    const { files, paths } = (
+      event as CustomEvent<{ files: File[]; paths: string[] }>
+    ).detail;
+    handleGathered(
+      files.map((file, index) => ({ file, relativePath: paths[index] })),
+      "drop",
+    );
+  });
   openFolderButton.addEventListener("click", openPicker);
   retryButton.addEventListener("click", () =>
     handleGathered(lastGatheredFiles, lastSource),
@@ -525,6 +517,8 @@ export function renderCharacterFileInput(
     event.preventDefault();
     if (!root.isConnected || options.isActive?.() === false) return;
     if (phase === "loading") return;
+    // A drop on the zone is handled by the zone itself.
+    if (event.composedPath().includes(dropZone)) return;
     const dataTransfer = (event as DragEvent).dataTransfer as unknown as {
       items: readonly DataTransferItemLike[];
     } | null;

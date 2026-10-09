@@ -78,4 +78,4 @@ Not built, left open for later designs (each is a deviation from the spec above,
 - `home.save.note.fs` and `showDirectoryPicker`: Open folder always uses the `webkitdirectory` picker; the note always says changes are saved by exporting.
 - Shortcuts help is a list of Alt+N rows plus the kit's remap panel, not a grouped table.
 - Section editors keep their own inner headings and native controls (restyled with `:where()` rules); their content is a separate redesign.
-- Known kit gaps: `wuik-button` does not forward `aria-*` to its inner button (worked around in the app), `wuik-file-drop-zone` has no folder mode (click and drop are redirected in the home view).
+- Former kit gaps (`wuik-button` not forwarding `aria-*`, `wuik-file-drop-zone` without folder mode) are closed by kit 0.17.0; the app's workarounds were removed.

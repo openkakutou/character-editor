@@ -57,7 +57,10 @@ function dispatchDrop(target: Element, entries: (EntryLike | null)[]): void {
       items: entries.map((entry) => ({ webkitGetAsEntry: () => entry })),
     },
   });
-  target.dispatchEvent(event);
+  // A real drop lands on the kit zone's inner element, inside its shadow root.
+  (target.shadowRoot?.querySelector('[role="button"]') ?? target).dispatchEvent(
+    event,
+  );
 }
 
 function picker(root: HTMLElement): HTMLInputElement {
@@ -297,34 +300,11 @@ describe("renderCharacterFileInput", () => {
   });
 
   describe("opening a folder from the kit drop zone", () => {
-    it("opens the folder picker when the drop zone is clicked, instead of the zone's loose-file picker", () => {
+    it("puts the kit drop zone in folder mode", () => {
       const root = document.createElement("div");
       renderCharacterFileInput(root, { onLoaded: vi.fn() });
-      const clickSpy = vi.spyOn(picker(root), "click");
-      const zoneClick = vi.fn();
-      dropZone(root).addEventListener("click", zoneClick);
 
-      dropZone(root).click();
-
-      expect(clickSpy).toHaveBeenCalledOnce();
-    });
-
-    it("opens the folder picker on Enter and Space, and ignores other keys", () => {
-      const root = document.createElement("div");
-      renderCharacterFileInput(root, { onLoaded: vi.fn() });
-      const clickSpy = vi.spyOn(picker(root), "click");
-
-      for (const key of ["Enter", " ", "a"]) {
-        dropZone(root).dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      }
-
-      expect(clickSpy).toHaveBeenCalledTimes(2);
+      expect(dropZone(root).hasAttribute("directory")).toBe(true);
     });
 
     it("opens the folder picker from the Open folder button", () => {
