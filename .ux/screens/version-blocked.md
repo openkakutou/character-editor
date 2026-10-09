@@ -2,7 +2,7 @@
 slug: version-blocked
 title: Unsupported version
 flow: 002
-status: designed
+status: validated
 source:
 ---
 

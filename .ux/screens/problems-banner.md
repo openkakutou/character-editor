@@ -2,7 +2,7 @@
 slug: problems-banner
 title: Problems banner
 flow: 002
-status: designed
+status: validated
 source:
 ---
 

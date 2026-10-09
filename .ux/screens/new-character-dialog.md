@@ -2,7 +2,7 @@
 slug: new-character-dialog
 title: New character dialog
 flow: 002
-status: designed
+status: validated
 source:
 ---
 

@@ -2,7 +2,7 @@
 slug: section-problems
 title: Section problems (local errors, imports, previews)
 flow: 002
-status: designed
+status: validated
 source:
 ---
 

@@ -1,7 +1,7 @@
 ---
 id: 002
 title: Robust loading, error and partial states
-status: designed
+status: validated
 date: 2026-10-09
 finding: F2 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it"
