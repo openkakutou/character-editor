@@ -1,0 +1,327 @@
+<title>États robustes Character Editor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Prototype 002 — robust states (reuses the 001 tokens). Tokens = web-ui-kit v0.15 (Studio), dark first. Copy in French (EN keys are in the specs). */
+:root{
+  --bg:#121214;--surface:#1a1a1e;--raised:#232328;--border:#33333a;--border-control:#6c6c78;
+  --text:#ececf0;--muted:#a4a4b0;--primary:#f59e0b;--on-primary:#1a1200;
+  --error:#f87171;--on-error:#09090b;--success:#4ade80;--warning:#fcd34d;--focus:#f59e0b;
+  --clsn1:#ff6b6b;--clsn2:#4cc9f0;
+  --shadow-card:0 4px 14px rgba(0,0,0,.28);--shadow-overlay:0 12px 32px rgba(0,0,0,.5);
+  --r-control:6px;--r-button:8px;--r-card:12px;--h:34px;
+  --font:'DM Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f3f2f0;--surface:#fffefd;--raised:#ebe9e6;--border:#d9d6d2;--border-control:#85817c;
+  --text:#1c1b1a;--muted:#5f5b57;--primary:#b45309;--on-primary:#fff;--error:#b91c1c;--on-error:#fff;
+  --success:#15803d;--warning:#8a4b00;--focus:#b45309;--clsn1:#c2181b;--clsn2:#0b6fa4;
+  --shadow-card:0 2px 8px rgba(0,0,0,.08);--shadow-overlay:0 10px 28px rgba(0,0,0,.18);color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f3f2f0;--surface:#fffefd;--raised:#ebe9e6;--border:#d9d6d2;--border-control:#85817c;
+  --text:#1c1b1a;--muted:#5f5b57;--primary:#b45309;--on-primary:#fff;--error:#b91c1c;--on-error:#fff;
+  --success:#15803d;--warning:#8a4b00;--focus:#b45309;--clsn1:#c2181b;--clsn2:#0b6fa4;
+  --shadow-card:0 2px 8px rgba(0,0,0,.08);--shadow-overlay:0 10px 28px rgba(0,0,0,.18);color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 .875rem/1.45 var(--font);overflow:hidden}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+button,input,select{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:8px;top:-60px;background:var(--primary);color:var(--on-primary);padding:8px 12px;border-radius:var(--r-button);z-index:50}
+.skip:focus{top:8px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:var(--h);padding:0 14px;border-radius:var(--r-button);border:1px solid var(--border-control);background:var(--raised);cursor:pointer;font-weight:500;white-space:nowrap;transition:background .16s}
+.btn:hover{background:color-mix(in srgb,var(--raised) 85%,var(--text))}
+.btn.primary{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}
+.btn.primary:hover{background:color-mix(in srgb,var(--primary) 88%,var(--text))}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--raised)}
+.btn.danger{background:transparent;border-color:var(--error);color:var(--text)}
+.btn[aria-disabled="true"],.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.icon{padding:0;width:var(--h);justify-content:center}
+svg.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* layout */
+#bar{position:fixed;inset:0 0 auto 0;height:46px;z-index:40;display:flex;align-items:center;gap:10px;padding:0 12px;background:#000;color:#fff;font-size:.8125rem;border-bottom:2px solid var(--primary);overflow-x:auto;white-space:nowrap}
+#bar b{background:var(--primary);color:var(--on-primary);padding:2px 8px;border-radius:4px;letter-spacing:.06em;text-transform:uppercase;font-size:.6875rem}
+#bar select,#bar button{min-height:28px;border-radius:6px;border:1px solid #666;background:#1d1d1d;color:#fff;padding:0 8px;cursor:pointer}
+#bar .ann{margin-left:auto;display:flex;gap:6px;align-items:center;color:#d8d8d8;max-width:46ch;overflow:hidden;text-overflow:ellipsis}
+#bar .ann i{font-style:normal;font-size:.6875rem;padding:1px 6px;border-radius:4px;background:#333}
+#bar .ann i.a{background:var(--error);color:#000}
+#stage{position:fixed;inset:46px 0 0 0;background:var(--bg)}
+#app{height:100%;display:grid;grid-template-rows:auto auto 1fr;min-height:0}
+header.bar2{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+header.bar2 .brand{font-weight:700}.sp{flex:1}
+.status-save{color:var(--muted);font-size:.8125rem}
+.body{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:0}
+nav.side{background:var(--surface);border-right:1px solid var(--border);overflow:auto;padding:12px 8px}
+nav.side ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.nav{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:0 10px;border:0;border-radius:var(--r-control);background:transparent;cursor:pointer;text-align:left}
+.nav:hover{background:var(--raised)}
+.nav[aria-current="page"]{background:var(--raised);font-weight:500;box-shadow:inset 2px 0 0 var(--primary)}
+.nav .lbl{flex:1}
+.badge{display:inline-flex;align-items:center;gap:3px;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font:500 .75rem var(--mono);justify-content:center;background:var(--error);color:var(--on-error)}
+.badge::before{content:"✕";font-size:.625rem}
+.grp{font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
+main{overflow:auto;min-height:0;padding:24px}
+main>.sec{max-width:1000px;margin:0 auto;display:grid;gap:16px}
+.hdr{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:16px 20px}
+.hdr h1{font-size:1.25rem;outline:none}.hdr p{color:var(--muted);margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:16px 20px}
+label.f{display:grid;gap:4px;font-weight:500}
+input.t{min-height:var(--h);padding:0 10px;border:1px solid var(--border-control);border-radius:var(--r-control);background:var(--raised);font-family:var(--mono)}
+/* banner */
+#banner{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px}
+#banner section{border:1px solid var(--error);border-radius:var(--r-control);padding:10px 14px;display:grid;gap:8px;max-width:1000px;margin:0 auto}
+#banner h2{font-size:.9375rem;display:flex;gap:8px;align-items:center;outline:none}
+#banner ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+#banner li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 8px;background:var(--raised);border-radius:var(--r-control)}
+#banner li .why{flex:1;min-width:200px}
+.mono{font-family:var(--mono)}
+.errmsg{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--error);border-radius:var(--r-control);padding:8px 12px;background:var(--surface)}
+.errmsg b{white-space:nowrap}
+.errmsg .x{margin-left:auto}
+details.d{margin-top:4px;color:var(--muted)}details.d pre{margin:4px 0 0;padding:8px;background:var(--bg);border-radius:6px;font:.75rem var(--mono);white-space:pre-wrap;user-select:text}
+/* home */
+.home{height:100%;overflow:auto;display:grid;place-items:center;padding:24px}
+.col{width:min(560px,100%);display:grid;gap:18px}
+.home h1{font-size:1.75rem;outline:none}
+.drop{border:2px dashed var(--border-control);border-radius:var(--r-card);padding:36px 20px;text-align:center;background:var(--surface);color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+ol.steps li{display:flex;gap:10px;align-items:center;color:var(--muted)}
+ol.steps li[aria-current="step"]{color:var(--text);font-weight:500}
+ol.steps .w{margin-left:auto;font:.75rem var(--mono)}
+.glyph{width:14px;text-align:center}
+.spin{display:inline-block;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+/* version */
+dl.v{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0}dl.v dt{color:var(--muted)}dl.v dd{margin:0;font-family:var(--mono)}
+/* dialogs */
+.scrim{position:fixed;inset:46px 0 0 0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:30;padding:16px}
+.dlg{width:min(480px,100%);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:20px;box-shadow:var(--shadow-overlay);display:grid;gap:14px}
+.dlg h2{font-size:1.0625rem;outline:none}.dlg .foot{display:flex;gap:10px;justify-content:flex-end}
+.opt{display:flex;gap:8px;align-items:center}
+/* sprites */
+.sprites{display:grid;gap:6px;list-style:none;margin:0;padding:0}
+.sprites li{display:flex;gap:12px;align-items:center;padding:6px 10px;background:var(--raised);border-radius:var(--r-control)}
+.thumb{width:56px;height:56px;border-radius:6px;background:repeating-conic-gradient(#8884 0 25%,#0000 0 50%) 50%/12px 12px;display:grid;place-items:center;overflow:hidden;flex:none}
+.thumb i{width:26px;height:44px;border-radius:14px 14px 4px 4px;background:#7c8aa0}
+.thumb.bad{background:var(--bg);border:1px dashed var(--error);font-size:.625rem;text-align:center;color:var(--muted);padding:2px}
+.skel{height:14px;width:36px;border-radius:6px;background:var(--border)}
+.notice{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--warning);border-radius:var(--r-control);padding:8px 12px}
+/* step markers */
+.markers [data-step]{position:relative}
+.markers [data-step]::after{content:attr(data-step);position:absolute;top:-10px;left:-10px;min-width:20px;height:20px;border-radius:50%;background:#2563eb;color:#fff;font:700 .6875rem var(--font);display:grid;place-items:center;z-index:5;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+<div id="bar" role="toolbar" aria-label="Barre du prototype">
+  <b>prototype</b>
+  <label>Résultat du chargement
+    <select id="outcome">
+      <option value="success">Succès</option>
+      <option value="partial" selected>Partiel (2 fichiers illisibles)</option>
+      <option value="transient">Échec transitoire</option>
+      <option value="permanent">Échec permanent (aucun .def)</option>
+      <option value="version">Version non supportée</option>
+      <option value="engine">Moteur indisponible</option>
+    </select></label>
+  <button id="b-home">Accueil</button>
+  <button id="b-markers" aria-pressed="false">Repères</button>
+  <button id="b-theme">Thème</button>
+  <span class="ann" aria-hidden="true"><i id="ann-k">annonce</i><span id="ann-t">—</span></span>
+</div>
+<div id="stage"><div id="app"></div></div>
+<div class="sr" role="status" aria-live="polite" id="live-p"></div>
+<div class="sr" role="alert" id="live-a"></div>
+<script>
+"use strict";
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SECTIONS=[["identity","Identité","Personnage"],["sprites","Sprites","Ressources"],["sounds","Sons","Ressources"],["palettes","Palettes","Ressources"],["states","États","Logique"],["commands","Commandes","Logique"],["animations","Animations","Logique"],["output","Export","Sortie"]];
+const DESC={identity:"Nom, auteur et fichiers référencés du personnage.",sprites:"Les images du personnage, par groupe et numéro.",sounds:"Les sons joués par le personnage.",palettes:"Les palettes de couleurs.",states:"Les StateDef et leurs contrôleurs.",commands:"Les commandes et leurs entrées.",animations:"Les animations et leurs boîtes de collision.",output:"Vérifier les problèmes puis exporter."};
+const STEPS=["Lecture du dossier","Lecture de la définition (.def)","Chargement du moteur","Lecture des sprites et des sons","Contrôle du personnage"];
+const FILES={"kfm.sff":{section:"sprites",cause:"Le fichier est endommagé (en-tête SFF invalide).",detail:"sff: bad signature at offset 0 (got 0x00000000)"},"kfm.snd":{section:"sounds",cause:"Format non reconnu.",detail:"snd: unexpected EOF reading subfile 12"}};
+let S, loadToken=0, wizardTries=0, engineTries=0, announceN=0;
+function fresh(){return{view:"home",phase:"idle",step:0,showSteps:false,showCount:false,section:"identity",issues:[],undo:[],redo:[],saved:null,dialog:null,picker:null,engine:"ok",previews:{},importErr:null,wizardErr:false,wizardBusy:false,name:"",sprites:[["0,0","Debout 1"],["0,1","Debout 2"],["20,0","Marche 1"],["9000,1","Portrait"]],loadErr:null,version:null}}
+S=fresh();
+function announce(text,assertive){const k=assertive?"alerte":"annonce";$("#ann-k").textContent=k;$("#ann-k").className=assertive?"a":"";$("#ann-t").textContent=text;const r=$(assertive?"#live-a":"#live-p");r.textContent="";setTimeout(()=>r.textContent=text,50)}
+function focus(sel){requestAnimationFrame(()=>{const e=document.querySelector(sel);if(e)e.focus()})}
+const count=sec=>S.issues.filter(i=>i.section===sec).length+(S.engine!=="ok"&&["sprites","animations"].includes(sec)?1:0);
+const loadIssues=()=>S.issues.filter(i=>i.source==="load");
+const icon=(c)=>`<span aria-hidden="true">${c}</span>`;
+/* ---------- render ---------- */
+function render(){
+  const app=$("#app");
+  if(S.view==="home")app.innerHTML=homeHTML();
+  else if(S.view==="version")app.innerHTML=versionHTML();
+  else app.innerHTML=shellHTML();
+  if(S.dialog)app.insertAdjacentHTML("beforeend",dialogHTML());
+  if(S.picker)app.insertAdjacentHTML("beforeend",pickerHTML());
+}
+function homeHTML(){
+  let inner;
+  if(S.phase==="loading"){
+    inner=`<section aria-labelledby="ptitle" aria-busy="true" data-step="1" class="card"><h2 id="ptitle" tabindex="-1">Ouverture du personnage…</h2>
+    ${S.showSteps?`<ol class="steps">${STEPS.map((s,i)=>{const st=i<S.step?"fait":i===S.step?"en cours":"";return`<li ${i===S.step?'aria-current="step"':""}><span class="glyph" aria-hidden="true">${i<S.step?"✓":i===S.step?"◐":"○"}</span>${esc(s)}<span class="w">${st}${i===S.step&&S.showCount?` · étape ${i+1}/${STEPS.length}`:""}</span></li>`}).join("")}</ol>`:`<p class="status-save">Lecture du dossier…</p>`}
+    <div class="actions" style="margin-top:12px"><button class="btn" id="cancel" data-step="2a">Annuler</button></div></section>`;
+  }else if(S.phase==="error"){
+    const e=S.loadErr;
+    inner=`<section class="card" aria-labelledby="etitle" data-step="2c" style="display:grid;gap:10px"><h2 id="etitle" tabindex="-1">${esc(e.title)}</h2><p>${esc(e.cause)} ${esc(e.action)}</p>
+    <details class="d"><summary>Afficher les détails</summary><pre>${esc(e.detail)}</pre><button class="btn ghost" data-copy>Copier les détails</button></details>
+    <div class="actions">${e.transient?`<button class="btn primary" id="retry">Réessayer</button>`:""}<button class="btn ${e.transient?"":"primary"}" id="open">Choisir un autre dossier</button></div></section>`;
+  }else{
+    inner=`<div class="drop">Déposez un dossier de personnage ici</div><div class="actions"><button class="btn primary" id="open">Ouvrir un dossier</button><button class="btn" id="new">Nouveau personnage</button></div><p class="status-save">Les modifications sont enregistrées par export.</p>${S.phase==="cancelled"?`<p class="status-save" role="presentation">Chargement annulé.</p>`:""}`;
+  }
+  return`<div class="home"><div class="col"><h1 id="h-home" tabindex="-1">Éditeur de personnage</h1>${S.phase==="idle"||S.phase==="cancelled"?"<p>Déposez un dossier de personnage, ou partez de zéro.</p>":""}${inner}</div></div>`;
+}
+function versionHTML(){const v=S.version;return`<div class="home"><div class="col"><section class="card" style="display:grid;gap:12px" data-step="2d"><h1 id="vtitle" tabindex="-1">Cette version ne peut pas être ouverte</h1>
+<p>${esc(v.file)} utilise la version ${esc(v.found)}, que l'éditeur ne peut pas ouvrir. Réexportez-le depuis une version prise en charge ou choisissez un autre fichier.</p>
+<dl class="v"><dt>Trouvée</dt><dd>${esc(v.found)}</dd><dt>Prise en charge</dt><dd>${esc(v.supported)}</dd></dl>
+<div class="actions"><button class="btn primary" id="back-home">Retour à l'accueil</button><button class="btn" id="open">Choisir un autre dossier</button></div></section></div></div>`}
+function bannerHTML(){
+  const eng=S.issues.find(i=>i.source==="engine"), files=loadIssues();
+  if(!eng&&!files.length&&S.engine==="ok")return"";
+  let h="";
+  if(S.engine!=="ok"){
+    const busy=S.engine==="retrying";
+    h+=`<section aria-labelledby="bt-e" data-step="6"><h2 id="bt-e" tabindex="-1">${icon("✕")} Le moteur de l'éditeur ne s'est pas chargé</h2>
+    <p>${S.engineMsg?esc(S.engineMsg)+" ":""}Vérifiez votre connexion, puis réessayez.</p>
+    <details class="d"><summary>Afficher les détails</summary><pre>wasm: fetch failed: TypeError: NetworkError when attempting to fetch resource</pre></details>
+    <div class="actions"><button class="btn primary" id="retry-engine" data-step="7" ${busy?'aria-disabled="true"':""}>${busy?`<span class="spin" aria-hidden="true">◐</span> Nouvelle tentative…`:"Réessayer"}</button></div></section>`;
+  }
+  if(files.length){
+    h+=`<section aria-labelledby="bt-f" data-step="2b" style="${S.engine!=="ok"?"margin-top:8px":""}"><h2 id="bt-f" tabindex="-1">${icon("✕")} ${files.length} ${files.length>1?"fichiers n'ont pas pu être lus":"fichier n'a pas pu être lu"}
+    <button class="btn ghost" id="collapse" aria-expanded="${!S.collapsed}" style="margin-left:auto">${S.collapsed?"Développer":"Réduire"}</button></h2>
+    ${S.collapsed?"":`<p class="status-save">Ces fichiers sont exclus de l'export tant que vous ne les remplacez pas.</p><ul>${files.map(i=>`<li><span class="mono">${esc(i.file)}</span><span class="why">${esc(i.cause)}</span>
+    <details class="d"><summary>Afficher les détails</summary><pre>${esc(i.detail)}</pre></details>
+    <button class="btn" data-replace="${esc(i.file)}" data-step="4" ${i.busy?'aria-disabled="true"':""}>${i.busy?"Remplacement…":"Remplacer le fichier"}</button></li>`).join("")}</ul>`}</section>`;
+  }
+  return h;
+}
+function shellHTML(){
+  const groups=[...new Set(SECTIONS.map(s=>s[2]))];
+  const nav=groups.map(g=>`<div class="grp">${g}</div><ul>${SECTIONS.filter(s=>s[2]===g).map(([id,l])=>{const n=count(id);return`<li><button class="nav" data-go="${id}" ${S.section===id?'aria-current="page"':""}><span class="lbl">${l}</span>${n?`<span class="badge" aria-hidden="true">${n}</span><span class="sr">${n} problème${n>1?"s":""}</span>`:""}</button></li>`}).join("")}</ul>`).join("");
+  const [,title]=SECTIONS.find(s=>s[0]===S.section);
+  return`<header class="bar2"><span class="brand">Éditeur de personnage</span><span class="status-save">Kung Fu Man</span><span class="sp"></span>
+  <button class="btn" id="undo" ${S.undo.length?"":"disabled"}>Annuler : ${S.undo.length?esc(S.undo[S.undo.length-1].label):"rien"}</button><button class="btn" id="redo" ${S.redo.length?"":"disabled"}>Rétablir</button>
+  <button class="btn" id="other">Ouvrir un autre</button><span class="status-save" id="saved">${S.saved?"Enregistré à "+S.saved:""}</span><button class="btn primary" id="export">Exporter</button></header>
+  <div id="banner">${bannerHTML()}</div>
+  <div class="body"><nav class="side" aria-label="Sections">${nav}</nav><main><div class="sec"><div class="hdr"><h1 id="sec-title" tabindex="-1">${title}</h1><p>${DESC[S.section]}</p></div>${sectionHTML()}</div></main></div>`;
+}
+function depCard(sec,file){const i=S.issues.find(x=>x.file===file);if(!i)return"";return`<div class="card" style="display:grid;gap:8px" data-step="3"><h2 style="font-size:1rem">${SECTIONS.find(s=>s[0]===sec)[1]} ne peut pas être affiché</h2><p>${esc(i.cause)} Remplacez ${esc(file)} pour afficher cette section.</p><div class="actions"><button class="btn primary" data-replace="${esc(file)}" ${i.busy?'aria-disabled="true"':""}>${i.busy?"Remplacement…":"Remplacer le fichier"}</button></div></div>`}
+function engineCard(){return`<div class="card" style="display:grid;gap:8px"><h2 style="font-size:1rem">${S.section==="sprites"?"Sprites":"Animations"} ne peut pas être affiché</h2><p>Le moteur de l'éditeur n'est pas chargé. Réessayez.</p><div class="actions"><button class="btn primary" data-retry-engine ${S.engine==="retrying"?'aria-disabled="true"':""}>${S.engine==="retrying"?"Nouvelle tentative…":"Réessayer"}</button></div></div>`}
+function sectionHTML(){
+  const s=S.section;
+  if(s==="sprites"){
+    if(S.issues.some(i=>i.file==="kfm.sff"))return depCard("sprites","kfm.sff");
+    if(S.engine!=="ok")return engineCard();
+    const bad=S.sprites.filter(([k])=>S.previews[k]==="bad"||S.previews[k]==="broken");
+    return`${S.importErr?`<div class="errmsg" id="import-err" data-step="9"><b>${icon("✕")} Erreur</b><div>Impossible d'importer ce sprite. L'image n'a pas pu être décodée. Choisissez un fichier PNG ou PCX.<details class="d"><summary>Afficher les détails</summary><pre>png: invalid chunk length at 0x21</pre></details></div><button class="btn ghost x" id="dismiss-import" aria-label="Fermer le message">✕</button></div>`:""}
+    <div><button class="btn primary" id="import">Importer un sprite</button></div>
+    ${bad.length>1?`<div class="notice" data-step="10"><span>${icon("!")} ${bad.length} aperçus indisponibles</span><button class="btn" id="retry-all">Tout réessayer</button></div>`:""}
+    <ul class="sprites">${S.sprites.map(([k,n])=>{const p=S.previews[k];return`<li><div class="thumb ${p==="bad"||p==="broken"?"bad":""}" ${p==="loading"?'aria-busy="true"':""}>${p==="loading"?'<span class="skel"></span>':p==="bad"||p==="broken"?"indisponible":'<i></i>'}</div><div><b class="mono">${k}</b> ${esc(n)}${p==="broken"?`<div class="status-save">Aperçu indisponible pour ce sprite. Remplacez l'image ou supprimez le sprite.</div>`:p==="bad"?`<div class="status-save">Aperçu indisponible pour ce sprite.</div>`:""}</div>${p==="bad"||p==="broken"?`<button class="btn" data-retry-prev="${k}" style="margin-left:auto">Réessayer</button>`:""}</li>`}).join("")}</ul>`;
+  }
+  if(s==="sounds"){ if(S.issues.some(i=>i.file==="kfm.snd"))return depCard("sounds","kfm.snd"); return`<div class="card">12 sons chargés.</div>`}
+  if(s==="animations"){ if(S.engine!=="ok")return engineCard(); return`<div class="card">42 animations.</div>`}
+  if(s==="identity")return`<div class="card"><label class="f">Nom du personnage<input class="t" id="name" value="${esc(S.name||"Kung Fu Man")}"></label></div>`;
+  if(s==="output")return`<div class="card">${loadIssues().length?`<p>${loadIssues().length} fichier(s) illisible(s) ne seront pas inclus dans l'export.</p>`:"Aucun problème."}</div>`;
+  return`<div class="card status-save">Contenu de la section (hors périmètre de ce prototype).</div>`;
+}
+function dialogHTML(){
+  if(S.dialog==="wizard")return`<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="wt"><h2 id="wt" tabindex="-1">Nouveau personnage</h2>
+  <label class="f">Nom<input class="t" id="wname" value="${esc(S.name)}" placeholder="Mon personnage"></label>
+  <fieldset style="border:0;padding:0;display:grid;gap:6px"><legend>Modèle</legend><label class="opt"><input type="radio" name="tpl" checked> Vide</label><label class="opt"><input type="radio" name="tpl"> De base (états et animations)</label></fieldset>
+  ${S.wizardErr?`<div class="errmsg" id="werr" tabindex="-1" data-step="8"><b>${icon("✕")} Erreur</b><div><strong>Impossible de créer le personnage</strong><br>Vos saisies sont conservées. Réessayez ou annulez pour revenir en arrière.<details class="d"><summary>Afficher les détails</summary><pre>wasm: createCharacter: out of memory</pre></details></div></div>`:""}
+  <div class="foot"><button class="btn" id="wcancel">Annuler</button><button class="btn primary" id="wcreate" ${S.wizardBusy?'aria-disabled="true"':""}>${S.wizardBusy?`<span class="spin" aria-hidden="true">◐</span> Création…`:"Créer"}</button></div></div></div>`;
+  if(S.dialog==="export")return`<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="xt" data-step="5"><h2 id="xt" tabindex="-1">Exporter sans ${loadIssues().length} fichier(s) ?</h2>
+  <p>Ces fichiers sont illisibles et ne seront pas inclus dans l'export :</p><ul>${loadIssues().map(i=>`<li class="mono">${esc(i.file)}</li>`).join("")}</ul>
+  <div class="foot"><button class="btn" id="xcancel">Annuler</button><button class="btn primary" id="xgo">Exporter quand même</button></div></div></div>`;
+  return"";
+}
+function pickerHTML(){const p=S.picker;return`<div class="scrim"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="pt"><h2 id="pt" tabindex="-1">Choisir un fichier (simulation)</h2>
+<p class="status-save">Le sélecteur natif est remplacé par deux fichiers fictifs.</p>
+<button class="btn" data-pick="ok">${esc(p.ok)} — valide</button><button class="btn" data-pick="bad">${esc(p.bad)} — invalide</button><div class="foot"><button class="btn ghost" data-pick="cancel">Annuler</button></div></div></div>`}
+/* ---------- behaviour ---------- */
+function goHome(){loadToken++;S=fresh();render();focus("#open")}
+function startLoad(){
+  const token=++loadToken;S.phase="loading";S.step=0;S.showSteps=false;S.showCount=false;render();announce("Lecture du dossier…");focus("#cancel");
+  setTimeout(()=>{if(token===loadToken){S.showSteps=true;render();focus("#cancel")}},300);
+  setTimeout(()=>{if(token===loadToken){S.showCount=true;render();focus("#cancel")}},1000);
+  const tick=()=>{ if(token!==loadToken)return; S.step++; if(S.step>=STEPS.length)return finishLoad(token); announce("Étape "+(S.step+1)+" sur "+STEPS.length+" : "+STEPS[S.step]); if(S.showSteps){render();focus("#cancel")} setTimeout(tick,800)};
+  setTimeout(tick,800);
+}
+function finishLoad(token){
+  if(token!==loadToken)return; const o=$("#outcome").value;
+  if(o==="transient"){S.phase="error";S.loadErr={transient:true,title:"Impossible d'ouvrir ce personnage",cause:"Le dossier n'a pas pu être lu.",action:"Réessayez, ou choisissez un autre dossier.",detail:"NotReadableError: The requested file could not be read, typically due to permission problems"};render();announce("Impossible d'ouvrir ce personnage. Le dossier n'a pas pu être lu.",true);return focus("#etitle")}
+  if(o==="permanent"){S.phase="error";S.loadErr={transient:false,title:"Impossible d'ouvrir ce personnage",cause:"Aucun fichier .def dans le dossier.",action:"Choisissez le dossier qui le contient, par exemple kfm.def.",detail:"load: no .def found among 14 files"};render();announce("Impossible d'ouvrir ce personnage. Aucun fichier .def dans le dossier.",true);return focus("#etitle")}
+  if(o==="version"){S.view="version";S.version={file:"kfm.def",found:"3.0",supported:"1.0 – 2.1"};render();announce("Cette version ne peut pas être ouverte.",true);return focus("#vtitle")}
+  openShell(o);
+}
+function openShell(o){
+  S.view="shell";S.phase="idle";S.section="identity";S.issues=[];S.undo=[];S.redo=[];S.saved=null;S.engine="ok";S.previews={"0,5":"x","20,0":"bad","9000,1":"broken"};S.sprites=[["0,0","Debout 1"],["0,1","Debout 2"],["20,0","Marche 1"],["9000,1","Portrait"]];
+  if(o==="partial")Object.entries(FILES).forEach(([f,v])=>S.issues.push({id:f,source:"load",file:f,section:v.section,cause:v.cause,detail:v.detail}));
+  if(o==="engine"){S.engine="failed";S.engineMsg="";engineTries=0}
+  render();
+  if(o==="partial")announce("Ouvert, 2 fichiers illisibles.");else if(o==="engine")announce("Le moteur de l'éditeur ne s'est pas chargé.",true);else announce("Personnage ouvert.");
+  focus("#sec-title");
+}
+function replaceStart(file){S.picker={file,ok:file,bad:"corrompu"+file.slice(file.lastIndexOf("."))};render();focus("#pt")}
+function replaceDone(kind){
+  const file=S.picker.file;S.picker=null;
+  if(kind==="cancel"){render();return focus(`[data-replace="${file}"]`)}
+  const i=S.issues.find(x=>x.file===file);
+  if(kind==="bad"){i.cause="Le fichier choisi n'est pas un "+file.split(".").pop().toUpperCase()+" valide.";i.detail="validate: signature mismatch";render();announce("Remplacement impossible : "+i.cause,true);return focus(`#banner [data-replace="${file}"]`)}
+  const idx=loadIssues().findIndex(x=>x.file===file);S.issues=S.issues.filter(x=>x.file!==file);S.undo.push({label:"Remplacer "+file,issue:i});S.redo=[];
+  render();const left=loadIssues();announce("Fichier remplacé, "+(left.length||"aucun")+" restant"+(left.length>1?"s":"")+".");
+  if(left.length)focus(`#banner [data-replace="${left[Math.min(idx,left.length-1)].file}"]`);else focus("#sec-title");
+}
+function previewRetry(keys){keys.forEach(k=>S.previews[k]="loading");render();setTimeout(()=>{keys.forEach(k=>{S.previews[k]=k==="9000,1"?"broken":"x"});render();const f=keys.some(k=>k==="9000,1");if(f)announce("Aperçu indisponible pour ce sprite.",true)},700)}
+function doExport(){const d=new Date();S.saved=d.toTimeString().slice(0,5);S.dialog=null;render();announce("Enregistré à "+S.saved+".");focus("#export")}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.id==="open"||t.id==="retry"){if(S.phase!=="loading")startLoad()}
+  else if(t.id==="cancel"){loadToken++;S.phase="cancelled";render();announce("Chargement annulé.");focus("#open")}
+  else if(t.id==="new"){S.dialog="wizard";S.wizardErr=false;S.wizardBusy=false;wizardTries=0;S.name="";render();focus("#wname")}
+  else if(t.id==="wcancel"){S.dialog=null;render();focus("#new")}
+  else if(t.id==="wcreate"){
+    if(S.wizardBusy)return;S.name=$("#wname").value;S.wizardBusy=true;S.wizardErr=false;render();focus("#wcreate");announce("Création…");
+    setTimeout(()=>{S.wizardBusy=false;wizardTries++;if(wizardTries===1){S.wizardErr=true;render();announce("Impossible de créer le personnage. Vos saisies sont conservées.",true);focus("#werr")}else{S.dialog=null;openShell("success");S.name=S.name;focus("#name")}},900);
+  }
+  else if(t.id==="back-home")goHome();
+  else if(t.id==="retry-engine"||t.hasAttribute("data-retry-engine")){
+    if(S.engine==="retrying")return;S.engine="retrying";S.engineMsg="";render();announce("Nouvelle tentative…");focus(t.id?"#"+t.id:"[data-retry-engine]");
+    setTimeout(()=>{engineTries++;if(engineTries===1){S.engine="failed";S.engineMsg="La nouvelle tentative a échoué.";render();announce("Le moteur de l'éditeur ne s'est pas chargé.",true);focus("#retry-engine")}else{S.engine="ok";S.engineMsg="";render();announce("Moteur chargé.");focus("#sec-title")}},1200);
+  }
+  else if(t.dataset.go){S.section=t.dataset.go;render();focus("#sec-title");announce(SECTIONS.find(s=>s[0]===S.section)[1])}
+  else if(t.id==="collapse"){S.collapsed=!S.collapsed;render();focus("#collapse")}
+  else if(t.dataset.replace){if(t.getAttribute("aria-disabled")!=="true")replaceStart(t.dataset.replace)}
+  else if(t.dataset.pick)replaceDone(t.dataset.pick);
+  else if(t.id==="undo"&&S.undo.length){const c=S.undo.pop();S.issues.push(c.issue);S.redo.push(c);render();announce("Annulé : "+c.label+".");focus("#undo")}
+  else if(t.id==="redo"&&S.redo.length){const c=S.redo.pop();S.issues=S.issues.filter(x=>x.file!==c.issue.file);S.undo.push(c);render();announce("Rétabli : "+c.label+".");focus("#redo")}
+  else if(t.id==="other")goHome();
+  else if(t.id==="export"){if(loadIssues().length){S.dialog="export";render();focus("#xt")}else doExport()}
+  else if(t.id==="xcancel"){S.dialog=null;render();focus("#export")}
+  else if(t.id==="xgo")doExport();
+  else if(t.id==="import"){S.picker={file:"sprite",ok:"hero.png",bad:"corrompu.png",import:true};render();focus("#pt")}
+  else if(t.id==="dismiss-import"){S.importErr=null;S.issues=S.issues.filter(i=>i.source!=="action");render();focus("#import")}
+  else if(t.id==="retry-all"){previewRetry(Object.keys(S.previews).filter(k=>S.previews[k]==="bad"||S.previews[k]==="broken"))}
+  else if(t.dataset.retryPrev)previewRetry([t.dataset.retryPrev]);
+  else if(t.hasAttribute("data-copy")){announce("Détails copiés.")}
+},true);
+/* the import picker reuses the replace picker: route its result */
+const origReplaceDone=replaceDone;
+replaceDone=function(kind){
+  if(S.picker&&S.picker.import){S.picker=null;
+    if(kind==="cancel"){render();return focus("#import")}
+    if(kind==="bad"){S.importErr=true;S.issues=S.issues.filter(i=>i.source!=="action");S.issues.push({id:"imp",source:"action",section:"sprites"});render();announce("Impossible d'importer ce sprite. L'image n'a pas pu être décodée.",true);return focus("#import-err")}
+    S.importErr=null;S.issues=S.issues.filter(i=>i.source!=="action");S.sprites.push(["20,1","Marche 2"]);render();announce("Sprite importé.");return focus("#import")}
+  return origReplaceDone(kind);
+};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(S.picker){const imp=S.picker.import;S.picker=null;render();focus(imp?"#import":"#banner [data-replace]")}else if(S.dialog==="wizard"){S.dialog=null;render();focus("#new")}else if(S.dialog==="export"){S.dialog=null;render();focus("#export")}}});
+$("#b-home").onclick=goHome;
+$("#b-markers").onclick=e=>{const on=document.body.classList.toggle("markers");e.currentTarget.setAttribute("aria-pressed",on)};
+$("#b-theme").onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==="light"?"dark":"light"};
+render();
+</script>

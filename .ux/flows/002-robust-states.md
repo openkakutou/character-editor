@@ -7,7 +7,7 @@ finding: F2 (audit 2026-10-08)
 job: "1 — open an existing character, change one thing, export it"
 screens: [home, problems-banner, version-blocked, new-character-dialog, section-problems]
 decision: 003
-prototype: none
+prototype: .ux/prototypes/002-robust-states.html (https://claude.ai/artifact/USttgFMsi1MP22k28Jk5Mq)
 ---
 
 # 002 — Robust loading, error and partial states
