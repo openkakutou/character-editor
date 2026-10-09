@@ -239,8 +239,8 @@
   margin-inline-start: 0;
 }
 
-.shell.is-narrow .problems-banner__row wuik-button,
-.shell.is-narrow .problems-banner__engine wuik-button {
+.shell.is-narrow .problems-banner__row > wuik-button,
+.shell.is-narrow .problems-banner__engine > wuik-button {
   flex: 1 1 100%;
 }
 

@@ -182,6 +182,10 @@
 }
 
 /* The toolbar scrolls sideways when crowded instead of wrapping its labels. */
+.shell__toolbar {
+  overflow-x: auto;
+}
+
 .shell__toolbar wuik-toolbar > * {
   flex-shrink: 0;
   white-space: nowrap;
