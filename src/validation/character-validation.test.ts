@@ -88,6 +88,7 @@ function documentWith(
   return {
     character,
     files: {} as CharacterDocument["files"],
+    unreadable: [],
     spriteEdits: [],
     commandFile: { ...emptyCommandFile(), commands },
   };
@@ -199,6 +200,14 @@ describe("validateCharacterDocument", () => {
         id: "animations:missing-sprite:3",
         severity: "warning",
       });
+    });
+
+    it("does not blame animations for missing sprites while the sprite sheet is unreadable", () => {
+      const doc = documentWith({
+        animations: [animation(3, [frame(9, 9)])],
+      });
+      doc.unreadable = [{ kind: "sff", fileName: "kfm.sff", detail: "denied" }];
+      expect(ids(doc)).not.toContain("animations:missing-sprite:3");
     });
 
     it("does not warn about a sprite deleted by a pending edit being unused", () => {

@@ -43,6 +43,8 @@ export interface AppShell {
   readonly element: HTMLElement;
   /** Where each section's editor mounts, inside its header card's panel. */
   readonly content: Record<SectionId, HTMLElement>;
+  /** Between the toolbar and the workspace: where the problems banner mounts. */
+  readonly banner: HTMLElement;
   readonly undoButton: HTMLElement;
   readonly redoButton: HTMLElement;
   readonly exportButton: HTMLElement;
@@ -251,9 +253,11 @@ export function createAppShell(options: AppShellOptions): AppShell {
 
   const body = element("div", "shell__body");
   body.append(sidebar, main);
+  const banner = element("div", "shell__banner");
   root.append(
     skipLink,
     toolbarHost,
+    banner,
     body,
     statusBar,
     backdrop,
@@ -521,6 +525,7 @@ export function createAppShell(options: AppShellOptions): AppShell {
   return {
     element: root,
     content,
+    banner,
     undoButton,
     redoButton,
     exportButton,

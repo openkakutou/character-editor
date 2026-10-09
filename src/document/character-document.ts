@@ -23,7 +23,10 @@ import {
   resetAppHistoryForTests,
 } from "../history/app-history.ts";
 import { t } from "../i18n/i18n.ts";
-import type { LoadedFileBytes } from "../input/character-file-input.ts";
+import type {
+  LoadedFileBytes,
+  UnreadableFile,
+} from "../input/character-file-input.ts";
 import { type SpriteEdit, applySpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData, CommandFile } from "../wasm/types.ts";
 
@@ -41,10 +44,17 @@ export interface CharacterDocument {
    * `emptyCommandFile()` on a fresh load, discarding any prior document's.
    */
   commandFile: CommandFile;
+  /**
+   * Files the browser could not read when the folder was opened (UX flow 002):
+   * the character is editable without them, and each one leaves this list
+   * when replaced (a history entry, so Undo puts it back).
+   */
+  unreadable: UnreadableFile[];
 }
 
 /** Everything a caller supplies to setCharacterDocument — spriteEdits always starts empty on load. */
-export type LoadedCharacter = Pick<CharacterDocument, "character" | "files">;
+export type LoadedCharacter = Pick<CharacterDocument, "character" | "files"> &
+  Partial<Pick<CharacterDocument, "unreadable">>;
 
 let current: CharacterDocument | null = null;
 
@@ -76,7 +86,12 @@ export function setCharacterDocument(doc: LoadedCharacter | null): void {
   current =
     doc === null
       ? null
-      : { ...doc, spriteEdits: [], commandFile: emptyCommandFile() };
+      : {
+          ...doc,
+          unreadable: doc.unreadable ?? [],
+          spriteEdits: [],
+          commandFile: emptyCommandFile(),
+        };
   lastCharacterSnapshot = current ? structuredClone(current.character) : null;
   getAppHistory().clear();
   markClean();
@@ -206,4 +221,55 @@ export function setCommandFile(commandFile: CommandFile): void {
  */
 export function seedCommandFile(commandFile: CommandFile): void {
   applyCommandFileSnapshot(commandFile);
+}
+
+interface ReplacementSnapshot {
+  files: LoadedFileBytes;
+  unreadable: UnreadableFile[];
+  character: CharacterData;
+}
+
+function applyReplacementSnapshot(snapshot: ReplacementSnapshot): void {
+  if (current === null) return;
+  current = {
+    ...current,
+    files: snapshot.files,
+    unreadable: snapshot.unreadable,
+  };
+  applyCharacterSnapshot(snapshot.character);
+}
+
+/**
+ * Installs `bytes` for a file that was unreadable at load, merges `patch`
+ * (what re-parsing that file changed in the character) and takes the file off
+ * the unreadable list -- one undoable history entry, so Undo returns the file
+ * to the list and restores the stand-in. A no-op when no character is loaded
+ * or the file was not listed.
+ */
+export function replaceUnreadableFile(
+  kind: UnreadableFile["kind"],
+  bytes: Uint8Array,
+  patch: Partial<CharacterData>,
+  meta: HistoryMeta,
+): void {
+  if (current === null) return;
+  if (!current.unreadable.some((file) => file.kind === kind)) return;
+  const before: ReplacementSnapshot = {
+    files: current.files,
+    unreadable: current.unreadable,
+    character: lastCharacterSnapshot ?? structuredClone(current.character),
+  };
+  const files: LoadedFileBytes = { ...current.files, [kind]: bytes };
+  if (kind === "snd") files.sndIssue = undefined;
+  const after: ReplacementSnapshot = {
+    files,
+    unreadable: current.unreadable.filter((file) => file.kind !== kind),
+    character: structuredClone({ ...current.character, ...patch }),
+  };
+
+  pushHistoryCommand({
+    meta,
+    do: () => applyReplacementSnapshot(after),
+    undo: () => applyReplacementSnapshot(before),
+  });
 }

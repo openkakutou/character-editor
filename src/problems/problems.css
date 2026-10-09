@@ -106,3 +106,137 @@
   color: var(--wuik-color-text-muted);
   font-size: var(--wuik-font-size-sm);
 }
+
+/* The problems banner: a named region between the toolbar and the workspace.
+ * The accent is a border (the text stays on the text token) and the count is
+ * in the heading, so severity never rests on colour alone. */
+.problems-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  padding: var(--wuik-space-3) var(--wuik-space-5);
+  background: var(--wuik-color-surface);
+  color: var(--wuik-color-text);
+  border-bottom: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-warning);
+}
+
+.problems-banner__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--wuik-space-2);
+}
+
+.problems-banner__title {
+  margin: 0;
+  font-size: var(--wuik-font-size-base);
+  font-weight: var(--wuik-font-weight-medium);
+}
+
+.problems-banner__title:focus-visible {
+  outline: var(--wuik-focus-ring-width) solid var(--wuik-color-focus);
+  outline-offset: var(--wuik-focus-ring-offset);
+}
+
+.problems-banner__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.problems-banner__body[hidden] {
+  display: none;
+}
+
+.problems-banner__engine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-3);
+}
+
+.problems-banner__engine p,
+.problems-banner__note,
+.problems-banner__files h3 {
+  margin: 0;
+}
+
+.problems-banner__files h3 {
+  font-size: var(--wuik-font-size-base);
+}
+
+.problems-banner__note {
+  color: var(--wuik-color-text-muted);
+  font-size: var(--wuik-font-size-sm);
+}
+
+.problems-banner__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  margin: var(--wuik-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.problems-banner__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--wuik-space-3);
+}
+
+/* A row is one wrapped line of text plus its tools, so a few files do not
+ * push the workspace off the screen. */
+.problems-banner__row .problem {
+  flex: 1 1 24rem;
+  min-width: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--wuik-space-1) var(--wuik-space-2);
+  padding: var(--wuik-space-2) var(--wuik-space-3);
+}
+
+.problems-banner__row .problem__tools {
+  margin-inline-start: auto;
+}
+
+.problems-banner__row .problem__detail {
+  flex: 1 1 100%;
+}
+
+/* Narrow: rows stack and the buttons fill the width. */
+.shell.is-narrow .problems-banner {
+  padding-inline: var(--wuik-space-3);
+}
+
+.shell.is-narrow .problems-banner__row wuik-button,
+.shell.is-narrow .problems-banner__engine wuik-button {
+  flex: 1 1 100%;
+}
+
+/* The blocking screen for a version the editor cannot open. */
+.version-blocked__versions {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--wuik-space-1) var(--wuik-space-4);
+  margin: 0;
+}
+
+.version-blocked__versions dt {
+  color: var(--wuik-color-text-muted);
+}
+
+.version-blocked__versions dd {
+  margin: 0;
+  font-family: var(--wuik-font-family-mono);
+}
+
+.home__column[hidden] {
+  display: none;
+}

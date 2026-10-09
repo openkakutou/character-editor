@@ -19,7 +19,15 @@ export interface ProblemView {
 
 let nextId = 0;
 
-export function createProblemView(initial: Problem): ProblemView {
+export interface ProblemViewOptions {
+  /** Shows only the "Show details" tools: the caller already states the message. */
+  detailsOnly?: boolean;
+}
+
+export function createProblemView(
+  initial: Problem,
+  viewOptions: ProblemViewOptions = {},
+): ProblemView {
   const id = `problem-${++nextId}`;
   let problem = initial;
   let copiedTimer: number | undefined;
@@ -69,9 +77,11 @@ export function createProblemView(initial: Problem): ProblemView {
     label.textContent = `${t("errors.label", "Error")} — `;
     title.textContent = text.title;
     cause.textContent = text.cause ?? "";
-    cause.hidden = text.cause === undefined;
+    head.hidden = viewOptions.detailsOnly === true;
+    cause.hidden = viewOptions.detailsOnly === true || text.cause === undefined;
     action.textContent = text.action ?? "";
-    action.hidden = text.action === undefined;
+    action.hidden =
+      viewOptions.detailsOnly === true || text.action === undefined;
 
     const hasDetail = problem.detail !== undefined && problem.detail !== "";
     tools.hidden = !hasDetail;

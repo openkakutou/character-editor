@@ -48,6 +48,7 @@ function baseDocument(
       cns: textBytes(""),
     },
     spriteEdits: [],
+    unreadable: [],
     commandFile: emptyCommandFile(),
     ...overrides,
   };

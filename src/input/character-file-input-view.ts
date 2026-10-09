@@ -23,6 +23,7 @@ import {
 } from "../problems/problem-view.ts";
 import {
   type Problem,
+  describeProblem,
   detailOf,
   problemSentence,
 } from "../problems/problem.ts";
@@ -45,6 +46,12 @@ import {
   filesFromWebkitDirectoryFiles,
 } from "./folder-entries.ts";
 
+export interface UnsupportedVersionInfo {
+  fileName: string;
+  version: string;
+  supported: string;
+}
+
 export interface CharacterFileInputViewOptions {
   /**
    * Called once the character has been fully resolved and loaded. `files`
@@ -57,6 +64,11 @@ export interface CharacterFileInputViewOptions {
     files: LoadedFileBytes,
     unreadable: readonly UnreadableFile[],
   ) => void;
+  /**
+   * Called instead of showing the error inline when the folder holds a file of
+   * a version the editor cannot open: the caller shows its blocking screen.
+   */
+  onUnsupportedVersion?: (info: UnsupportedVersionInfo) => void;
   /**
    * Called once per failed load with the sentence to announce assertively
    * (title, cause and next step). The error itself is plain DOM with no live
@@ -728,6 +740,24 @@ export function renderCharacterFileInput(
       };
       renderSelection(result.candidates);
       render();
+      return;
+    }
+
+    if (
+      result.status === "unsupported-version" &&
+      options.onUnsupportedVersion
+    ) {
+      // The caller shows its own blocking screen: nothing stays in this view.
+      phase = "idle";
+      currentStatus = { kind: "none" };
+      picker.value = "";
+      render();
+      options.onFailure?.(describeProblem(problemOf(result, lastSource)).title);
+      options.onUnsupportedVersion({
+        fileName: result.fileName,
+        version: result.version,
+        supported: result.supported,
+      });
       return;
     }
 

@@ -351,7 +351,8 @@
     "palettes": "palette change",
     "identity": "identity change",
     "states": "state change",
-    "animations": "animation change"
+    "animations": "animation change",
+    "replaceFile": "replacement of {{fileName}}"
   },
   "sections": {
     "helpLabel": "Help: {{section}}",
@@ -485,5 +486,36 @@
       "engine": "Loading the engine",
       "open": "Opening the character"
     }
+  },
+  "banner": {
+    "files": {
+      "title_one": "1 file could not be read",
+      "title_other": "{{count}} files could not be read",
+      "note": "These files are left out of the export until you replace them."
+    },
+    "replace": "Replace file",
+    "replacing": "Replacing…",
+    "replaced_one": "File replaced, {{count}} remaining",
+    "replaced_other": "File replaced, {{count}} remaining",
+    "replacedLast": "File replaced, none remaining",
+    "partial_one": "Opened, 1 file could not be read",
+    "partial_other": "Opened, {{count}} files could not be read",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "region": "Problems"
+  },
+  "version": {
+    "found": "Found",
+    "supported": "Supported",
+    "back": "Back to Home"
+  },
+  "exportConfirm": {
+    "title": "Export without all the files?",
+    "body_one": "This file could not be read and will be left out: {{names}}.",
+    "body_other": "These files could not be read and will be left out: {{names}}.",
+    "confirm": "Export anyway",
+    "cancel": "Cancel"
   }
 }

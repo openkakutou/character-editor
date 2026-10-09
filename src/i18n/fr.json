@@ -351,7 +351,8 @@
     "palettes": "modification de palette",
     "identity": "modification de l'identité",
     "states": "modification d'état",
-    "animations": "modification d'animation"
+    "animations": "modification d'animation",
+    "replaceFile": "remplacement de {{fileName}}"
   },
   "sections": {
     "helpLabel": "Aide : {{section}}",
@@ -485,5 +486,36 @@
       "engine": "Chargement du moteur",
       "open": "Ouverture du personnage"
     }
+  },
+  "banner": {
+    "files": {
+      "title_one": "1 fichier n'a pas pu être lu",
+      "title_other": "{{count}} fichiers n'ont pas pu être lus",
+      "note": "Ces fichiers sont exclus de l'export tant que vous ne les remplacez pas."
+    },
+    "replace": "Remplacer le fichier",
+    "replacing": "Remplacement…",
+    "replaced_one": "Fichier remplacé, {{count}} restant",
+    "replaced_other": "Fichier remplacé, {{count}} restants",
+    "replacedLast": "Fichier remplacé, plus aucun restant",
+    "partial_one": "Ouvert, 1 fichier n'a pas pu être lu",
+    "partial_other": "Ouvert, {{count}} fichiers n'ont pas pu être lus",
+    "collapse": "Réduire",
+    "expand": "Développer",
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative…",
+    "region": "Problèmes"
+  },
+  "version": {
+    "found": "Trouvée",
+    "supported": "Prise en charge",
+    "back": "Retour à l'accueil"
+  },
+  "exportConfirm": {
+    "title": "Exporter sans tous les fichiers ?",
+    "body_one": "Ce fichier n'a pas pu être lu et sera exclu : {{names}}.",
+    "body_other": "Ces fichiers n'ont pas pu être lus et seront exclus : {{names}}.",
+    "confirm": "Exporter quand même",
+    "cancel": "Annuler"
   }
 }

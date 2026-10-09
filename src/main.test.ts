@@ -7,6 +7,7 @@ import {
 } from "./document/character-document.ts";
 import { getAppHistory, isDirty } from "./history/app-history.ts";
 import { getI18n, initAppI18n } from "./i18n/i18n.ts";
+import { readFileAsBytes } from "./input/character-file-input.ts";
 import { renderApp } from "./main.ts";
 import { resetWasmBridgeForTests } from "./wasm/bridge.ts";
 import type { WasmBridgeOptions } from "./wasm/bridge.ts";
@@ -1144,6 +1145,225 @@ describe("renderApp", () => {
       ).toBe(false);
       spy.mockRestore();
       window.localStorage.clear();
+    });
+  });
+
+  describe("robust states (UX flow 002)", () => {
+    const unreadableSffOptions = {
+      ...bridgeOptions,
+      readFileBytes: async (file: File): Promise<Uint8Array> => {
+        if (file.name === "ryu.sff") throw new Error("NotReadableError");
+        return await readFileAsBytes(file);
+      },
+    };
+
+    async function openPartialCharacter(
+      triggerDownload?: (bytes: Uint8Array, fileName: string) => void,
+    ): Promise<HTMLElement> {
+      const root = newRoot();
+      renderApp(root, "0.1.0", "0.17.0", {
+        bridgeOptions: unreadableSffOptions,
+        triggerDownload,
+      });
+      await loadCharacter(root);
+      return root;
+    }
+
+    /** Answers the native picker the Replace button opens, scoped to its role. */
+    async function chooseReplacement(file: File): Promise<void> {
+      const input = await vi.waitFor(() => {
+        const found = document.body.querySelector<HTMLInputElement>(
+          'input[type="file"][accept=".sff"]',
+        );
+        if (!found) throw new Error("picker not opened");
+        return found;
+      });
+      Object.defineProperty(input, "files", { value: [file] });
+      input.dispatchEvent(new Event("change"));
+    }
+
+    function bannerRows(root: HTMLElement): string[] {
+      return [...root.querySelectorAll(".problems-banner__row")].map(
+        (row) => row.textContent ?? "",
+      );
+    }
+
+    function liveText(root: HTMLElement, role: "status" | "alert"): string {
+      return (
+        root.querySelector<HTMLElement>(`.shell > [role="${role}"]`)
+          ?.textContent ?? ""
+      );
+    }
+
+    it("opens a character whose sprite sheet could not be read and lists the file in the banner, a badge and the document", async () => {
+      const root = await openPartialCharacter();
+
+      expect(visibleSections(root)).toEqual(["identity"]);
+      expect(getCharacterDocument()?.unreadable).toHaveLength(1);
+      expect(root.querySelector("h2.problems-banner__title")?.textContent).toBe(
+        "1 file could not be read",
+      );
+      expect(bannerRows(root)[0]).toContain("Couldn't read ryu.sff");
+      const sprites = root.querySelector('wuik-nav-item[value="sprites"]');
+      expect(sprites?.getAttribute("badge-warning")).toBe("1");
+      // The banner does not take focus, and is no live region of its own.
+      expect(
+        root
+          .querySelector(".problems-banner")
+          ?.contains(document.activeElement),
+      ).toBe(false);
+      expect(
+        root.querySelector(
+          ".problems-banner [role=alert], .problems-banner [aria-live]",
+        ),
+      ).toBeNull();
+    });
+
+    it("announces the partial open once, politely", async () => {
+      const root = await openPartialCharacter();
+      await vi.waitFor(() =>
+        expect(liveText(root, "status")).toBe(
+          "Opened, 1 file could not be read",
+        ),
+      );
+    });
+
+    it("lists the unreadable file among the problems of the Output section", async () => {
+      const root = await openPartialCharacter();
+      navigateTo(root, "output");
+      expect(
+        section(root, "output").querySelector(".output-section__problems")
+          ?.textContent,
+      ).toContain("Couldn't read ryu.sff");
+    });
+
+    it("replaces the file: banner and badge go away, one undoable entry is recorded, Undo brings the row back", async () => {
+      const root = await openPartialCharacter();
+      root.querySelector<HTMLElement>('[data-action="replace-file"]')?.click();
+      await chooseReplacement(
+        fileFromBytes("replacement.sff", fixtureBytes("v1-basic.sff")),
+      );
+
+      await vi.waitFor(() =>
+        expect(root.querySelector(".problems-banner")).toBeNull(),
+      );
+      expect(getCharacterDocument()?.unreadable).toEqual([]);
+      expect(
+        root
+          .querySelector('wuik-nav-item[value="sprites"]')
+          ?.hasAttribute("badge-warning"),
+      ).toBe(false);
+      expect(getAppHistory().undoMeta?.label).toBe(
+        "replacement of replacement.sff",
+      );
+      await vi.waitFor(() =>
+        expect(liveText(root, "status")).toBe("File replaced, none remaining"),
+      );
+
+      root.querySelector<HTMLElement>('[data-action="undo"]')?.click();
+      expect(bannerRows(root)).toHaveLength(1);
+      expect(getCharacterDocument()?.unreadable).toHaveLength(1);
+
+      root.querySelector<HTMLElement>('[data-action="redo"]')?.click();
+      expect(root.querySelector(".problems-banner")).toBeNull();
+    });
+
+    it("keeps the row, shows the new cause and records nothing when the replacement is refused", async () => {
+      const root = await openPartialCharacter();
+      const before = getAppHistory().canUndo;
+      root.querySelector<HTMLElement>('[data-action="replace-file"]')?.click();
+      await chooseReplacement(fileFromBytes("bad.sff", textBytes("nonsense")));
+
+      await vi.waitFor(() =>
+        expect(bannerRows(root)[0]).toContain("Couldn't read bad.sff"),
+      );
+      expect(getCharacterDocument()?.unreadable).toHaveLength(1);
+      expect(getAppHistory().canUndo).toBe(before);
+      await vi.waitFor(() =>
+        expect(liveText(root, "alert")).toContain("bad.sff"),
+      );
+    });
+
+    it("asks before exporting with a file left out, naming it, and exports only when confirmed", async () => {
+      const downloads: string[] = [];
+      const root = await openPartialCharacter((_bytes, name) =>
+        downloads.push(name),
+      );
+      const exportButton = root.querySelector<HTMLElement>(
+        '[data-action="download-all"]',
+      );
+      const dialog = root.querySelector<HTMLElement>(".export-confirm-dialog");
+
+      exportButton?.click();
+      expect(dialog?.hasAttribute("open")).toBe(true);
+      expect(dialog?.textContent).toContain("ryu.sff");
+      expect(downloads).toEqual([]);
+
+      dialog
+        ?.querySelector<HTMLElement>('[data-action="export-confirm-cancel"]')
+        ?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(downloads).toEqual([]);
+
+      exportButton?.click();
+      dialog
+        ?.querySelector<HTMLElement>('[data-action="export-confirm-proceed"]')
+        ?.click();
+      await vi.waitFor(() => expect(downloads.length).toBeGreaterThan(0));
+    });
+
+    it("clears the banner when another character is opened", async () => {
+      const root = await openPartialCharacter();
+      root.querySelector<HTMLElement>('[data-action="open-another"]')?.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector<HTMLElement>(".home")?.hidden).toBe(false),
+      );
+      expect(root.querySelector(".problems-banner")).toBeNull();
+    });
+
+    it("shows the blocking version screen, mounts no shell, and leads back to an idle Home", async () => {
+      const root = newRoot();
+      const newer = new Uint8Array(fixtureBytes("v1-basic.sff"));
+      newer[15] = 3;
+      renderApp(root, "0.1.0", "0.17.0", {
+        bridgeOptions: {
+          ...bridgeOptions,
+          readFileBytes: async (file: File) =>
+            file.name === "ryu.sff" ? newer : await readFileAsBytes(file),
+        },
+      });
+      const dropZone = root.querySelector(".file-input__dropzone") as Element;
+      dispatchDrop(dropZone, requiredFiles());
+
+      await vi.waitFor(() =>
+        expect(
+          root.querySelector<HTMLElement>(".version-blocked")?.hidden,
+        ).toBe(false),
+      );
+      expect(root.querySelector<HTMLElement>(".shell")?.hidden).toBe(true);
+      expect(getCharacterDocument()).toBeNull();
+      expect(root.querySelector(".version-blocked h1")?.textContent).toBe(
+        "This version can't be opened",
+      );
+      expect(root.querySelector(".version-blocked")?.textContent).toContain(
+        "ryu.sff uses version 3.0.1.0",
+      );
+      expect(root.querySelector(".version-blocked dl")?.textContent).toContain(
+        "1 – 2",
+      );
+      expect(document.activeElement).toBe(
+        root.querySelector(".version-blocked h1"),
+      );
+
+      root.querySelector<HTMLElement>('[data-action="version-back"]')?.click();
+      expect(root.querySelector<HTMLElement>(".version-blocked")?.hidden).toBe(
+        true,
+      );
+      expect(
+        root.querySelector<HTMLElement>(".home__column:not(.version-blocked)")
+          ?.hidden,
+      ).toBe(false);
+      expect(root.querySelector<HTMLElement>(".home")?.hidden).toBe(false);
     });
   });
 });

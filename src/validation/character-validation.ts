@@ -8,6 +8,7 @@ import { validateCommandRow } from "../commands/command-logic.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
 import { t } from "../i18n/i18n.ts";
 import { tCount } from "../i18n/plural.ts";
+import type { Problem } from "../problems/problem.ts";
 import type { SectionId } from "../shell/sections.ts";
 import { mergeSpriteGroups } from "../sprites/sprite-edits.ts";
 import type { SpriteGroup } from "../wasm/types.ts";
@@ -27,6 +28,8 @@ export interface ValidationIssue {
   severity: IssueSeverity;
   message: string;
   target?: IssueTarget;
+  /** The typed problem behind `message` (load, engine and action sources); the message is its localized sentence. */
+  problem?: Problem;
 }
 
 function issue(
@@ -147,6 +150,9 @@ function animationIssues(doc: CharacterDocument): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const { animations } = doc.character;
   const sprites = mergeSpriteGroups(doc.character.sprites, doc.spriteEdits);
+  // A stand-in sprite sheet holds no sprites: judging frames against it would
+  // blame every animation for a file the user has not been able to supply.
+  const spritesKnown = !doc.unreadable.some((file) => file.kind === "sff");
   const target = (number: number): IssueTarget => ({
     selector: `[data-animation="${number}"]`,
   });
@@ -185,9 +191,11 @@ function animationIssues(doc: CharacterDocument): ValidationIssue[] {
       );
       continue;
     }
-    const missing = animation.frames.filter(
-      (frame) => !spriteExists(sprites, frame.group, frame.image),
-    ).length;
+    const missing = spritesKnown
+      ? animation.frames.filter(
+          (frame) => !spriteExists(sprites, frame.group, frame.image),
+        ).length
+      : 0;
     if (missing > 0) {
       issues.push(
         issue(

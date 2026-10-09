@@ -162,6 +162,15 @@ function ensureGoRuntimeReady(options: WasmBridgeOptions): Promise<void> {
   return readyPromise;
 }
 
+/**
+ * Starts (or joins) the engine's instantiation and resolves once it is ready.
+ * Idempotent: every caller shares the one in-flight promise, and a failed
+ * attempt is forgotten so the next call tries again.
+ */
+export function warmUpEngine(options: WasmBridgeOptions = {}): Promise<void> {
+  return ensureGoRuntimeReady(options);
+}
+
 /** Resets the memoized WASM instantiation. Test-only. */
 export function resetWasmBridgeForTests(): void {
   readyPromise = null;

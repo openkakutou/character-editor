@@ -6,6 +6,7 @@ import type { CharacterData, CommandFile, StateDef } from "../wasm/types.ts";
 import {
   addSpriteEdit,
   getCharacterDocument,
+  replaceUnreadableFile,
   resetCharacterDocumentForTests,
   seedCommandFile,
   setCharacterDocument,
@@ -61,6 +62,7 @@ describe("setCharacterDocument / getCharacterDocument", () => {
       files,
       spriteEdits: [],
       commandFile: emptyCommandFile(),
+      unreadable: [],
     });
   });
 
@@ -526,5 +528,101 @@ describe("undo/redo integration (backlog item 010)", () => {
     getAppHistory().redo();
     expect(() => getAppHistory().redo()).not.toThrow();
     expect(getCharacterDocument()?.character.name).toBe("Changed");
+  });
+});
+
+describe("replaceUnreadableFile (flow 002)", () => {
+  const unreadable = [
+    { kind: "sff" as const, fileName: "kfm.sff", detail: "denied" },
+    { kind: "snd" as const, fileName: "kfm.snd", detail: "denied" },
+  ];
+  const meta = { section: "sprites" as const, label: "Replace kfm.sff" };
+
+  function loadPartial(): void {
+    setCharacterDocument({
+      character: minimalCharacter(),
+      files: {
+        def: bytes("d"),
+        air: bytes("a"),
+        sff: bytes("stand-in"),
+        cns: bytes("c"),
+      },
+      unreadable,
+    });
+  }
+
+  it("starts with the unreadable files the load reported, or none", () => {
+    loadPartial();
+    expect(getCharacterDocument()?.unreadable).toEqual(unreadable);
+    setCharacterDocument({
+      character: minimalCharacter(),
+      files: {
+        def: bytes("d"),
+        air: bytes("a"),
+        sff: bytes("s"),
+        cns: bytes("c"),
+      },
+    });
+    expect(getCharacterDocument()?.unreadable).toEqual([]);
+  });
+
+  it("installs the bytes, merges the patch and takes the file off the list", () => {
+    loadPartial();
+    replaceUnreadableFile(
+      "sff",
+      bytes("real"),
+      { sprites: [{ group: 0, sprites: [] } as never] },
+      meta,
+    );
+    const doc = getCharacterDocument();
+    expect(doc?.files.sff).toEqual(bytes("real"));
+    expect(doc?.unreadable.map((file) => file.kind)).toEqual(["snd"]);
+    expect(doc?.character.sprites).toHaveLength(1);
+    expect(doc?.character.name).toBe("Test");
+  });
+
+  it("is one undoable entry that puts the stand-in and the row back, and redo replays it", () => {
+    loadPartial();
+    replaceUnreadableFile("sff", bytes("real"), {}, meta);
+    expect(getAppHistory().undoMeta).toEqual(meta);
+    expect(isDirty()).toBe(true);
+
+    getAppHistory().undo();
+    let doc = getCharacterDocument();
+    expect(doc?.files.sff).toEqual(bytes("stand-in"));
+    expect(doc?.unreadable).toEqual(unreadable);
+    expect(isDirty()).toBe(false);
+
+    getAppHistory().redo();
+    doc = getCharacterDocument();
+    expect(doc?.files.sff).toEqual(bytes("real"));
+    expect(doc?.unreadable.map((file) => file.kind)).toEqual(["snd"]);
+  });
+
+  it("clears the sound issue once the sound file is replaced", () => {
+    loadPartial();
+    setCharacterDocument({
+      character: minimalCharacter(),
+      files: {
+        def: bytes("d"),
+        air: bytes("a"),
+        sff: bytes("s"),
+        cns: bytes("c"),
+        sndIssue: "kfm.snd: denied",
+      },
+      unreadable,
+    });
+    replaceUnreadableFile("snd", bytes("sound"), {}, meta);
+    expect(getCharacterDocument()?.files.sndIssue).toBeUndefined();
+    expect(getCharacterDocument()?.files.snd).toEqual(bytes("sound"));
+  });
+
+  it("does nothing for a file that was not unreadable, or without a document", () => {
+    replaceUnreadableFile("sff", bytes("x"), {}, meta);
+    expect(getAppHistory().canUndo).toBe(false);
+    loadPartial();
+    replaceUnreadableFile("cmd", bytes("x"), {}, meta);
+    expect(getAppHistory().canUndo).toBe(false);
+    expect(getCharacterDocument()?.unreadable).toEqual(unreadable);
   });
 });

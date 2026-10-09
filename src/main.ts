@@ -9,6 +9,7 @@ import { renderCommandEditor } from "./commands/command-editor.ts";
 import {
   addSpriteEdit,
   getCharacterDocument,
+  replaceUnreadableFile,
   seedCommandFile,
   setCharacterDocument,
   setCommandFile,
@@ -24,14 +25,33 @@ import { tCount } from "./i18n/plural.ts";
 import type {
   CharacterFileInputOptions,
   LoadedFileBytes,
+  UnreadableFile,
 } from "./input/character-file-input.ts";
 import type { PaletteEditorHandle } from "./palettes/palette-editor.ts";
 import {
   defaultTriggerDownload,
   renderPaletteEditor,
 } from "./palettes/palette-editor.ts";
+import { createEngineRetry } from "./problems/engine-retry.ts";
+import {
+  ENGINE_SOURCE,
+  LOAD_SOURCE,
+  engineIssues,
+  loadIssues,
+} from "./problems/problem-issues.ts";
+import { type Problem, problemSentence } from "./problems/problem.ts";
+import {
+  type BannerState,
+  createProblemsBanner,
+} from "./problems/problems-banner.ts";
+import {
+  SECTION_BY_KIND,
+  checkReplacement,
+  pickReplacementFile,
+} from "./problems/replace-file.ts";
 import { createExportController } from "./save/export-controller.ts";
 import { createAppShell } from "./shell/app-shell.ts";
+import { createExportConfirmDialog } from "./shell/export-confirm-dialog.ts";
 import { createHelpDialog } from "./shell/help-dialog.ts";
 import { createHomeView } from "./shell/home-view.ts";
 import { createLeaveDialog } from "./shell/leave-dialog.ts";
@@ -45,6 +65,7 @@ import { validateCharacterDocument } from "./validation/character-validation.ts"
 import type { ValidationIssue } from "./validation/character-validation.ts";
 import { getValidationStore } from "./validation/validation-store.ts";
 import { appVersion } from "./version.ts";
+import { warmUpEngine } from "./wasm/bridge.ts";
 import type { CharacterData } from "./wasm/types.ts";
 import {
   MIN_SUPPORTED_WEB_UI_KIT_VERSION,
@@ -177,6 +198,8 @@ export function renderApp(
   });
   const helpDialog = createHelpDialog();
   const leaveDialog = createLeaveDialog(exportController);
+  const exportConfirmDialog = createExportConfirmDialog();
+  const engine = createEngineRetry(() => warmUpEngine(options.bridgeOptions));
 
   // The palette editor manages its own local state and its own commands on
   // the shared history (see .vibe/decisions/011 and palette-editor.ts's own
@@ -214,12 +237,14 @@ export function renderApp(
     shell.element,
     helpDialog.element,
     leaveDialog.element,
+    exportConfirmDialog.element,
   );
   cleanups.push(
     () => home.destroy(),
     () => shell.destroy(),
     () => helpDialog.destroy(),
     () => leaveDialog.destroy(),
+    () => exportConfirmDialog.destroy(),
   );
 
   // -- Status, badges and announcements -----------------------------------
@@ -290,14 +315,121 @@ export function renderApp(
     }),
   );
 
-  /** Re-runs the validation rules against the live document. */
+  /** Re-runs the validation rules and rebuilds the registry's sources from the live state. */
   function revalidate(): void {
     const doc = getCharacterDocument();
     validation.setIssues(
       DOCUMENT_SOURCE,
       doc === null ? [] : validateCharacterDocument(doc),
     );
+    validation.setIssues(LOAD_SOURCE, loadIssues(doc?.unreadable ?? []));
+    validation.setIssues(ENGINE_SOURCE, engineIssues(engine.state.problem));
   }
+
+  // -- Problems banner -----------------------------------------------------
+  // One more view of the registry: it lists what could not be read and what
+  // the engine reports, and fixes them without leaving the user's work.
+
+  /** Files whose replacement is being checked, and why the last one failed. */
+  const replacing = new Set<UnreadableFile["kind"]>();
+  const replaceFailures = new Map<UnreadableFile["kind"], Problem>();
+
+  const banner = createProblemsBanner(shell.banner, {
+    onReplace: (file) => void replaceFile(file),
+    onRetryEngine: () => void retryEngine(),
+  });
+  cleanups.push(() => banner.destroy());
+
+  function bannerState(): BannerState {
+    const doc = getCharacterDocument();
+    return {
+      files: (doc?.unreadable ?? []).map((file) => ({
+        file,
+        busy: replacing.has(file.kind),
+        failure: replaceFailures.get(file.kind),
+      })),
+      engine:
+        engine.state.problem === undefined
+          ? undefined
+          : { problem: engine.state.problem, busy: engine.state.busy },
+    };
+  }
+
+  function refreshBanner(): void {
+    banner.setState(bannerState());
+  }
+
+  /** Files unreadable at open, to know when the resource editors must be mounted again. */
+  let mountedUnreadableKey = "";
+  function unreadableKey(): string {
+    return (getCharacterDocument()?.unreadable ?? [])
+      .map((file) => file.kind)
+      .join(",");
+  }
+
+  async function replaceFile(file: UnreadableFile): Promise<void> {
+    if (replacing.has(file.kind)) return;
+    const picked = await pickReplacementFile(file.kind);
+    const doc = getCharacterDocument();
+    if (picked === null || doc === null) return;
+
+    replacing.add(file.kind);
+    replaceFailures.delete(file.kind);
+    refreshBanner();
+    const check = await checkReplacement(
+      doc,
+      file.kind,
+      picked,
+      options.bridgeOptions,
+    );
+    replacing.delete(file.kind);
+    // Another character was opened while the file was being checked.
+    if (getCharacterDocument() !== doc) return;
+    if (!check.ok) {
+      replaceFailures.set(file.kind, check.problem);
+      refreshBanner();
+      shell.alert(problemSentence(check.problem));
+      return;
+    }
+
+    replaceUnreadableFile(file.kind, check.bytes, check.patch, {
+      section: SECTION_BY_KIND[file.kind],
+      label: t("history.replaceFile", "replacement of {{fileName}}", {
+        fileName: picked.name,
+      }),
+    });
+    onHistoryChange();
+    const remaining = getCharacterDocument()?.unreadable.length ?? 0;
+    announceAction(
+      remaining === 0
+        ? t("banner.replacedLast", "File replaced, none remaining")
+        : tCount("banner.replaced", remaining, {
+            one: "File replaced, {{count}} remaining",
+            other: "File replaced, {{count}} remaining",
+          }),
+    );
+    if (!banner.focusFirstReplace()) shell.goTo(shell.current, { focus: true });
+  }
+
+  async function retryEngine(): Promise<void> {
+    const recovered = await engine.retry();
+    if (!recovered) return;
+    // The banner is gone: keep keyboard focus in the user's work.
+    shell.goTo(shell.current, { focus: true });
+  }
+
+  let engineAnnounced = false;
+  cleanups.push(
+    engine.subscribe(() => {
+      const failed = engine.state.problem !== undefined;
+      if (failed && !engineAnnounced) {
+        shell.alert(problemSentence(engine.state.problem as Problem));
+      }
+      engineAnnounced = failed;
+      revalidate();
+      refreshBanner();
+    }),
+  );
 
   /** Brings every piece of chrome that depends on history and document in line. */
   function refreshChrome(): void {
@@ -305,6 +437,7 @@ export function renderApp(
     shell.setUndoRedoEnabled(history.canUndo, history.canRedo);
     shell.setModified(isDirty());
     revalidate();
+    refreshBanner();
   }
 
   // -- Navigation -----------------------------------------------------------
@@ -353,6 +486,15 @@ export function renderApp(
       );
       return;
     }
+    const unreadable = getCharacterDocument()?.unreadable ?? [];
+    if (unreadable.length > 0) {
+      void exportConfirmDialog
+        .confirm(unreadable.map((file) => file.fileName))
+        .then((proceed) => {
+          if (proceed) void exportController.run();
+        });
+      return;
+    }
     void exportController.run();
   }
 
@@ -388,6 +530,10 @@ export function renderApp(
     exportController.reset();
     validation.reset();
     paletteEditorHandle = null;
+    replacing.clear();
+    replaceFailures.clear();
+    mountedUnreadableKey = "";
+    refreshBanner();
     for (const container of Object.values(shell.content)) {
       container.replaceChildren();
     }
@@ -532,21 +678,21 @@ export function renderApp(
   function onHistoryChange(): void {
     const doc = getCharacterDocument();
     if (doc) renderDocumentBackedEditors(doc.character, doc.files);
-    paletteEditorHandle?.refresh();
+    if (doc && unreadableKey() !== mountedUnreadableKey) {
+      // A file was replaced or put back: the editors built from it start over.
+      mountResourceEditors(doc.character, doc.files);
+    } else {
+      paletteEditorHandle?.refresh();
+    }
     refreshChrome();
   }
 
-  // Shared by both ways to arrive at a loaded character -- the file input
-  // (an import) and the new-character wizard (created from scratch) -- so
-  // a wizard-created character is wired up identically to an imported one.
-  function handleCharacterLoaded(
+  /** The resource editors that read their file once, at mount: sounds, palettes, commands. */
+  function mountResourceEditors(
     character: CharacterData,
     files: LoadedFileBytes,
   ): void {
-    setCharacterDocument({ character, files });
-    exportController.reset();
-    validation.reset();
-    renderDocumentBackedEditors(character, files);
+    mountedUnreadableKey = unreadableKey();
     mountCommandEditor(character, files);
     // Read-only and independent of edit history, so rendered once here
     // like the palette editor, never re-rendered on Undo/Redo.
@@ -557,10 +703,36 @@ export function renderApp(
       files.sff,
       { onHistoryPush: refreshChrome },
     );
+  }
+
+  // Shared by both ways to arrive at a loaded character -- the file input
+  // (an import) and the new-character wizard (created from scratch) -- so
+  // a wizard-created character is wired up identically to an imported one.
+  function handleCharacterLoaded(
+    character: CharacterData,
+    files: LoadedFileBytes,
+    unreadable: readonly UnreadableFile[] = [],
+  ): void {
+    setCharacterDocument({ character, files, unreadable: [...unreadable] });
+    exportController.reset();
+    validation.reset();
+    replacing.clear();
+    replaceFailures.clear();
+    renderDocumentBackedEditors(character, files);
+    mountResourceEditors(character, files);
     refreshChrome();
     home.element.hidden = true;
     shell.element.hidden = false;
     goTo("identity");
+    if (unreadable.length > 0) {
+      // The banner does not take focus: the user starts on the Identity title.
+      announceAction(
+        tCount("banner.partial", unreadable.length, {
+          one: "Opened, 1 file could not be read",
+          other: "Opened, {{count}} files could not be read",
+        }),
+      );
+    }
   }
 
   cleanups.push(
