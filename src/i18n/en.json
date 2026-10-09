@@ -65,7 +65,12 @@
       "failed": {
         "title": "Preview unavailable for this sprite",
         "action": "Replace the image or delete the sprite."
-      }
+      },
+      "outdated": "Outdated preview",
+      "retry": "Retry",
+      "retryAll": "Retry all",
+      "summary_one": "1 preview unavailable",
+      "summary_other": "{{count}} previews unavailable"
     },
     "wizard": {
       "createFailed": {
@@ -89,7 +94,12 @@
       "copy": "Copy details",
       "copied": "Copied"
     },
-    "label": "Error"
+    "label": "Error",
+    "dismiss": "Dismiss",
+    "dependency": {
+      "title": "{{section}} can't be shown",
+      "engineTitle": "{{section}} needs the editor engine"
+    }
   },
   "input": {
     "folderLabel": "Select a character folder (containing its .def file, e.g. kfm.def)",
@@ -310,11 +320,11 @@
     "groupToggle": "Group {{index}} ({{count}})",
     "rowPlay": "{{key}} — Play",
     "rowStop": "{{key}} — Stop",
-    "rowUndecodable": "{{key}} — Cannot be decoded: {{reason}}",
+    "rowUndecodable": "{{key}} — Cannot be decoded",
     "noAudioData": "no audio data",
     "nowPlaying": "Playing {{key}}",
     "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
-    "loadError": "The sound file could not be loaded: {{reason}}. Fix the file and load the character folder again."
+    "loadFailed": "The sound file could not be loaded. Fix the file and load the character folder again."
   },
   "validation": {
     "allClear": "No problem found.",

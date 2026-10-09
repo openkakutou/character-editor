@@ -4,6 +4,7 @@ import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { SpritePixelResult } from "../wasm/bridge.ts";
 import type { CharacterData, Frame, SpriteGroup } from "../wasm/types.ts";
 import {
+  type AnimationEditorOptions,
   type PlaybackTimer,
   renderAnimationEditor,
 } from "./animation-editor.ts";
@@ -737,5 +738,147 @@ describe("renderAnimationEditor — localization (backlog item 012)", () => {
         )
         ?.getAttribute("aria-expanded"),
     ).toBe("true");
+  });
+
+  describe("robust previews (UX flow 002, F5)", () => {
+    function playbackControls(root: HTMLElement, animationNumber: number) {
+      const scope = need(
+        root.querySelector<HTMLElement>(
+          `[data-animation="${animationNumber}"] .animation-editor__playback`,
+        ),
+        "playback controls scope",
+      );
+      return { step: action(scope, "step") };
+    }
+
+    function render(
+      resolveSpritePixels: AnimationEditorOptions["resolveSpritePixels"],
+      extra: Partial<AnimationEditorOptions> = {},
+    ): HTMLElement {
+      const root = document.createElement("div");
+      renderAnimationEditor(
+        root,
+        fixtureCharacter({
+          animations: [
+            {
+              number: 0,
+              frames: [frame({ time: 5 }), frame({ time: 5, image: 1 })],
+              loopStart: 0,
+            },
+          ],
+          sprites: spriteGroups(),
+        }),
+        new Uint8Array([1]),
+        [],
+        {
+          onChange: vi.fn(),
+          playbackTimer: fakeTimer(),
+          resolveSpritePixels,
+          drawPixels: noopDrawPixels,
+          ...extra,
+        },
+      );
+      toggleAnimation(root, 0);
+      return root;
+    }
+
+    function playbackFailure(root: HTMLElement): HTMLElement {
+      return need(
+        root.querySelector<HTMLElement>(
+          ".animation-editor__playback .preview-failure",
+        ),
+        "playback failure",
+      );
+    }
+
+    it("shows a placeholder with Retry instead of a stuck Loading… when the playback frame cannot be decoded", async () => {
+      const resolve = vi
+        .fn()
+        .mockResolvedValueOnce([{ ok: false, error: "bad index" }])
+        .mockResolvedValueOnce([
+          { ok: true, pixels: new Uint8Array(4), width: 1, height: 1 },
+        ]);
+      const root = render(resolve);
+      playbackControls(root, 0).step.click();
+
+      await vi.waitFor(() => expect(playbackFailure(root).hidden).toBe(false));
+      expect(
+        root.querySelector(".animation-editor__playback-status")?.textContent,
+      ).toBe("");
+      expect(playbackFailure(root).textContent).toContain(
+        "Preview unavailable for this sprite",
+      );
+
+      need(
+        playbackFailure(root).querySelector<HTMLElement>(
+          '[data-action="retry-preview"]',
+        ),
+        "retry",
+      ).click();
+      await vi.waitFor(() => expect(playbackFailure(root).hidden).toBe(true));
+    });
+
+    it("keeps the last good frame, dimmed and called outdated, when the next frame fails", async () => {
+      const resolve = vi
+        .fn()
+        .mockResolvedValueOnce([
+          { ok: true, pixels: new Uint8Array(4), width: 1, height: 1 },
+        ])
+        .mockResolvedValueOnce([{ ok: false, error: "bad index" }]);
+      const root = render(resolve);
+      const { step } = playbackControls(root, 0);
+      const canvas = need(
+        root.querySelector<HTMLCanvasElement>(
+          ".animation-editor__playback-canvas",
+        ),
+        "playback canvas",
+      );
+      step.click();
+      await vi.waitFor(() => expect(canvas.hidden).toBe(false));
+
+      step.click();
+      await vi.waitFor(() => expect(playbackFailure(root).hidden).toBe(false));
+      expect(canvas.hidden).toBe(false);
+      expect(canvas.classList.contains("is-outdated")).toBe(true);
+      expect(playbackFailure(root).textContent).toContain("Outdated preview");
+    });
+
+    it("reports a rejected preview as an engine failure without an unhandled rejection", async () => {
+      const onEngineFailure = vi.fn();
+      const error = new Error("wasm gone");
+      const root = render(vi.fn().mockRejectedValue(error), {
+        onEngineFailure,
+      });
+      playbackControls(root, 0).step.click();
+
+      await vi.waitFor(() =>
+        expect(onEngineFailure).toHaveBeenCalledWith(error),
+      );
+      expect(playbackFailure(root).hidden).toBe(false);
+    });
+
+    it("shows only the latest frame when frames are stepped faster than they decode", async () => {
+      let release!: (value: SpritePixelResult[]) => void;
+      const slow = new Promise<SpritePixelResult[]>((resolve) => {
+        release = resolve;
+      });
+      const draw = vi.fn();
+      const resolve = vi
+        .fn()
+        .mockReturnValueOnce(slow)
+        .mockResolvedValueOnce([
+          { ok: true, pixels: new Uint8Array(4), width: 2, height: 2 },
+        ]);
+      const root = render(resolve, { drawPixels: draw });
+      const { step } = playbackControls(root, 0);
+      step.click();
+      step.click();
+      await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(1));
+
+      release([{ ok: true, pixels: new Uint8Array(4), width: 1, height: 1 }]);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(draw).toHaveBeenCalledTimes(1);
+      expect(draw.mock.calls[0][2]).toBe(2);
+    });
   });
 });

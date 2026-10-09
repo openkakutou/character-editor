@@ -27,7 +27,7 @@ const doc = {
   commandFile: emptyCommandFile(),
 } as unknown as CharacterDocument;
 
-function setup(result: ExportResult | Error) {
+function setup(result: ExportResult | Error, onEngineFailure = vi.fn()) {
   const validation = new ValidationStore();
   const triggerDownload = vi.fn();
   const exportCharacterFiles = vi.fn(async () => {
@@ -43,8 +43,9 @@ function setup(result: ExportResult | Error) {
     wait: async () => {},
     now: () => new Date(2026, 9, 8, 14, 5),
     onSaved,
+    onEngineFailure,
   });
-  return { controller, validation, triggerDownload, onSaved };
+  return { controller, validation, triggerDownload, onSaved, onEngineFailure };
 }
 
 beforeEach(() => {
@@ -120,6 +121,23 @@ describe("createExportController", () => {
     expect(isDirty()).toBe(true);
     expect(validation.countsFor("output").errors).toBe(1);
     await controller.run();
+    expect(controller.state.phase).toBe("error");
+  });
+
+  it("hands a rejected preview to the engine owner instead of leaving an unhandled rejection", async () => {
+    const error = new Error("Failed to fetch");
+    const { controller, onEngineFailure } = setup(error);
+    await expect(controller.preview()).resolves.toBeUndefined();
+    expect(onEngineFailure).toHaveBeenCalledWith(error);
+    expect(controller.files).toBeNull();
+    expect(controller.state.phase).toBe("idle");
+  });
+
+  it("also tells the engine owner when a real export rejects", async () => {
+    const error = new Error("Failed to fetch");
+    const { controller, onEngineFailure } = setup(error);
+    await controller.run();
+    expect(onEngineFailure).toHaveBeenCalledWith(error);
     expect(controller.state.phase).toBe("error");
   });
 

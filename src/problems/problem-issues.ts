@@ -4,12 +4,38 @@
 // `engine` (the engine did not load). A message is the problem's localized
 // sentence, recomputed whenever the language changes.
 import type { UnreadableFile } from "../input/character-file-input.ts";
+import type { SectionId } from "../shell/sections.ts";
 import type { ValidationIssue } from "../validation/character-validation.ts";
 import { type Problem, problemSentence } from "./problem.ts";
 import { SECTION_BY_KIND } from "./replace-file.ts";
 
 export const LOAD_SOURCE = "load";
 export const ENGINE_SOURCE = "engine";
+export const ACTION_SOURCE = "action";
+
+/** A failed user action (an import that was refused…) still shown in its section. */
+export interface ActionProblem {
+  section: SectionId;
+  key: string;
+  problem: Problem;
+}
+
+/**
+ * One warning per failed action, in the section it happened in. Cleared when
+ * the user dismisses the message or the action succeeds: it describes what
+ * was attempted, not the state of the document.
+ */
+export function actionIssues(
+  actions: Iterable<ActionProblem>,
+): ValidationIssue[] {
+  return [...actions].map(({ section, key, problem }) => ({
+    id: `${section}:action:${key}`,
+    section,
+    severity: "warning",
+    message: problemSentence(problem),
+    problem,
+  }));
+}
 
 export function unreadableProblem(file: UnreadableFile): Problem {
   return {

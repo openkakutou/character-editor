@@ -65,7 +65,12 @@
       "failed": {
         "title": "Aperçu indisponible pour ce sprite",
         "action": "Remplacez l'image ou supprimez le sprite."
-      }
+      },
+      "outdated": "Aperçu obsolète",
+      "retry": "Réessayer",
+      "retryAll": "Tout réessayer",
+      "summary_one": "1 aperçu indisponible",
+      "summary_other": "{{count}} aperçus indisponibles"
     },
     "wizard": {
       "createFailed": {
@@ -89,7 +94,12 @@
       "copy": "Copier les détails",
       "copied": "Copié"
     },
-    "label": "Erreur"
+    "label": "Erreur",
+    "dismiss": "Ignorer",
+    "dependency": {
+      "title": "{{section}} ne peut pas être affiché",
+      "engineTitle": "{{section}} a besoin du moteur de l'éditeur"
+    }
   },
   "input": {
     "folderLabel": "Sélectionnez un dossier de personnage (contenant son fichier .def, par ex. kfm.def)",
@@ -310,11 +320,11 @@
     "groupToggle": "Groupe {{index}} ({{count}})",
     "rowPlay": "{{key}} — Lire",
     "rowStop": "{{key}} — Arrêter",
-    "rowUndecodable": "{{key}} — Décodage impossible : {{reason}}",
+    "rowUndecodable": "{{key}} — Décodage impossible",
     "noAudioData": "aucune donnée audio",
     "nowPlaying": "Lecture de {{key}}",
     "empty": "Ce personnage n'a pas de fichier de sons. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
-    "loadError": "Le fichier de sons n'a pas pu être chargé : {{reason}}. Corrigez le fichier puis rechargez le dossier du personnage."
+    "loadFailed": "Le fichier de sons n'a pas pu être chargé. Corrigez le fichier puis rechargez le dossier du personnage."
   },
   "validation": {
     "allClear": "Aucun problème détecté.",

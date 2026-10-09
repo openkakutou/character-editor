@@ -13,6 +13,15 @@ import type {
   CharacterInputResult,
   LoadedFileBytes,
 } from "../input/character-file-input.ts";
+import {
+  type ProblemView,
+  createProblemView,
+} from "../problems/problem-view.ts";
+import {
+  type Problem,
+  detailOf,
+  problemSentence,
+} from "../problems/problem.ts";
 import type { CharacterData } from "../wasm/types.ts";
 import {
   type CreateCharacterOptions,
@@ -25,6 +34,11 @@ export interface NewCharacterWizardOptions {
   onCreated: (character: CharacterData, files: LoadedFileBytes) => void;
   /** Forwarded to the default `createCharacterFromWizard`'s own WASM bridge calls; ignored if `createCharacter` is overridden. */
   bridgeOptions?: CreateCharacterOptions;
+  /**
+   * Called once per failed creation with the sentence to announce assertively
+   * (the error shown in the dialog is plain DOM with no live attribute).
+   */
+  onFailure?: (message: string) => void;
   /** Builds the character. Defaults to the real `createCharacterFromWizard`; injectable for testing. */
   createCharacter?: (
     name: string,
@@ -33,10 +47,17 @@ export interface NewCharacterWizardOptions {
   ) => Promise<CharacterInputResult>;
 }
 
-function describeFailure(result: CharacterInputResult): string {
-  if (result.status === "bridge-error") return result.message;
-  if (result.status === "read-error") return result.error.message;
-  return t("wizard.genericFailure", "Could not create the character.");
+/** A failed creation as a problem: the localized message is fixed, the engine's own text is only the detail. */
+function failureProblem(detail?: string): Problem {
+  return { code: "wizard.createFailed", params: {}, detail };
+}
+
+function problemOfResult(result: CharacterInputResult): Problem {
+  if (result.status === "bridge-error") return failureProblem(result.message);
+  if (result.status === "read-error") {
+    return failureProblem(result.error.message);
+  }
+  return failureProblem();
 }
 
 /**
@@ -94,10 +115,12 @@ export function renderNewCharacterWizard(
   nameField.dataset.field = "wizard-name";
   dialogEl.appendChild(nameField);
 
-  const errorEl = document.createElement("p");
+  // The failure shown inside the dialog: plain DOM with no live attribute,
+  // announced once through `options.onFailure`.
+  const errorEl = document.createElement("div");
   errorEl.className = "new-character-wizard__error";
-  errorEl.setAttribute("role", "alert");
   dialogEl.appendChild(errorEl);
+  let errorView: ProblemView | null = null;
 
   const statusEl = document.createElement("p");
   statusEl.className = "new-character-wizard__status";
@@ -129,9 +152,13 @@ export function renderNewCharacterWizard(
   // .vibe/decisions/015-i18n-integration-approach.md.
   type WizardError =
     | { kind: "required" }
-    | { kind: "failure"; message: string };
+    | { kind: "failure"; problem: Problem };
   let currentError: WizardError | null = null;
   let currentStatus: "creating" | null = null;
+  // Bumped by every creation and by Cancel: a creation that finishes after
+  // the dialog was cancelled (or replaced by a newer attempt) is ignored.
+  let attempt = 0;
+  let busy = false;
 
   function renderStaticText(): void {
     trigger.textContent = t("wizard.trigger", "New character");
@@ -146,13 +173,18 @@ export function renderNewCharacterWizard(
       "Basic template — one starting animation and state",
     );
     cancelButton.textContent = t("wizard.cancel", "Cancel");
-    createButton.textContent = t("wizard.create", "Create");
+    createButton.textContent = busy
+      ? t("wizard.creating", "Creating…")
+      : t("wizard.create", "Create");
     nameField.setAttribute("label", t("wizard.nameLabel", "Name"));
   }
 
   function renderErrorAndStatus(): void {
+    if (currentError?.kind !== "failure") {
+      errorView = null;
+      errorEl.replaceChildren();
+    }
     if (currentError === null) {
-      errorEl.textContent = "";
       nameField.removeAttribute("error");
     } else if (currentError.kind === "required") {
       // Shown inline on the field itself only -- unlike a generic
@@ -161,13 +193,17 @@ export function renderNewCharacterWizard(
       // sentence on the shared line too would just be the same message
       // twice on screen (found by real-browser runtime verification). See
       // .vibe/decisions/019.
-      errorEl.textContent = "";
       nameField.setAttribute(
         "error",
         t("wizard.nameRequired", "A name is required."),
       );
     } else {
-      errorEl.textContent = currentError.message;
+      if (errorView === null) {
+        errorView = createProblemView(currentError.problem);
+        errorEl.replaceChildren(errorView.element);
+      } else {
+        errorView.setProblem(currentError.problem);
+      }
       nameField.removeAttribute("error");
     }
     statusEl.textContent =
@@ -184,6 +220,17 @@ export function renderNewCharacterWizard(
     } else {
       createButton.removeAttribute("disabled");
     }
+  }
+
+  // Busy, not disabled: the button keeps keyboard focus while the character
+  // is being built, and a second press is ignored.
+  function setBusy(next: boolean): void {
+    busy = next;
+    if (next) createButton.setAttribute("aria-disabled", "true");
+    else createButton.removeAttribute("aria-disabled");
+    createButton.textContent = next
+      ? t("wizard.creating", "Creating…")
+      : t("wizard.create", "Create");
   }
 
   function resetForm(): void {
@@ -205,18 +252,16 @@ export function renderNewCharacterWizard(
     dialogEl.toggleAttribute("open", false);
   }
 
-  function setBusy(busy: boolean): void {
-    if (busy) {
-      createButton.setAttribute("disabled", "");
-      cancelButton.setAttribute("disabled", "");
-    } else {
-      createButton.removeAttribute("disabled");
-      cancelButton.removeAttribute("disabled");
-    }
+  function cancel(): void {
+    attempt += 1;
+    setBusy(false);
+    currentStatus = null;
+    renderErrorAndStatus();
+    close();
   }
 
   trigger.addEventListener("click", open);
-  cancelButton.addEventListener("click", close);
+  cancelButton.addEventListener("click", cancel);
 
   templateGroup.addEventListener("wuik-change", (event) => {
     const value = (event as CustomEvent<{ value: string }>).detail.value;
@@ -251,6 +296,7 @@ export function renderNewCharacterWizard(
   }
 
   async function handleCreate(): Promise<void> {
+    if (busy) return;
     const name = currentName().trim();
     if (name === "") {
       currentError = { kind: "required" };
@@ -259,26 +305,40 @@ export function renderNewCharacterWizard(
       return;
     }
 
+    const mine = ++attempt;
     currentError = null;
     currentStatus = "creating";
-    renderErrorAndStatus();
     setBusy(true);
+    renderErrorAndStatus();
 
-    const result = await createCharacter(
-      name,
-      selectedTemplate,
-      options.bridgeOptions,
-    );
+    let result: CharacterInputResult;
+    try {
+      result = await createCharacter(
+        name,
+        selectedTemplate,
+        options.bridgeOptions,
+      );
+    } catch (error) {
+      result = { status: "bridge-error", message: detailOf(error) };
+    } finally {
+      // Whatever happened, the dialog must never stay stuck on "Creating…".
+      if (mine === attempt) {
+        setBusy(false);
+        currentStatus = null;
+      }
+    }
+    // Cancelled, or superseded, while the character was being built.
+    if (mine !== attempt) return;
 
-    setBusy(false);
     if (result.status !== "success") {
-      currentStatus = null;
-      currentError = { kind: "failure", message: describeFailure(result) };
+      const problem = problemOfResult(result);
+      currentError = { kind: "failure", problem };
       renderErrorAndStatus();
+      options.onFailure?.(problemSentence(problem));
+      errorView?.focus();
       return;
     }
 
-    currentStatus = null;
     renderErrorAndStatus();
     close();
     options.onCreated(result.character, result.files);

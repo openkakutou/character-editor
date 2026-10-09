@@ -7,6 +7,13 @@
 // for the semantic-vs-file-order model this screen edits against.
 import { pushHistoryCommand } from "../history/app-history.ts";
 import { onLocaleChange, t } from "../i18n/i18n.ts";
+import {
+  type ProblemSink,
+  createInlineError,
+} from "../problems/inline-error.ts";
+import { createPreviewFailure } from "../problems/preview-failure.ts";
+import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
+import { detailOf } from "../problems/problem.ts";
 import { defaultDrawPixels } from "../sprites/sprite-browser.ts";
 import {
   type SpritePixelResult,
@@ -102,6 +109,10 @@ export interface PaletteEditorOptions {
     width: number,
     height: number,
   ) => void;
+  /** Where an upload failure is reported, so the sidebar badge counts it and the shell announces it. */
+  problems?: ProblemSink;
+  /** Called when a preview request rejects: the engine itself is unavailable. */
+  onEngineFailure?: (error: unknown) => void;
   /** Reads an uploaded .act file's bytes. Defaults to the real FileReader-based read; injectable for testing. */
   readFileBytes?: (file: File) => Promise<Uint8Array>;
   /** Triggers the "Save as .act" download. Defaults to the real browser download; injectable for testing. */
@@ -254,10 +265,14 @@ export function renderPaletteEditor(
   }
   renderStaticText();
 
-  const sourceErrorEl = document.createElement("p");
-  sourceErrorEl.className = "palette-editor__source-error";
-  sourceErrorEl.setAttribute("role", "status");
-  sourceErrorEl.hidden = true;
+  const uploadFailure = createInlineError({
+    section: "palettes",
+    key: "upload",
+    sink: options.problems,
+    onDismiss: () => uploadInputEl.focus(),
+  });
+  const sourceErrorEl = uploadFailure.element;
+  sourceErrorEl.classList.add("palette-editor__source-error");
 
   sourceSection.append(
     uploadLabel,
@@ -276,7 +291,7 @@ export function renderPaletteEditor(
     const before = snapshotState();
     activePalette = blankPalette();
     selectedIndex = 0;
-    sourceErrorEl.hidden = true;
+    uploadFailure.clear();
     renderBody();
     recordChange(before);
   });
@@ -293,18 +308,30 @@ export function renderPaletteEditor(
     void handleUpload();
   });
 
+  function showUploadFailure(detail: string): void {
+    uploadFailure.show({ code: "import.palette", params: {}, detail });
+    uploadInputEl.setAttribute("aria-describedby", sourceErrorEl.id);
+  }
+
   async function handleUpload(): Promise<void> {
     const file = uploadInputEl.files?.[0];
     if (!file) return;
-    const bytes = await readFileBytes(file);
+    let bytes: Uint8Array;
+    try {
+      bytes = await readFileBytes(file);
+    } catch (error) {
+      uploadInputEl.value = "";
+      showUploadFailure(detailOf(error));
+      return;
+    }
     uploadInputEl.value = "";
     const result = parseActBytes(bytes);
     if (!result.ok) {
-      sourceErrorEl.hidden = false;
-      sourceErrorEl.textContent = result.error;
+      showUploadFailure(result.error);
       return;
     }
-    sourceErrorEl.hidden = true;
+    uploadFailure.clear();
+    uploadInputEl.removeAttribute("aria-describedby");
     const before = snapshotState();
     activePalette = result.palette;
     selectedIndex = 0;
@@ -470,7 +497,19 @@ export function renderPaletteEditor(
     body.append(previewSection, saveButtonEl);
     bodyContainer.appendChild(body);
 
-    let previewToken = 0;
+    const previewGuard = createPreviewGuard();
+    const previewFailure = createPreviewFailure(() => renderPreview());
+    previewSection.append(previewFailure.element);
+    let drawnOnce = false;
+
+    // The earlier good recolor stays on screen, dimmed, and is called outdated.
+    function showPreviewFailure(detail: string): void {
+      previewStatus.textContent = "";
+      canvas.hidden = !drawnOnce;
+      canvas.classList.toggle("is-outdated", drawnOnce);
+      previewFailure.show(detail, drawnOnce);
+    }
+
     function renderPreview(): void {
       if (!previewSprite) {
         canvas.hidden = true;
@@ -480,23 +519,35 @@ export function renderPaletteEditor(
         );
         return;
       }
-      const token = ++previewToken;
-      previewStatus.textContent = t("palettes.loading", "Loading…");
-      resolvePixels(
-        sffBytesNonNull,
-        [[previewSprite.group, previewSprite.image]],
-        serializeActBytes(activePalette as Uint8Array),
-        options.bridgeOptions,
-      ).then(([result]) => {
-        if (token !== previewToken) return;
-        if (!result.ok) {
-          previewStatus.textContent = result.error;
-          return;
-        }
-        drawPixels(canvas, result.pixels, result.width, result.height);
-        canvas.hidden = false;
-        previewStatus.textContent = "";
-      });
+      const sprite = previewSprite;
+      void runPreview(
+        previewGuard,
+        () =>
+          resolvePixels(
+            sffBytesNonNull,
+            [[sprite.group, sprite.image]],
+            serializeActBytes(activePalette as Uint8Array),
+            options.bridgeOptions,
+          ),
+        {
+          onLoading() {
+            previewFailure.hide();
+            previewStatus.textContent = t("palettes.loading", "Loading…");
+          },
+          onPixels(result) {
+            drawPixels(canvas, result.pixels, result.width, result.height);
+            canvas.hidden = false;
+            canvas.classList.remove("is-outdated");
+            drawnOnce = true;
+            previewStatus.textContent = "";
+          },
+          onFailure: showPreviewFailure,
+          onEngineFailure(error) {
+            showPreviewFailure(detailOf(error));
+            options.onEngineFailure?.(error);
+          },
+        },
+      );
     }
 
     updateDetail();

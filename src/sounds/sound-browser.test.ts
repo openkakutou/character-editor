@@ -154,7 +154,14 @@ describe("renderSoundBrowser", () => {
 
     const [good, bad] = rows(root);
     expect(bad.textContent).toContain("Cannot be decoded");
-    expect(bad.textContent).toContain("decoding failed: bad wav");
+    // The raw reason is not the message: it sits behind "Show details".
+    expect(bad.textContent).not.toContain("decoding failed: bad wav");
+    expect(root.querySelector(".problem__detail")?.textContent).toBe(
+      "decoding failed: bad wav",
+    );
+    expect(root.querySelector<HTMLElement>(".problem__detail")?.hidden).toBe(
+      true,
+    );
     expect(bad.disabled).toBe(false);
     expect(bad.getAttribute("aria-disabled")).toBe("true");
 
@@ -193,7 +200,10 @@ describe("renderSoundBrowser", () => {
 
     rows(root)[0].click();
 
-    expect(rows(root)[0].textContent).toContain("unsupported sample rate");
+    expect(rows(root)[0].textContent).toContain("Cannot be decoded");
+    expect(root.querySelector(".problem__detail")?.textContent).toBe(
+      "unsupported sample rate",
+    );
     expect(rows(root)[0].getAttribute("aria-disabled")).toBe("true");
     rows(root)[1].click();
     expect(rows(root)[1].getAttribute("aria-pressed")).toBe("true");
@@ -219,8 +229,15 @@ describe("renderSoundBrowser", () => {
     });
 
     const error = root.querySelector(".sound-browser__error");
-    expect(error?.getAttribute("role")).toBe("alert");
-    expect(error?.textContent).toContain("ryu.snd: file not found");
+    // Plain DOM, announced once elsewhere: no live attribute of its own.
+    expect(error?.hasAttribute("role")).toBe(false);
+    expect(error?.querySelector("p")?.textContent).toContain(
+      "The sound file could not be loaded.",
+    );
+    expect(error?.querySelector("p")?.textContent).not.toContain("ryu.snd");
+    expect(error?.querySelector(".problem__detail")?.textContent).toBe(
+      "ryu.snd: file not found in the folder",
+    );
     expect(root.querySelector(".sound-browser__empty")).toBeNull();
   });
 

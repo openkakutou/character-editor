@@ -171,7 +171,13 @@ export function createHomeView(options: HomeViewOptions): HomeView {
   }
 
   function mount(): void {
-    renderNewCharacterWizard(wizardRoot, options.wizard);
+    renderNewCharacterWizard(wizardRoot, {
+      ...options.wizard,
+      onFailure: (message) => {
+        alert(message);
+        options.wizard.onFailure?.(message);
+      },
+    });
     renderCharacterFileInput(inputRoot, {
       ...options.fileInput,
       onUnsupportedVersion: (info) => showVersionBlocked(info),

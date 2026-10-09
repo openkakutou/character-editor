@@ -483,3 +483,109 @@ describe("renderPaletteEditor", () => {
     });
   });
 });
+
+describe("robust previews and imports (UX flow 002)", () => {
+  beforeEach(() => {
+    resetAppHistoryForTests();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function previewFailure(root: HTMLElement): HTMLElement {
+    return root.querySelector(".preview-failure") as HTMLElement;
+  }
+
+  it("explains a malformed upload in the user's words, keeps the raw text behind details and reports it to the registry", async () => {
+    const problems = { report: vi.fn(), clear: vi.fn() };
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      problems,
+      readFileBytes: async () => new Uint8Array(10),
+    });
+    await upload(root, new File([new Uint8Array(10)], "bad.act"));
+
+    const failure = sourceError(root);
+    expect(failure.hidden).toBe(false);
+    expect(failure.textContent).toContain("Couldn't import this palette");
+    expect(failure.textContent).toContain("Choose an .act palette file.");
+    expect(failure.querySelector(".problem__detail")?.textContent).toContain(
+      "10",
+    );
+    expect(uploadInput(root).getAttribute("aria-describedby")).toBe(failure.id);
+    expect(problems.report.mock.calls[0].slice(0, 2)).toEqual([
+      "palettes",
+      "upload",
+    ]);
+  });
+
+  it("reports a file the browser cannot read as an import failure instead of an unhandled rejection", async () => {
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      readFileBytes: async () => {
+        throw new Error("NotReadableError");
+      },
+    });
+    await upload(root, new File([new Uint8Array(10)], "x.act"));
+    await vi.waitFor(() => expect(sourceError(root).hidden).toBe(false));
+    expect(
+      sourceError(root).querySelector(".problem__detail")?.textContent,
+    ).toBe("NotReadableError");
+  });
+
+  it("clears the upload error when a good palette is loaded", async () => {
+    const problems = { report: vi.fn(), clear: vi.fn() };
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      problems,
+      resolveSpritePixels: stubResolve(),
+      readFileBytes: async (file) =>
+        file.name === "bad.act"
+          ? new Uint8Array(10)
+          : serializeActBytes(blankPalette()),
+    });
+    await upload(root, new File([new Uint8Array(10)], "bad.act"));
+    await upload(root, new File([new Uint8Array(10)], "good.act"));
+    await vi.waitFor(() => expect(sourceError(root).hidden).toBe(true));
+    expect(problems.clear).toHaveBeenCalledWith("palettes", "upload");
+  });
+
+  it("shows a placeholder with Retry when the recolored preview fails, then recovers", async () => {
+    const resolve = vi
+      .fn()
+      .mockResolvedValueOnce([{ ok: false, error: "bad palette" }])
+      .mockResolvedValueOnce([
+        { ok: true, pixels: new Uint8Array(400), width: 10, height: 10 },
+      ]);
+    const draw = vi.fn();
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      resolveSpritePixels: resolve,
+      drawPixels: draw,
+    });
+    newBlankButton(root).click();
+
+    await vi.waitFor(() => expect(previewFailure(root).hidden).toBe(false));
+    expect(
+      root.querySelector(".palette-editor__preview-status")?.textContent,
+    ).toBe("");
+    previewFailure(root)
+      .querySelector<HTMLElement>('[data-action="retry-preview"]')
+      ?.click();
+    await vi.waitFor(() => expect(draw).toHaveBeenCalledTimes(1));
+    expect(previewFailure(root).hidden).toBe(true);
+  });
+
+  it("reports a rejected preview as an engine failure", async () => {
+    const onEngineFailure = vi.fn();
+    const error = new Error("wasm gone");
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      resolveSpritePixels: vi.fn().mockRejectedValue(error),
+      onEngineFailure,
+    });
+    newBlankButton(root).click();
+    await vi.waitFor(() => expect(onEngineFailure).toHaveBeenCalledWith(error));
+    expect(previewFailure(root).hidden).toBe(false);
+  });
+});

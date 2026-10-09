@@ -1,4 +1,7 @@
 import { t } from "../i18n/i18n.ts";
+import { createPreviewFailure } from "../problems/preview-failure.ts";
+import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
+import { detailOf } from "../problems/problem.ts";
 import {
   type SpriteEdit,
   mergeSpriteGroups,
@@ -107,6 +110,8 @@ export interface AnimationEditorOptions {
     height: number,
   ) => void;
   playbackTimer?: PlaybackTimer;
+  /** Called when a preview request rejects: the engine itself is unavailable. */
+  onEngineFailure?: (error: unknown) => void;
 }
 
 /**
@@ -915,6 +920,45 @@ export function renderAnimationEditor(
       renderBoxes();
     });
 
+    const previewGuard = createPreviewGuard();
+    const failure = createPreviewFailure(() => requestFramePreview());
+
+    function requestFramePreview(): void {
+      if (!sffBytesForPreview) return;
+      const sheet = sffBytesForPreview;
+      void runPreview(
+        previewGuard,
+        () =>
+          deps.resolvePixels(
+            sheet,
+            [[frame.group, frame.image]],
+            null,
+            options.bridgeOptions,
+          ),
+        {
+          onLoading() {
+            failure.hide();
+            status.textContent = t("animations.loading", "Loading…");
+          },
+          onPixels(result) {
+            deps.drawPixels(canvas, result.pixels, result.width, result.height);
+            canvas.hidden = false;
+            status.textContent = "";
+            resetViewportToFit(viewport);
+          },
+          onFailure(detail) {
+            status.textContent = "";
+            failure.show(detail, false);
+          },
+          onEngineFailure(error) {
+            status.textContent = "";
+            failure.show(detailOf(error), false);
+            options.onEngineFailure?.(error);
+          },
+        },
+      );
+    }
+
     renderBoxes();
 
     if (spriteReferenceExists(spriteGroups, frame.group, frame.image)) {
@@ -933,29 +977,7 @@ export function renderAnimationEditor(
           canvas.hidden = false;
           resetViewportToFit(viewport);
         } else {
-          status.textContent = t("animations.loading", "Loading…");
-          deps
-            .resolvePixels(
-              sffBytesForPreview,
-              [[frame.group, frame.image]],
-              null,
-              options.bridgeOptions,
-            )
-            .then(([result]) => {
-              if (!result.ok) {
-                status.textContent = result.error;
-                return;
-              }
-              deps.drawPixels(
-                canvas,
-                result.pixels,
-                result.width,
-                result.height,
-              );
-              canvas.hidden = false;
-              status.textContent = "";
-              resetViewportToFit(viewport);
-            });
+          requestFramePreview();
         }
       }
     } else {
@@ -966,7 +988,14 @@ export function renderAnimationEditor(
       );
     }
 
-    wrapper.append(viewport, status, addClsn1, addClsn2, boxList);
+    wrapper.append(
+      viewport,
+      status,
+      failure.element,
+      addClsn1,
+      addClsn2,
+      boxList,
+    );
     return wrapper;
   }
 
@@ -991,6 +1020,18 @@ export function renderAnimationEditor(
     const status = document.createElement("p");
     status.className = "animation-editor__playback-status";
     status.setAttribute("role", "status");
+
+    const playbackGuard = createPreviewGuard();
+    let drawnOnce = false;
+    let lastFrameIndex = 0;
+    const failure = createPreviewFailure(() => showFrame(lastFrameIndex));
+    // The earlier good frame stays on screen, dimmed, and is called outdated.
+    function showPlaybackFailure(detail: string): void {
+      status.textContent = "";
+      canvas.hidden = !drawnOnce;
+      canvas.classList.toggle("is-outdated", drawnOnce);
+      failure.show(detail, drawnOnce);
+    }
 
     const playButton = document.createElement("wuik-button");
     playButton.dataset.action = "play";
@@ -1018,6 +1059,7 @@ export function renderAnimationEditor(
     }
 
     function showFrame(index: number): void {
+      lastFrameIndex = index;
       const frames = getFrames();
       const frame = frames[index];
       canvas.hidden = true;
@@ -1051,22 +1093,37 @@ export function renderAnimationEditor(
         resetViewportToFit(viewport);
         return;
       }
-      status.textContent = t("animations.loading", "Loading…");
-      resolvePixels(
-        sffBytes,
-        [[frame.group, frame.image]],
-        null,
-        options.bridgeOptions,
-      ).then(([result]) => {
-        if (!result.ok) {
-          status.textContent = result.error;
-          return;
-        }
-        drawPixels(canvas, result.pixels, result.width, result.height);
-        canvas.hidden = false;
-        status.textContent = "";
-        resetViewportToFit(viewport);
-      });
+      void runPreview(
+        playbackGuard,
+        () =>
+          resolvePixels(
+            sffBytes,
+            [[frame.group, frame.image]],
+            null,
+            options.bridgeOptions,
+          ),
+        {
+          onLoading() {
+            failure.hide();
+            status.textContent = t("animations.loading", "Loading…");
+          },
+          onPixels(result) {
+            drawPixels(canvas, result.pixels, result.width, result.height);
+            canvas.hidden = false;
+            canvas.classList.remove("is-outdated");
+            drawnOnce = true;
+            status.textContent = "";
+            resetViewportToFit(viewport);
+          },
+          onFailure(detail) {
+            showPlaybackFailure(detail);
+          },
+          onEngineFailure(error) {
+            showPlaybackFailure(detailOf(error));
+            options.onEngineFailure?.(error);
+          },
+        },
+      );
     }
 
     function scheduleNext(): void {
@@ -1137,6 +1194,7 @@ export function renderAnimationEditor(
       document.createElement("h4"),
       viewport,
       status,
+      failure.element,
       playButton,
       pauseButton,
       stepButton,

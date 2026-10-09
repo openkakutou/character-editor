@@ -5,6 +5,7 @@
 // its reason; a `.snd` that could not be loaded at all shows an error state,
 // distinct from the empty state of a character that has no sound file.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
+import { createProblemView } from "../problems/problem-view.ts";
 import type { CharacterData, Sound } from "../wasm/types.ts";
 
 /** Plays one sound at a time. Injectable: jsdom has no Web Audio. */
@@ -155,6 +156,18 @@ export function renderSoundBrowser(
     render();
   }
 
+  /** A sound's row, followed by its raw reason behind "Show details" when it cannot be played. */
+  function renderRowWithDetails(sound: Sound): HTMLElement[] {
+    const row = renderRow(sound);
+    const reason = undecodableReason(sound) ?? playbackErrors.get(keyOf(sound));
+    if (reason === undefined) return [row];
+    const details = createProblemView(
+      { code: "unknown", params: {}, detail: reason },
+      { detailsOnly: true },
+    );
+    return [row, details.element];
+  }
+
   function renderRow(sound: Sound): HTMLButtonElement {
     const key = keyOf(sound);
     const row = document.createElement("button");
@@ -165,8 +178,8 @@ export function renderSoundBrowser(
       row.setAttribute("aria-disabled", "true");
       row.textContent = t(
         "sounds.rowUndecodable",
-        "{{key}} — Cannot be decoded: {{reason}}",
-        { key, reason },
+        "{{key}} — Cannot be decoded",
+        { key },
       );
     } else {
       const isPlaying = playing === key;
@@ -203,7 +216,8 @@ export function renderSoundBrowser(
       });
       list.appendChild(toggleButton);
       if (expanded) {
-        for (const sound of group.sounds) list.appendChild(renderRow(sound));
+        for (const sound of group.sounds)
+          list.append(...renderRowWithDetails(sound));
       }
     }
     return list;
@@ -220,14 +234,18 @@ export function renderSoundBrowser(
 
     body.replaceChildren();
     if (files.sndIssue) {
-      const error = document.createElement("p");
+      const error = document.createElement("div");
       error.className = "sound-browser__error";
-      error.setAttribute("role", "alert");
-      error.textContent = t(
-        "sounds.loadError",
-        "The sound file could not be loaded: {{reason}}. Fix the file and load the character folder again.",
-        { reason: files.sndIssue },
+      const message = document.createElement("p");
+      message.textContent = t(
+        "sounds.loadFailed",
+        "The sound file could not be loaded. Fix the file and load the character folder again.",
       );
+      const details = createProblemView(
+        { code: "unknown", params: {}, detail: files.sndIssue },
+        { detailsOnly: true },
+      );
+      error.append(message, details.element);
       body.appendChild(error);
     } else if (groups.length === 0) {
       const empty = document.createElement("p");

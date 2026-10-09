@@ -441,4 +441,167 @@ describe("renderSpriteBrowser", () => {
       });
     });
   });
+
+  describe("robust previews and imports (UX flow 002)", () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((res) => {
+        resolve = res;
+      });
+      return { promise, resolve };
+    }
+
+    function failurePlaceholder(root: HTMLElement): HTMLElement {
+      return root.querySelector(".preview-failure") as HTMLElement;
+    }
+
+    it("shows a placeholder with its own Retry when the preview cannot be decoded, and recovers on Retry", async () => {
+      const resolveSpritePixels = vi
+        .fn()
+        .mockResolvedValueOnce([{ ok: false, error: "bad palette index" }])
+        .mockResolvedValueOnce([okPixelResult(2, 2)]);
+      const drawPixels = vi.fn();
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        resolveSpritePixels,
+        drawPixels,
+      });
+      expandFirstGroup(root);
+      selectSprite(root, 0);
+
+      await vi.waitFor(() =>
+        expect(failurePlaceholder(root).hidden).toBe(false),
+      );
+      expect(failurePlaceholder(root).textContent).toContain(
+        "Preview unavailable for this sprite",
+      );
+      expect(
+        root.querySelector(".sprite-browser__preview-status")?.textContent,
+      ).toBe("");
+
+      failurePlaceholder(root)
+        .querySelector<HTMLElement>('[data-action="retry-preview"]')
+        ?.click();
+      await vi.waitFor(() => expect(drawPixels).toHaveBeenCalledTimes(1));
+      expect(failurePlaceholder(root).hidden).toBe(true);
+    });
+
+    it("reports a rejected preview as an engine failure without an unhandled rejection", async () => {
+      const onEngineFailure = vi.fn();
+      const error = new Error("wasm gone");
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        resolveSpritePixels: vi.fn().mockRejectedValue(error),
+        onEngineFailure,
+      });
+      expandFirstGroup(root);
+      selectSprite(root, 0);
+
+      await vi.waitFor(() =>
+        expect(onEngineFailure).toHaveBeenCalledWith(error),
+      );
+      expect(failurePlaceholder(root).hidden).toBe(false);
+      expect(root.querySelector(".problem__detail")?.textContent).toBe(
+        "wasm gone",
+      );
+    });
+
+    it("never paints a stale answer over the sprite selected since", async () => {
+      const first = deferred<SpritePixelResult[]>();
+      const second = deferred<SpritePixelResult[]>();
+      const resolveSpritePixels = vi
+        .fn()
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise);
+      const drawPixels = vi.fn();
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        resolveSpritePixels,
+        drawPixels,
+      });
+      expandFirstGroup(root);
+      selectSprite(root, 0);
+      selectSprite(root, 1);
+
+      second.resolve([okPixelResult(8, 8)]);
+      await vi.waitFor(() => expect(drawPixels).toHaveBeenCalledTimes(1));
+      first.resolve([okPixelResult(10, 20)]);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(drawPixels).toHaveBeenCalledTimes(1);
+      expect(drawPixels.mock.calls[0][2]).toBe(8);
+    });
+
+    it("explains a failed import under the control, keeps the raw text behind details and reports it to the registry", async () => {
+      const problems = { report: vi.fn(), clear: vi.fn() };
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        problems,
+        decodeImageFile: vi.fn().mockResolvedValue({
+          ok: false,
+          error: "InvalidStateError: source image is broken",
+        }),
+      });
+      const fileInput = root.querySelector<HTMLInputElement>(
+        ".sprite-browser__import-file",
+      ) as HTMLInputElement;
+      Object.defineProperty(fileInput, "files", { value: [fakeFile()] });
+      fileInput.dispatchEvent(new Event("change"));
+      root
+        .querySelector<HTMLElement>(".sprite-browser__import-submit")
+        ?.click();
+
+      const failure = await vi.waitFor(() => {
+        const found = root.querySelector<HTMLElement>(
+          ".inline-error:not([hidden])",
+        );
+        if (!found) throw new Error("no inline error yet");
+        return found;
+      });
+      expect(failure.textContent).toContain("Couldn't import this sprite");
+      expect(failure.textContent).toContain("Choose a PNG or PCX file.");
+      expect(failure.querySelector(".problem__detail")?.textContent).toBe(
+        "InvalidStateError: source image is broken",
+      );
+      expect(fileInput.getAttribute("aria-describedby")).toBe(failure.id);
+      expect(problems.report).toHaveBeenCalledTimes(1);
+      expect(problems.report.mock.calls[0].slice(0, 2)).toEqual([
+        "sprites",
+        "import",
+      ]);
+
+      failure
+        .querySelector<HTMLElement>('[data-action="dismiss-error"]')
+        ?.click();
+      expect(failure.hidden).toBe(true);
+      expect(problems.clear).toHaveBeenCalledWith("sprites", "import");
+    });
+
+    it("shows a failed replace under its own control too", async () => {
+      const root = document.createElement("div");
+      renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+        resolveSpritePixels: vi.fn().mockResolvedValue([okPixelResult(2, 2)]),
+        drawPixels: vi.fn(),
+        decodeImageFile: vi
+          .fn()
+          .mockResolvedValue({ ok: false, error: "broken" }),
+      });
+      expandFirstGroup(root);
+      selectSprite(root, 0);
+      const fileInput = root.querySelector<HTMLInputElement>(
+        ".sprite-browser__replace-file",
+      ) as HTMLInputElement;
+      Object.defineProperty(fileInput, "files", { value: [fakeFile()] });
+      fileInput.dispatchEvent(new Event("change"));
+
+      await vi.waitFor(() =>
+        expect(
+          root.querySelector(".sprite-browser__replace-error:not([hidden])"),
+        ).not.toBeNull(),
+      );
+      expect(
+        root.querySelector(".sprite-browser__replace-error")?.textContent,
+      ).toContain("Couldn't import this sprite");
+    });
+  });
 });

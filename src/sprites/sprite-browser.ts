@@ -7,6 +7,14 @@
 // scope here — see .vibe/decisions/004-sprite-edits-in-memory-overlay-not-persisted.md.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
 import {
+  type InlineError,
+  type ProblemSink,
+  createInlineError,
+} from "../problems/inline-error.ts";
+import { createPreviewFailure } from "../problems/preview-failure.ts";
+import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
+import { detailOf } from "../problems/problem.ts";
+import {
   type SpritePixelResult,
   type WasmBridgeOptions,
   resolveSpritePixels as defaultResolveSpritePixels,
@@ -95,6 +103,10 @@ export interface SpriteBrowserOptions {
     width: number,
     height: number,
   ) => void;
+  /** Where import and replace failures are reported, so the sidebar badge counts them and the shell announces them. */
+  problems?: ProblemSink;
+  /** Called when a preview request rejects: the engine itself is unavailable. */
+  onEngineFailure?: (error: unknown) => void;
   /** Decodes a user-picked image file. Defaults to the real browser decode; injectable for testing. */
   decodeImageFile?: (
     file: File,
@@ -177,6 +189,7 @@ export function renderSpriteBrowser(
   let importGroupInput: HTMLInputElement;
   let importFileInput: HTMLInputElement;
   let importError: HTMLParagraphElement;
+  let importFailure: InlineError;
   let retranslateImportSection: () => void = () => {};
 
   const importSection = renderImportSection();
@@ -324,7 +337,19 @@ export function renderSpriteBrowser(
     };
     retranslateImportSection();
 
-    section.append(groupLabel, importFileInput, submit, importError);
+    importFailure = createInlineError({
+      section: "sprites",
+      key: "import",
+      sink: options.problems,
+      onDismiss: () => importFileInput.focus(),
+    });
+    section.append(
+      groupLabel,
+      importFileInput,
+      submit,
+      importError,
+      importFailure.element,
+    );
     return section;
   }
 
@@ -344,9 +369,20 @@ export function renderSpriteBrowser(
 
     const result = await decodeImage(file);
     if (!result.ok) {
-      showImportError(result.error);
+      importError.hidden = true;
+      importFailure.show({
+        code: "import.image",
+        params: {},
+        detail: result.error,
+      });
+      importFileInput.setAttribute(
+        "aria-describedby",
+        importFailure.element.id,
+      );
       return;
     }
+    importFailure.clear();
+    importFileInput.removeAttribute("aria-describedby");
 
     const mergedGroups = mergeSpriteGroups(characterNonNull.sprites, edits);
     const existingGroup = mergedGroups.find((g) => g.index === groupNumber);
@@ -366,6 +402,7 @@ export function renderSpriteBrowser(
   }
 
   function showImportError(message: string): void {
+    importFailure.clear();
     importError.hidden = false;
     importError.textContent = message;
   }
@@ -477,7 +514,7 @@ export function renderSpriteBrowser(
       ?.click();
   }
 
-  let selectionToken = 0;
+  const previewGuard = createPreviewGuard();
 
   function renderPreview(
     sprite: Sprite,
@@ -505,15 +542,17 @@ export function renderSpriteBrowser(
     status.className = "sprite-browser__preview-status";
     status.setAttribute("role", "status");
 
+    const failure = createPreviewFailure(() => requestPreview());
+
     const actions = document.createElement("div");
     actions.className = "sprite-browser__actions";
     renderActionsIdle(actions, sprite, preview);
 
-    preview.append(viewport, status, actions);
+    preview.append(viewport, status, failure.element, actions);
 
-    const token = ++selectionToken;
     const pendingEdit = spriteEditFor(edits, sprite);
     if (pendingEdit) {
+      previewGuard.begin();
       drawPixels(
         canvas,
         pendingEdit.pixels,
@@ -525,23 +564,40 @@ export function renderSpriteBrowser(
       return;
     }
 
-    status.textContent = t("sprites.loading", "Loading…");
-    resolvePixels(
-      sffBytesNonNull,
-      [[sprite.group, sprite.image]],
-      null,
-      options.bridgeOptions,
-    ).then(([result]) => {
-      if (token !== selectionToken) return;
-      if (!result.ok) {
-        status.textContent = result.error;
-        return;
-      }
-      drawPixels(canvas, result.pixels, result.width, result.height);
-      canvas.hidden = false;
-      status.textContent = "";
-      resetViewportToFit(viewport);
-    });
+    function requestPreview(): void {
+      void runPreview(
+        previewGuard,
+        () =>
+          resolvePixels(
+            sffBytesNonNull,
+            [[sprite.group, sprite.image]],
+            null,
+            options.bridgeOptions,
+          ),
+        {
+          onLoading() {
+            failure.hide();
+            status.textContent = t("sprites.loading", "Loading…");
+          },
+          onPixels(result) {
+            drawPixels(canvas, result.pixels, result.width, result.height);
+            canvas.hidden = false;
+            status.textContent = "";
+            resetViewportToFit(viewport);
+          },
+          onFailure(detail) {
+            status.textContent = "";
+            failure.show(detail, false);
+          },
+          onEngineFailure(error) {
+            status.textContent = "";
+            failure.show(detailOf(error), false);
+            options.onEngineFailure?.(error);
+          },
+        },
+      );
+    }
+    requestPreview();
   }
 
   function renderActionsIdle(
@@ -559,13 +615,16 @@ export function renderSpriteBrowser(
     replaceFile.className = "sprite-browser__replace-file";
     replaceLabel.appendChild(replaceFile);
 
-    const replaceError = document.createElement("p");
-    replaceError.className = "sprite-browser__replace-error";
-    replaceError.setAttribute("role", "status");
-    replaceError.hidden = true;
+    const replaceFailure = createInlineError({
+      section: "sprites",
+      key: "replace",
+      sink: options.problems,
+      onDismiss: () => replaceFile.focus(),
+    });
+    replaceFailure.element.classList.add("sprite-browser__replace-error");
 
     replaceFile.addEventListener("change", () => {
-      void handleReplace(sprite, replaceFile, replaceError);
+      void handleReplace(sprite, replaceFile, replaceFailure);
     });
 
     const deleteButton = document.createElement("wuik-button");
@@ -575,23 +634,28 @@ export function renderSpriteBrowser(
       renderActionsConfirmingDelete(actions, sprite, preview),
     );
 
-    actions.append(replaceLabel, replaceError, deleteButton);
+    actions.append(replaceLabel, replaceFailure.element, deleteButton);
   }
 
   async function handleReplace(
     sprite: Sprite,
     fileInput: HTMLInputElement,
-    errorEl: HTMLElement,
+    failure: InlineError,
   ): Promise<void> {
     const file = fileInput.files?.[0];
     if (!file) return;
     const result = await decodeImage(file);
     if (!result.ok) {
-      errorEl.hidden = false;
-      errorEl.textContent = result.error;
+      failure.show({
+        code: "import.image",
+        params: {},
+        detail: result.error,
+      });
+      fileInput.setAttribute("aria-describedby", failure.element.id);
       return;
     }
-    errorEl.hidden = true;
+    failure.clear();
+    fileInput.removeAttribute("aria-describedby");
     commitEdit({
       kind: "replace",
       group: sprite.group,

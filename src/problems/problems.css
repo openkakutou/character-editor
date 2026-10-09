@@ -240,3 +240,75 @@
 .home__column[hidden] {
   display: none;
 }
+
+/* Placeholders and messages that stand where an editor or a preview cannot. */
+.preview-failure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  align-items: flex-start;
+}
+
+.preview-failure[hidden],
+.inline-error[hidden] {
+  display: none;
+}
+
+.preview-failure__outdated {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text-muted);
+}
+
+/* The last good frame stays visible but is clearly not current. */
+canvas.is-outdated {
+  opacity: 0.45;
+}
+
+.inline-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-2);
+  align-items: flex-start;
+  /* Under the control that failed, on its own line inside a row of controls. */
+  flex: 1 1 100%;
+  width: 100%;
+  max-width: 40rem;
+  margin-top: var(--wuik-space-2);
+}
+
+.new-character-wizard__error {
+  margin-bottom: var(--wuik-space-2);
+}
+
+/* A section whose file or engine is unavailable shows only its card. */
+[data-blocked] > :not(.dependency-card) {
+  display: none;
+}
+
+.dependency-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  padding: var(--wuik-space-4);
+  background: var(--wuik-color-surface);
+  border: var(--wuik-border-width) solid var(--wuik-color-border);
+  border-left: var(--wuik-border-width-strong) solid var(--wuik-color-warning);
+  border-radius: var(--wuik-radius-card);
+}
+
+.dependency-card__title {
+  margin: 0;
+  font-size: var(--wuik-font-size-lg);
+}
+
+.dependency-card__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wuik-space-3);
+  align-items: flex-start;
+}
+
+.dependency-card__block p {
+  margin: 0;
+}

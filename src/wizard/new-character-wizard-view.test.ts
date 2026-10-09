@@ -264,4 +264,175 @@ describe("renderNewCharacterWizard", () => {
       expect(nameInput(root).getAttribute("error")).toBe("Un nom est requis.");
     });
   });
+
+  describe("robust creation (UX flow 002, F4)", () => {
+    function deferredResult() {
+      let resolve!: (value: unknown) => void;
+      let reject!: (error: unknown) => void;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    it("never leaves the dialog stuck when creation throws: it stays open with the entries kept and Create usable again", async () => {
+      const onFailure = vi.fn();
+      const createCharacter = vi.fn().mockRejectedValue(new Error("boom"));
+      renderNewCharacterWizard(root, {
+        onCreated: vi.fn(),
+        onFailure,
+        createCharacter,
+      });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+      templateGroup(root).dispatchEvent(
+        new CustomEvent("wuik-change", { detail: { value: "basic" } }),
+      );
+
+      createButton(root).click();
+      await vi.waitFor(() => expect(onFailure).toHaveBeenCalledTimes(1));
+
+      expect(dialog(root).hasAttribute("open")).toBe(true);
+      expect(nameInput(root).getAttribute("value")).toBe("Someone");
+      expect(createButton(root).textContent).toBe("Create");
+      expect(createButton(root).hasAttribute("aria-disabled")).toBe(false);
+      expect(createButton(root).hasAttribute("disabled")).toBe(false);
+      expect(cancelButton(root).hasAttribute("disabled")).toBe(false);
+      expect(root.querySelector(".problem__title")?.textContent).toBe(
+        "Couldn't create the character",
+      );
+      expect(onFailure.mock.calls[0][0]).toContain(
+        "Your entries are kept. Retry, or cancel to go back.",
+      );
+      expect(onFailure.mock.calls[0][0]).not.toContain("boom");
+    });
+
+    it("keeps the raw error text behind Show details and carries no live attribute", async () => {
+      renderNewCharacterWizard(root, {
+        onCreated: vi.fn(),
+        createCharacter: vi.fn().mockResolvedValue({
+          status: "bridge-error",
+          message: "the sprite sheet is missing",
+        }),
+      });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+      createButton(root).click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".problem")).not.toBeNull(),
+      );
+
+      const detail = root.querySelector<HTMLElement>(".problem__detail");
+      expect(detail?.textContent).toBe("the sprite sheet is missing");
+      expect(detail?.hidden).toBe(true);
+      expect(
+        root.querySelector(
+          ".new-character-wizard__error [role=alert], .new-character-wizard__error [aria-live]",
+        ),
+      ).toBeNull();
+      expect(
+        root
+          .querySelector(".new-character-wizard__error")
+          ?.hasAttribute("role"),
+      ).toBe(false);
+    });
+
+    it("moves focus to the error summary after a failure", async () => {
+      document.body.appendChild(root);
+      renderNewCharacterWizard(root, {
+        onCreated: vi.fn(),
+        createCharacter: vi.fn().mockResolvedValue({
+          status: "bridge-error",
+          message: "x",
+        }),
+      });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+      createButton(root).click();
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(root.querySelector(".problem")),
+      );
+    });
+
+    it("shows Creating… on a busy but still focusable Create, and runs one creation however often it is pressed", async () => {
+      const pending = deferredResult();
+      const createCharacter = vi.fn().mockReturnValue(pending.promise);
+      const onCreated = vi.fn();
+      renderNewCharacterWizard(root, { onCreated, createCharacter });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+
+      createButton(root).click();
+      createButton(root).click();
+      createButton(root).click();
+
+      expect(createCharacter).toHaveBeenCalledTimes(1);
+      expect(createButton(root).textContent).toBe("Creating…");
+      expect(createButton(root).getAttribute("aria-disabled")).toBe("true");
+      expect(createButton(root).hasAttribute("disabled")).toBe(false);
+      expect(cancelButton(root).hasAttribute("disabled")).toBe(false);
+
+      pending.resolve({
+        status: "success",
+        character: { name: "Someone" },
+        files: {},
+      });
+      await vi.waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+      expect(dialog(root).hasAttribute("open")).toBe(false);
+      expect(createButton(root).textContent).toBe("Create");
+    });
+
+    it("creates nothing when Cancel is pressed during creation, even if it finishes later", async () => {
+      const pending = deferredResult();
+      const onCreated = vi.fn();
+      const onFailure = vi.fn();
+      renderNewCharacterWizard(root, {
+        onCreated,
+        onFailure,
+        createCharacter: vi.fn().mockReturnValue(pending.promise),
+      });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+      createButton(root).click();
+
+      cancelButton(root).click();
+      expect(dialog(root).hasAttribute("open")).toBe(false);
+      expect(createButton(root).textContent).toBe("Create");
+
+      pending.resolve({
+        status: "success",
+        character: { name: "Someone" },
+        files: {},
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(onCreated).not.toHaveBeenCalled();
+      expect(onFailure).not.toHaveBeenCalled();
+    });
+
+    it("does not announce the failure again when the language changes, and retranslates it in place", async () => {
+      const onFailure = vi.fn();
+      renderNewCharacterWizard(root, {
+        onCreated: vi.fn(),
+        onFailure,
+        createCharacter: vi.fn().mockResolvedValue({
+          status: "bridge-error",
+          message: "x",
+        }),
+      });
+      openTrigger(root).click();
+      typeName(root, "Someone");
+      createButton(root).click();
+      await vi.waitFor(() => expect(onFailure).toHaveBeenCalledTimes(1));
+
+      await initAppI18n();
+      await getI18n()?.changeLanguage("fr");
+      expect(root.querySelector(".problem__title")?.textContent).toBe(
+        "Impossible de créer le personnage",
+      );
+      expect(onFailure).toHaveBeenCalledTimes(1);
+      await getI18n()?.changeLanguage("en");
+      window.localStorage.clear();
+    });
+  });
 });

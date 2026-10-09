@@ -38,6 +38,8 @@ export interface ExportControllerOptions {
   now?: () => Date;
   /** Called after a complete, successful export. */
   onSaved?: () => void;
+  /** Called when serializing rejects: the engine itself is unavailable, not the character wrong. */
+  onEngineFailure?: (error: unknown) => void;
 }
 
 export interface ExportController {
@@ -132,7 +134,15 @@ export function createExportController(
 
     async preview() {
       if (running) return;
-      const result = await compute();
+      let result: ExportResult | null;
+      try {
+        result = await compute();
+      } catch (error) {
+        // Nothing to show here: the engine problem is reported by its owner.
+        files = null;
+        options.onEngineFailure?.(error);
+        return;
+      }
       if (result === null) return;
       if (!result.ok) {
         options.validation.setIssues(EXPORT_SOURCE, [
@@ -177,6 +187,7 @@ export function createExportController(
         options.onSaved?.();
         notify();
       } catch (error) {
+        options.onEngineFailure?.(error);
         fail(
           t(
             "save.exportFailed",

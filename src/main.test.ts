@@ -1365,5 +1365,131 @@ describe("renderApp", () => {
       ).toBe(false);
       expect(root.querySelector<HTMLElement>(".home")?.hidden).toBe(false);
     });
+
+    /** Whether the section's editor is replaced by a message card. */
+    function isBlocked(root: HTMLElement, id: string): boolean {
+      return section(root, id).querySelector("[data-blocked]") !== null;
+    }
+
+    it("replaces the Sprites editor with a message card while its file is unreadable, and brings the editor back once replaced", async () => {
+      const root = await openPartialCharacter();
+      const sprites = section(root, "sprites");
+      expect(isBlocked(root, "sprites")).toBe(true);
+      expect(sprites.querySelector(".dependency-card h3")?.textContent).toBe(
+        "Sprites can't be shown",
+      );
+      expect(sprites.querySelector(".sprite-browser")).not.toBeNull();
+      // The sounds file was readable: its editor is untouched.
+      expect(isBlocked(root, "sounds")).toBe(false);
+
+      sprites
+        .querySelector<HTMLElement>(
+          '.dependency-card [data-action="replace-file"]',
+        )
+        ?.click();
+      await chooseReplacement(
+        fileFromBytes("replacement.sff", fixtureBytes("v1-basic.sff")),
+      );
+      await vi.waitFor(() => expect(isBlocked(root, "sprites")).toBe(false));
+      expect(sprites.querySelector(".dependency-card")).toBeNull();
+    });
+
+    describe("engine unavailable", () => {
+      async function openWithEngineThatCanBreak() {
+        const state = { broken: false, attempts: 0 };
+        const real = bridgeOptions.fetchWasmExecSource;
+        const root = newRoot();
+        renderApp(root, "0.1.0", "0.17.0", {
+          bridgeOptions: {
+            ...bridgeOptions,
+            fetchWasmExecSource: async () => {
+              if (state.broken) {
+                state.attempts += 1;
+                throw new Error("Failed to fetch");
+              }
+              return (real as () => Promise<string>)();
+            },
+          },
+        });
+        await loadCharacter(root);
+        // The engine is already running; make the next start fail.
+        resetWasmBridgeForTests();
+        state.broken = true;
+        navigateTo(root, "sprites");
+        root
+          .querySelector<HTMLElement>(".sprite-browser__group-toggle")
+          ?.click();
+        root.querySelector<HTMLElement>(".sprite-browser__sprite")?.click();
+        await vi.waitFor(() =>
+          expect(root.querySelector(".problems-banner")).not.toBeNull(),
+        );
+        return { root, state };
+      }
+
+      it("shows the banner once, local errors with Retry where the engine is needed, and keeps the rest editable", async () => {
+        const { root } = await openWithEngineThatCanBreak();
+
+        expect(
+          root.querySelector("h2.problems-banner__title")?.textContent,
+        ).toBe("The editor engine didn't load");
+        await vi.waitFor(() =>
+          expect(liveText(root, "alert")).toContain(
+            "The editor engine didn't load",
+          ),
+        );
+        for (const id of ["sprites", "palettes", "animations"]) {
+          expect(
+            section(root, id).querySelector(".dependency-card"),
+          ).not.toBeNull();
+        }
+        expect(section(root, "identity").hasAttribute("data-blocked")).toBe(
+          false,
+        );
+        expect(section(root, "states").hasAttribute("data-blocked")).toBe(
+          false,
+        );
+        // It is a problem of the Output section too, so export says why it is stopped.
+        navigateTo(root, "output");
+        expect(
+          section(root, "output").querySelector(".output-section__problems")
+            ?.textContent,
+        ).toContain("The editor engine didn't load");
+      });
+
+      it("runs one attempt however many times Retry is pressed, and recovers without a reload", async () => {
+        const { root, state } = await openWithEngineThatCanBreak();
+        const attemptsBefore = state.attempts;
+        const retry = root.querySelector<HTMLElement>(
+          '.problems-banner [data-action="retry-engine"]',
+        ) as HTMLElement;
+
+        retry.click();
+        retry.click();
+        retry.click();
+        await vi.waitFor(() =>
+          expect(state.attempts).toBeGreaterThan(attemptsBefore),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(state.attempts - attemptsBefore).toBe(1);
+        // Still down: the banner is still there, retryable again.
+        expect(root.querySelector(".problems-banner")).not.toBeNull();
+
+        state.broken = false;
+        root
+          .querySelector<HTMLElement>(
+            '.problems-banner [data-action="retry-engine"]',
+          )
+          ?.click();
+        await vi.waitFor(() =>
+          expect(root.querySelector(".problems-banner")).toBeNull(),
+        );
+        expect(section(root, "sprites").hasAttribute("data-blocked")).toBe(
+          false,
+        );
+        expect(
+          section(root, "palettes").querySelector(".dependency-card"),
+        ).toBeNull();
+      });
+    });
   });
 });

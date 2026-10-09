@@ -32,10 +32,18 @@ import {
   defaultTriggerDownload,
   renderPaletteEditor,
 } from "./palettes/palette-editor.ts";
-import { createEngineRetry } from "./problems/engine-retry.ts";
 import {
+  type DependencyCards,
+  createDependencyCards,
+} from "./problems/dependency-cards.ts";
+import { createEngineRetry } from "./problems/engine-retry.ts";
+import type { ProblemSink } from "./problems/inline-error.ts";
+import {
+  ACTION_SOURCE,
+  type ActionProblem,
   ENGINE_SOURCE,
   LOAD_SOURCE,
+  actionIssues,
   engineIssues,
   loadIssues,
 } from "./problems/problem-issues.ts";
@@ -195,11 +203,25 @@ export function renderApp(
     triggerDownload: options.triggerDownload ?? defaultTriggerDownload,
     exportOptions: { bridgeOptions: options.bridgeOptions },
     onSaved: () => refreshChrome(),
+    onEngineFailure: (error) => engine.report(error),
   });
   const helpDialog = createHelpDialog();
   const leaveDialog = createLeaveDialog(exportController);
   const exportConfirmDialog = createExportConfirmDialog();
   const engine = createEngineRetry(() => warmUpEngine(options.bridgeOptions));
+  // Failed user actions (a refused import…): shown under the control, counted
+  // on the section's badge, announced once, gone when dismissed.
+  const actionProblems = new Map<string, ActionProblem>();
+  const problemSink: ProblemSink = {
+    report(section, key, problem) {
+      actionProblems.set(`${section}:${key}`, { section, key, problem });
+      shell.alert(problemSentence(problem));
+      revalidate();
+    },
+    clear(section, key) {
+      if (actionProblems.delete(`${section}:${key}`)) revalidate();
+    },
+  };
 
   // The palette editor manages its own local state and its own commands on
   // the shared history (see .vibe/decisions/011 and palette-editor.ts's own
@@ -324,6 +346,7 @@ export function renderApp(
     );
     validation.setIssues(LOAD_SOURCE, loadIssues(doc?.unreadable ?? []));
     validation.setIssues(ENGINE_SOURCE, engineIssues(engine.state.problem));
+    validation.setIssues(ACTION_SOURCE, actionIssues(actionProblems.values()));
   }
 
   // -- Problems banner -----------------------------------------------------
@@ -339,6 +362,15 @@ export function renderApp(
     onRetryEngine: () => void retryEngine(),
   });
   cleanups.push(() => banner.destroy());
+
+  const dependencyCards: DependencyCards = createDependencyCards(
+    shell.content,
+    {
+      onReplace: (file) => void replaceFile(file),
+      onRetryEngine: () => void retryEngine(),
+    },
+  );
+  cleanups.push(() => dependencyCards.destroy());
 
   function bannerState(): BannerState {
     const doc = getCharacterDocument();
@@ -356,7 +388,9 @@ export function renderApp(
   }
 
   function refreshBanner(): void {
-    banner.setState(bannerState());
+    const state = bannerState();
+    banner.setState(state);
+    dependencyCards.update(state);
   }
 
   /** Files unreadable at open, to know when the resource editors must be mounted again. */
@@ -532,6 +566,7 @@ export function renderApp(
     paletteEditorHandle = null;
     replacing.clear();
     replaceFailures.clear();
+    actionProblems.clear();
     mountedUnreadableKey = "";
     refreshBanner();
     for (const container of Object.values(shell.content)) {
@@ -591,7 +626,10 @@ export function renderApp(
       doc.character,
       doc.files.sff,
       doc.spriteEdits,
-      { onChange: onAnimationsPatch },
+      {
+        onChange: onAnimationsPatch,
+        onEngineFailure: (error) => engine.report(error),
+      },
     );
   }
 
@@ -620,6 +658,8 @@ export function renderApp(
       onChange: onIdentityPatch,
     });
     renderSpriteBrowser(shell.content.sprites, character, files.sff, [], {
+      problems: problemSink,
+      onEngineFailure: (error) => engine.report(error),
       onSpriteEdit: (edit) => {
         addSpriteEdit(edit);
         refreshChrome();
@@ -701,7 +741,11 @@ export function renderApp(
       shell.content.palettes,
       character,
       files.sff,
-      { onHistoryPush: refreshChrome },
+      {
+        onHistoryPush: refreshChrome,
+        problems: problemSink,
+        onEngineFailure: (error) => engine.report(error),
+      },
     );
   }
 
@@ -718,6 +762,7 @@ export function renderApp(
     validation.reset();
     replacing.clear();
     replaceFailures.clear();
+    actionProblems.clear();
     renderDocumentBackedEditors(character, files);
     mountResourceEditors(character, files);
     refreshChrome();
