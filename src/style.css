@@ -604,6 +604,18 @@ wuik-button[hidden] {
   pointer-events: none;
 }
 
+.animation-editor__box[data-badge-placement="below"]
+  > .animation-editor__box-badge {
+  bottom: auto;
+  top: 100%;
+}
+
+/* The mode badge also sits below, so it steps down past the name badge. */
+.animation-editor__box[data-badge-placement="below"]
+  > .animation-editor__box-mode {
+  top: calc(100% + 1.75em);
+}
+
 .animation-editor__box--clsn1 > .animation-editor__box-badge {
   background-color: var(--wuik-color-error);
 }

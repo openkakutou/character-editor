@@ -786,6 +786,7 @@ export function renderAnimationEditor(
 
     /** A resize handle's fixed footprint and corner offset, in px, relative to the box's own edges. */
     const HANDLE_SIZE = MIN_TARGET_SIZE;
+    const BADGE_ROOM_ABOVE = 28;
     const HANDLE_OFFSET: Record<
       ClsnResizeHandle,
       { left: string; top: string }
@@ -805,6 +806,9 @@ export function renderAnimationEditor(
     ): void {
       el.style.left = `${box.left}px`;
       el.style.top = `${box.top}px`;
+      // The viewport clips what leaves it: a box near the top shows its badge below.
+      el.dataset.badgePlacement =
+        box.top < BADGE_ROOM_ABOVE ? "below" : "above";
       el.style.width = `${box.right - box.left}px`;
       el.style.height = `${box.bottom - box.top}px`;
       el.setAttribute(

@@ -636,6 +636,15 @@ describe("renderAnimationEditor — keyboard Clsn resize mode", () => {
     );
   }
 
+  it("puts the name badge below a box too close to the top edge to show it above", () => {
+    const { root } = mountWithBoxes();
+    const box = boxAt(root, 0);
+    box.style.top = "4px";
+    key(box, "ArrowUp");
+    expect(Number.parseInt(box.style.top, 10)).toBeLessThan(28);
+    expect(box.dataset.badgePlacement).toBe("below");
+  });
+
   it("R toggles resize mode: the text badge changes and the mode is announced", () => {
     const { root } = mountWithBoxes();
     const box = boxAt(root, 0);
