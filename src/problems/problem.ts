@@ -8,6 +8,8 @@ export const PROBLEM_CODES = [
   "file.unreadable",
   "load.partial",
   "load.failed",
+  "load.commandFile",
+  "load.soundFile",
   "format.unsupportedVersion",
   "import.image",
   "import.sprite",
@@ -60,6 +62,16 @@ export const PROBLEM_DEFAULTS: Record<ProblemCode, ProblemDefaults> = {
   "load.failed": {
     title: "Couldn't open this folder",
     action: "Choose another folder.",
+  },
+  "load.commandFile": {
+    title: "Couldn't read the command file",
+    cause: "The .cmd file may be damaged.",
+    action: "You can still create new commands below.",
+  },
+  "load.soundFile": {
+    title: "Couldn't load the sound file",
+    cause: "The .snd file may be damaged.",
+    action: "Fix the file, then load the character folder again.",
   },
   "format.unsupportedVersion": {
     title: "This file version isn't supported",

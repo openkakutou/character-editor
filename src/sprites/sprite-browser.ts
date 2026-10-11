@@ -1,11 +1,5 @@
-// The sprite browser (backlog item 004): browse every sprite group/image of
-// a loaded character, see its actual decoded pixels, and — beyond
-// character-viewer-web's own read-only sprite-browser.ts this mirrors —
-// import a new sprite, replace an existing one's pixel data, or delete a
-// sprite, all against the in-memory edit overlay documented in
-// sprite-edits.ts. Persisting these edits into a real `.sff` file is out of
-// scope here — see .vibe/decisions/004-sprite-edits-in-memory-overlay-not-persisted.md.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
+import { tCount } from "../i18n/plural.ts";
 import {
   type InlineError,
   type ProblemSink,
@@ -14,6 +8,15 @@ import {
 import { createPreviewFailure } from "../problems/preview-failure.ts";
 import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
 import { detailOf } from "../problems/problem.ts";
+// The sprite browser (backlog item 004): browse every sprite group/image of
+// a loaded character, see its actual decoded pixels, and — beyond
+// character-viewer-web's own read-only sprite-browser.ts this mirrors —
+// import a new sprite, replace an existing one's pixel data, or delete a
+// sprite, all against the in-memory edit overlay documented in
+// sprite-edits.ts. Persisting these edits into a real `.sff` file is out of
+// scope here — see .vibe/decisions/004-sprite-edits-in-memory-overlay-not-persisted.md.
+import { type FilePicker, createFilePicker } from "../ui/file-picker.ts";
+import { createListRow, focusKitControl } from "../ui/list-row.ts";
 import {
   type SpritePixelResult,
   type WasmBridgeOptions,
@@ -181,10 +184,12 @@ export function renderSpriteBrowser(
     onSpriteEdit(edit);
   }
 
-  const panel = document.createElement("wuik-panel");
+  const panel = document.createElement("div");
   panel.className = "sprite-browser";
 
-  const heading = document.createElement("h3");
+  const heading = document.createElement("h2");
+
+  heading.className = "editor-title";
   panel.appendChild(heading);
 
   const unsavedBanner = document.createElement("p");
@@ -193,6 +198,7 @@ export function renderSpriteBrowser(
 
   let importGroupInput: HTMLInputElement;
   let importFileInput: HTMLInputElement;
+  let importPicker: FilePicker;
   let importError: HTMLParagraphElement;
   let importFailure: InlineError;
   let replaceFailure: InlineError | undefined;
@@ -201,6 +207,10 @@ export function renderSpriteBrowser(
     replaceFailure?.destroy();
   };
   let retranslateImportSection: () => void = () => {};
+  // Busy state: aria-disabled plus a label, never `disabled`, so the button
+  // keeps keyboard focus while the image is decoded.
+  let importing = false;
+  let importSubmit: HTMLElement | null = null;
 
   const importSection = renderImportSection();
   const listContainer = document.createElement("div");
@@ -219,12 +229,10 @@ export function renderSpriteBrowser(
       unsavedBanner.remove();
       return;
     }
-    const suffix = edits.length === 1 ? "" : "s";
-    unsavedBanner.textContent = t(
-      "sprites.unsavedBanner",
-      "{{count}} unsaved sprite change{{suffix}}.",
-      { count: String(edits.length), suffix },
-    );
+    unsavedBanner.textContent = tCount("sprites.unsavedBanner", edits.length, {
+      one: "{{count}} unsaved sprite change.",
+      other: "{{count}} unsaved sprite changes.",
+    });
     panel.insertBefore(unsavedBanner, importSection);
   }
 
@@ -237,18 +245,16 @@ export function renderSpriteBrowser(
     const list = document.createElement("ul");
     for (const entry of deletedLog) {
       const item = document.createElement("li");
-      const suffix = entry.referencedByFrames === 1 ? "" : "s";
       item.textContent =
         entry.referencedByFrames > 0
-          ? t(
+          ? tCount(
               "sprites.deletedReferenced",
-              "{{group}}, {{image}} — referenced by {{count}} frame{{suffix}}",
+              entry.referencedByFrames,
               {
-                group: String(entry.group),
-                image: String(entry.image),
-                count: String(entry.referencedByFrames),
-                suffix,
+                one: "{{group}}, {{image}} — used by {{count}} frame",
+                other: "{{group}}, {{image}} — used by {{count}} frames",
               },
+              { group: String(entry.group), image: String(entry.image) },
             )
           : t(
               "sprites.deletedUnreferenced",
@@ -317,19 +323,26 @@ export function renderSpriteBrowser(
     importGroupInput.type = "number";
     importGroupInput.min = "0";
     importGroupInput.step = "1";
-    importGroupInput.className = "sprite-browser__import-group";
+    importGroupInput.className = "sprite-browser__import-group field-number";
     importGroupInput.value = "0";
     importGroupInput.addEventListener("input", () => {
       importGroupInput.dataset.touched = "true";
     });
     groupLabel.appendChild(importGroupInput);
 
-    importFileInput = document.createElement("input");
-    importFileInput.type = "file";
-    importFileInput.accept = "image/*";
-    importFileInput.className = "sprite-browser__import-file";
+    importPicker = createFilePicker({
+      accept: "image/*",
+      inputClassName: "sprite-browser__import-file",
+      buttonKey: "sprites.chooseImage",
+      buttonDefault: "Choose an image",
+      typeKey: "sprites.imageType",
+      typeDefault: "A PNG or PCX image",
+    });
+    importFileInput = importPicker.input;
 
     const submit = document.createElement("wuik-button");
+
+    submit.setAttribute("variant", "secondary");
     submit.className = "sprite-browser__import-submit";
 
     importError = document.createElement("p");
@@ -338,24 +351,28 @@ export function renderSpriteBrowser(
     importError.hidden = true;
 
     submit.addEventListener("click", () => {
+      if (importing) return;
       void handleImport();
     });
 
     retranslateImportSection = () => {
       groupLabelText.textContent = t("sprites.groupLabel", "Group");
-      submit.textContent = t("sprites.importSprite", "Import sprite");
+      submit.textContent = importing
+        ? t("sprites.importing", "Importing…")
+        : t("sprites.importSprite", "Import sprite");
     };
+    importSubmit = submit;
     retranslateImportSection();
 
     importFailure = createInlineError({
       section: "sprites",
       key: "import",
       sink: options.problems,
-      onDismiss: () => importFileInput.focus(),
+      onDismiss: () => importPicker.focus(),
     });
     section.append(
       groupLabel,
-      importFileInput,
+      importPicker.element,
       submit,
       importError,
       importFailure.element,
@@ -363,9 +380,22 @@ export function renderSpriteBrowser(
     return section;
   }
 
+  function setImporting(value: boolean): void {
+    importing = value;
+    if (value) importSubmit?.setAttribute("aria-disabled", "true");
+    else importSubmit?.removeAttribute("aria-disabled");
+    retranslateImportSection();
+  }
+
   async function handleImport(): Promise<void> {
     const file = importFileInput.files?.[0];
-    if (!file) return;
+    if (!file) {
+      showImportError(
+        t("sprites.noFileChosen", "Choose an image to import first."),
+      );
+      importPicker.focus();
+      return;
+    }
     const groupNumber = Number.parseInt(importGroupInput.value, 10);
     if (!Number.isInteger(groupNumber) || groupNumber < 0) {
       showImportError(
@@ -377,7 +407,18 @@ export function renderSpriteBrowser(
       return;
     }
 
-    const result = await decodeImage(file);
+    setImporting(true);
+    let result: Awaited<ReturnType<typeof decodeImage>>;
+    try {
+      result = await decodeImage(file);
+    } catch (error) {
+      result = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    } finally {
+      setImporting(false);
+    }
     if (!result.ok) {
       importError.hidden = true;
       importFailure.show({
@@ -408,6 +449,7 @@ export function renderSpriteBrowser(
       height: result.image.height,
     });
     importFileInput.value = "";
+    importPicker.refresh();
     rerenderList({ group: groupNumber, image });
   }
 
@@ -421,28 +463,25 @@ export function renderSpriteBrowser(
     const groupEl = document.createElement("div");
     groupEl.className = "sprite-browser__group";
 
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "sprite-browser__group-toggle";
-    toggle.dataset.groupIndex = String(group.index);
-    toggle.textContent = t(
-      "sprites.groupToggle",
-      "Group {{index}} ({{count}})",
-      {
-        index: String(group.index),
-        count: String(group.sprites.length),
-      },
-    );
-
-    const spriteList = document.createElement("div");
-    spriteList.className = "sprite-browser__sprites";
-
     // Restored from `expandedGroups`, lifted out of this closure -- see
     // .vibe/decisions/015-i18n-integration-approach.md -- rather than a
     // fresh `false` on every rebuild, so a locale-change rebuild of the
     // whole list doesn't collapse a group the user already had open.
     const isExpanded = expandedGroups.has(group.index);
-    toggle.setAttribute("aria-expanded", String(isExpanded));
+    const toggle = createListRow({
+      className: "sprite-browser__group-toggle",
+      expandable: true,
+      expanded: isExpanded,
+      text: t("sprites.groupToggle", "Group {{index}} ({{count}})", {
+        index: String(group.index),
+        count: String(group.sprites.length),
+      }),
+    });
+    toggle.dataset.groupIndex = String(group.index);
+
+    const spriteList = document.createElement("div");
+    spriteList.className = "sprite-browser__sprites";
+
     spriteList.hidden = !isExpanded;
     if (isExpanded) {
       spriteList.replaceChildren(
@@ -457,7 +496,7 @@ export function renderSpriteBrowser(
       } else {
         expandedGroups.delete(group.index);
       }
-      toggle.setAttribute("aria-expanded", String(nowExpanded));
+      toggle.toggleAttribute("expanded", nowExpanded);
       spriteList.hidden = !nowExpanded;
       if (nowExpanded) {
         spriteList.replaceChildren(
@@ -471,34 +510,32 @@ export function renderSpriteBrowser(
   }
 
   function renderSpriteRow(sprite: Sprite, preview: HTMLElement): HTMLElement {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "sprite-browser__sprite";
-    button.dataset.group = String(sprite.group);
-    button.dataset.image = String(sprite.image);
     const pending = spriteEditFor(edits, sprite);
-    button.textContent = pending
-      ? t(
-          "sprites.rowLabelWithBadge",
-          "{{group}}, {{image}} — {{width}}×{{height}} [{{badge}}]",
-          {
+    const row = createListRow({
+      className: "sprite-browser__sprite",
+      text: pending
+        ? t(
+            "sprites.rowLabelWithBadge",
+            "{{group}}, {{image}} — {{width}}×{{height}} [{{badge}}]",
+            {
+              group: String(sprite.group),
+              image: String(sprite.image),
+              width: String(sprite.width),
+              height: String(sprite.height),
+              badge: describeEditKind(pending.kind),
+            },
+          )
+        : t("sprites.rowLabel", "{{group}}, {{image}} — {{width}}×{{height}}", {
             group: String(sprite.group),
             image: String(sprite.image),
             width: String(sprite.width),
             height: String(sprite.height),
-            badge: describeEditKind(pending.kind),
-          },
-        )
-      : t("sprites.rowLabel", "{{group}}, {{image}} — {{width}}×{{height}}", {
-          group: String(sprite.group),
-          image: String(sprite.image),
-          width: String(sprite.width),
-          height: String(sprite.height),
-        });
-    button.addEventListener("click", () =>
-      renderPreview(sprite, preview, button),
-    );
-    return button;
+          }),
+    });
+    row.dataset.group = String(sprite.group);
+    row.dataset.image = String(sprite.image);
+    row.addEventListener("click", () => renderPreview(sprite, preview, row));
+    return row;
   }
 
   /**
@@ -515,28 +552,40 @@ export function renderSpriteBrowser(
     // `renderList()` rebuilds it -- clicking its already-expanded toggle
     // afterwards would just collapse it again.
     if (reselect) expandedGroups.add(reselect.group);
+    const hadFocus = listContainer.contains(document.activeElement);
     renderList();
     if (!reselect) return;
-    listContainer
-      .querySelector<HTMLButtonElement>(
-        `.sprite-browser__sprite[data-group="${reselect.group}"][data-image="${reselect.image}"]`,
-      )
-      ?.click();
+    const row = listContainer.querySelector<HTMLElement>(
+      `.sprite-browser__sprite[data-group="${reselect.group}"][data-image="${reselect.image}"]`,
+    );
+    row?.click();
+    if (hadFocus && row) focusKitControl(row);
   }
 
   const previewGuard = createPreviewGuard();
 
+  function spriteOrdinal(sprite: Sprite): number {
+    const all = mergeSpriteGroups(characterNonNull.sprites, edits).flatMap(
+      (g) => g.sprites,
+    );
+    return (
+      all.findIndex(
+        (s) => s.group === sprite.group && s.image === sprite.image,
+      ) + 1
+    );
+  }
+
   function renderPreview(
     sprite: Sprite,
     preview: HTMLElement,
-    selectedButton: HTMLButtonElement,
+    selectedRow: HTMLElement,
   ): void {
-    for (const btn of preview.parentElement?.querySelectorAll<HTMLButtonElement>(
+    for (const row of preview.parentElement?.querySelectorAll<HTMLElement>(
       ".sprite-browser__sprite",
     ) ?? []) {
-      btn.removeAttribute("aria-current");
+      row.removeAttribute("selected");
     }
-    selectedButton.setAttribute("aria-current", "true");
+    selectedRow.setAttribute("selected", "");
     currentPreview = { group: sprite.group, image: sprite.image };
 
     preview.replaceChildren();
@@ -545,6 +594,24 @@ export function renderSpriteBrowser(
     viewport.className = "sprite-browser__viewport";
     const canvas = document.createElement("canvas");
     canvas.className = "sprite-browser__canvas";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute(
+      "aria-label",
+      t(
+        "sprites.previewCanvasLabel",
+        "Sprite preview, group {{group}}, image {{image}}, {{index}} of {{total}}",
+        {
+          group: String(sprite.group),
+          image: String(sprite.image),
+          index: String(spriteOrdinal(sprite)),
+          total: String(
+            totalSpriteCount(
+              mergeSpriteGroups(characterNonNull.sprites, edits),
+            ),
+          ),
+        },
+      ),
+    );
     canvas.hidden = true;
     viewport.appendChild(canvas);
 
@@ -617,13 +684,15 @@ export function renderSpriteBrowser(
   ): void {
     actions.replaceChildren();
 
-    const replaceLabel = document.createElement("label");
-    replaceLabel.textContent = t("sprites.replace", "Replace");
-    const replaceFile = document.createElement("input");
-    replaceFile.type = "file";
-    replaceFile.accept = "image/*";
-    replaceFile.className = "sprite-browser__replace-file";
-    replaceLabel.appendChild(replaceFile);
+    const replacePicker = createFilePicker({
+      accept: "image/*",
+      inputClassName: "sprite-browser__replace-file",
+      buttonKey: "sprites.replace",
+      buttonDefault: "Replace",
+      typeKey: "sprites.imageType",
+      typeDefault: "A PNG or PCX image",
+    });
+    const replaceFile = replacePicker.input;
 
     // The previous selection's message goes away with its controls.
     replaceFailure?.destroy();
@@ -631,7 +700,7 @@ export function renderSpriteBrowser(
       section: "sprites",
       key: "replace",
       sink: options.problems,
-      onDismiss: () => replaceFile.focus(),
+      onDismiss: () => replacePicker.focus(),
     });
     replaceFailure = failure;
     failure.element.classList.add("sprite-browser__replace-error");
@@ -641,13 +710,15 @@ export function renderSpriteBrowser(
     });
 
     const deleteButton = document.createElement("wuik-button");
+
+    deleteButton.setAttribute("variant", "secondary");
     deleteButton.textContent = t("sprites.delete", "Delete");
     deleteButton.className = "sprite-browser__delete";
     deleteButton.addEventListener("click", () =>
       renderActionsConfirmingDelete(actions, sprite, preview),
     );
 
-    actions.append(replaceLabel, failure.element, deleteButton);
+    actions.append(replacePicker.element, failure.element, deleteButton);
   }
 
   async function handleReplace(
@@ -697,21 +768,21 @@ export function renderSpriteBrowser(
     warning.setAttribute("role", "status");
     warning.textContent =
       count > 0
-        ? t(
-            "sprites.referencedByFrames",
-            "Referenced by {{count}} animation frame{{suffix}}.",
-            { count: String(count), suffix: count === 1 ? "" : "s" },
-          )
+        ? tCount("sprites.referencedByFrames", count, {
+            one: "Used by {{count}} animation frame.",
+            other: "Used by {{count}} animation frames.",
+          })
         : t("sprites.notReferenced", "Not referenced by any animation frame.");
 
     const confirm = document.createElement("wuik-button");
+
+    confirm.setAttribute("variant", "danger");
     confirm.textContent =
       count > 0
-        ? t(
-            "sprites.confirmDeleteWithCount",
-            "Confirm delete (referenced by {{count}} frame{{suffix}})",
-            { count: String(count), suffix: count === 1 ? "" : "s" },
-          )
+        ? tCount("sprites.confirmDeleteWithCount", count, {
+            one: "Confirm delete (used by {{count}} frame)",
+            other: "Confirm delete (used by {{count}} frames)",
+          })
         : t("sprites.confirmDelete", "Confirm delete");
     confirm.className = "sprite-browser__delete-confirm";
     confirm.addEventListener("click", () => {

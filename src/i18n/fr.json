@@ -30,6 +30,16 @@
         "title": "Impossible d'ouvrir ce dossier",
         "action": "Choisissez un autre dossier.",
         "actionRetry": "Réessayez ou choisissez un autre dossier."
+      },
+      "commandFile": {
+        "title": "Impossible de lire le fichier de commandes",
+        "cause": "Le fichier .cmd est peut-être endommagé.",
+        "action": "Vous pouvez toujours créer de nouvelles commandes ci-dessous."
+      },
+      "soundFile": {
+        "title": "Impossible de charger le fichier son",
+        "cause": "Le fichier .snd est peut-être endommagé.",
+        "action": "Corrigez le fichier puis rechargez le dossier du personnage."
       }
     },
     "format": {
@@ -126,14 +136,13 @@
     "loadedNoOptional": "Personnage chargé : {{name}}. Aucun {{extensions}} fourni.",
     "loadedWithOptional": "Personnage chargé : {{name}}. {{extensions}} également chargé(s).",
     "zssAmbiguousNote": "Remarque : {{count}} fichiers .zss trouvés dans le dossier — aucun n'a été utilisé, un seul fichier .zss est pris en charge.",
-    "loadError": "Impossible de charger le personnage : {{message}}",
     "errorNoFilesDrop": "Impossible de lire quoi que ce soit dans le dossier déposé — votre navigateur ne prend peut-être pas en charge le glisser-déposer de dossier ici. Essayez plutôt le bouton de sélection de dossier.",
     "errorNoFilesPicker": "Ce dossier est vide — choisissez un dossier contenant le fichier .def du personnage.",
     "errorNoCandidate": "Aucun fichier .def trouvé dans ce dossier — un fichier comme kfm.def est attendu.",
-    "errorReadFile": "Impossible de lire {{fileName}} : {{message}}",
     "errorReferenceMissingKey": "Le fichier .def sélectionné ne référence aucun fichier {{extension}}.",
     "errorReferenceNotFound": "Le fichier .def sélectionné référence « {{referencedName}} » pour son fichier {{extension}}, mais ce fichier est introuvable dans le dossier sélectionné.",
     "errorReferenceAmbiguous": "Le fichier .def sélectionné référence « {{referencedName}} » pour son fichier {{extension}}, mais {{count}} fichiers du dossier portent ce nom — impossible de déterminer lequel utiliser.",
+    "errorGather": "Les fichiers de la sélection n'ont pas pu être lus.",
     "causeRead": "Impossible de lire {{fileName}}.",
     "causeParse": "L'éditeur n'a pas compris ces fichiers de personnage."
   },
@@ -151,7 +160,13 @@
     "nameRequiredToCreate": "Un nom est requis pour créer un nouveau personnage."
   },
   "shortcuts": {
-    "heading": "Raccourcis clavier"
+    "heading": "Raccourcis clavier",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "downloadAll": "Tout télécharger",
+    "addAnimation": "Ajouter une animation",
+    "addState": "Ajouter un état",
+    "addCommand": "Ajouter une commande"
   },
   "characteristics": {
     "identityHeading": "Identité",
@@ -174,12 +189,12 @@
   },
   "stateEditor": {
     "heading": "Logique d'état et de combat",
-    "addStateDef": "Ajouter un StateDef",
-    "noStateDefsYet": "Aucun StateDef pour l'instant.",
-    "statedefSummary": "Statedef {{number}} (type : {{type}}, moveType : {{moveType}}, physics : {{physics}})",
-    "addController": "Ajouter un contrôleur",
-    "removeStateDef": "Supprimer le StateDef",
-    "noControllersYet": "Aucun contrôleur pour l'instant.",
+    "addStateDef": "Ajouter un état",
+    "noStateDefsYet": "Aucun état pour l'instant.",
+    "statedefSummary": "État {{number}} (type : {{type}}, type de mouvement : {{moveType}}, physique : {{physics}})",
+    "addController": "Ajouter un contrôleur d'état",
+    "removeStateDef": "Supprimer l'état",
+    "noControllersYet": "Aucun contrôleur d'état pour l'instant.",
     "unsupportedBadge": "Non pris en charge (depuis le fichier)",
     "none": "(aucun)",
     "controllerReadonlySummary": "déclencheurs : {{triggers}} ; paramètres : {{parameters}}",
@@ -192,14 +207,21 @@
     "addParameter": "Ajouter un paramètre",
     "removeParameter": "Supprimer le paramètre",
     "removeParameterAriaLabel": "Supprimer le paramètre n° {{index}}",
-    "removeStateDefWarning": "Cet état a {{count}} contrôleur{{suffix}}. D'autres contrôleurs peuvent cibler ce numéro d'état.",
-    "confirmRemoveStateDef": "Confirmer la suppression ({{count}} contrôleur{{suffix}})",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "removeStateDefWarning_one": "Cet état a {{count}} contrôleur d'état. D'autres contrôleurs peuvent cibler ce numéro d'état.",
+    "removeStateDefWarning_other": "Cet état a {{count}} contrôleurs d'état. D'autres contrôleurs peuvent cibler ce numéro d'état.",
+    "confirmRemoveStateDef_one": "Confirmer la suppression ({{count}} contrôleur d'état)",
+    "confirmRemoveStateDef_other": "Confirmer la suppression ({{count}} contrôleurs d'état)",
+    "removeStateDefEmpty": "Cet état n'a aucun contrôleur d'état. D'autres contrôleurs peuvent cibler ce numéro d'état.",
+    "confirmRemoveEmpty": "Confirmer la suppression",
+    "controllerType": "Type de contrôleur d'état",
+    "triggerLabel": "Déclencheur {{index}}",
+    "parameterName": "Nom du paramètre {{index}}",
+    "parameterValue": "Valeur du paramètre {{index}}"
   },
   "sprites": {
-    "unsavedBanner": "{{count}} modification{{suffix}} de sprite non enregistrée{{suffix}}.",
+    "noFileChosen": "Choisissez d'abord une image à importer.",
     "deletedHeading": "Sprites supprimés",
-    "deletedReferenced": "{{group}}, {{image}} — référencé par {{count}} image{{suffix}} d'animation",
     "deletedUnreferenced": "{{group}}, {{image}} — non référencé par une image d'animation",
     "browserHeading": "Sprites ({{count}})",
     "empty": "Aucun sprite trouvé.",
@@ -215,12 +237,22 @@
     "loading": "Chargement…",
     "replace": "Remplacer",
     "delete": "Supprimer",
-    "referencedByFrames": "Référencé par {{count}} image{{suffix}} d'animation.",
     "notReferenced": "Non référencé par une image d'animation.",
-    "confirmDeleteWithCount": "Confirmer la suppression (référencé par {{count}} image{{suffix}})",
     "confirmDelete": "Confirmer la suppression",
     "cancel": "Annuler",
-    "decodeError": "Cette image n'a pas pu être décodée — vérifiez que le fichier est dans un format pris en charge. ({{detail}})"
+    "decodeError": "Cette image n'a pas pu être décodée — vérifiez que le fichier est dans un format pris en charge. ({{detail}})",
+    "chooseImage": "Choisir une image",
+    "imageType": "Une image PNG ou PCX",
+    "unsavedBanner_one": "{{count}} modification de sprite non enregistrée.",
+    "unsavedBanner_other": "{{count}} modifications de sprite non enregistrées.",
+    "deletedReferenced_one": "{{group}}, {{image}} — utilisé par {{count}} image d'animation",
+    "deletedReferenced_other": "{{group}}, {{image}} — utilisé par {{count}} images d'animation",
+    "referencedByFrames_one": "Utilisé par {{count}} image d'animation.",
+    "referencedByFrames_other": "Utilisé par {{count}} images d'animation.",
+    "confirmDeleteWithCount_one": "Confirmer la suppression (utilisé par {{count}} image)",
+    "confirmDeleteWithCount_other": "Confirmer la suppression (utilisé par {{count}} images)",
+    "previewCanvasLabel": "Aperçu du sprite, groupe {{group}}, image {{image}}, {{index}} sur {{total}}",
+    "importing": "Importation…"
   },
   "palettes": {
     "heading": "Éditeur de palette",
@@ -235,13 +267,15 @@
     "saveAsAct": "Enregistrer en .act",
     "noPreviewSprites": "Aucun sprite disponible pour l'aperçu.",
     "loading": "Chargement…",
-    "invalidActLength": "un fichier de palette .act de {{expected}} octets était attendu (ou {{withFooter}} octets avec un pied de page), {{actual}} octets reçus"
+    "invalidActLength": "Ce fichier de palette n'a pas la bonne taille : {{actual}} octets. Un fichier .act doit faire {{expected}} octets, ou {{withFooter}} octets s'il se termine par des données supplémentaires.",
+    "actFileType": "Un fichier de palette .act",
+    "previewCanvasLabel": "Aperçu recoloré, sprite {{group}}, {{image}}",
+    "previewCanvasEmpty": "Aperçu recoloré"
   },
   "animations": {
     "heading": "Animations",
     "addAnimation": "Ajouter une animation",
     "noAnimationsYet": "Aucune animation pour l'instant.",
-    "animationToggle": "Animation {{number}} ({{count}} image{{suffix}})",
     "loopStart": "Début de boucle",
     "addFrame": "Ajouter une image",
     "removeAnimation": "Supprimer l'animation",
@@ -250,54 +284,75 @@
     "frameSpriteImageAriaLabel": "Image de sprite de l'image {{index}}",
     "frameDurationAriaLabel": "Durée de l'image {{index}}",
     "spriteMissingInSheet": "Le sprite {{group}}, {{image}} n'existe pas dans la feuille de sprites chargée.",
-    "hideClsnBoxes": "Masquer les zones Clsn",
-    "editClsnBoxes": "Modifier les zones Clsn ({{count}})",
+    "hideClsnBoxes": "Masquer les zones d'attaque et vulnérables",
+    "editClsnBoxes": "Modifier les zones d'attaque et vulnérables ({{count}})",
     "moveUp": "Monter",
     "moveDown": "Descendre",
     "remove": "Supprimer",
     "group": "Groupe",
     "image": "Image",
-    "time": "Durée",
-    "hit": "Coup",
-    "hurt": "Blessure",
-    "addClsn1": "Ajouter Clsn1 (coup)",
-    "addClsn2": "Ajouter Clsn2 (blessure)",
-    "boxAriaLabel": "Zone {{kind}} {{index}} : gauche {{left}}, haut {{top}}, droite {{right}}, bas {{bottom}}",
-    "boxFieldsLabel": "Zone {{kind}} {{index}}",
-    "boxFieldAriaLabel": "Zone {{kind}} {{index}} {{field}}",
+    "time": "Durée en ticks",
+    "hit": "Zone d'attaque",
+    "hurt": "Zone vulnérable",
+    "addClsn1": "Ajouter une zone d'attaque (Clsn1)",
+    "addClsn2": "Ajouter une zone vulnérable (Clsn2)",
+    "boxAriaLabel": "{{kind}} {{index}} : gauche {{left}}, haut {{top}}, droite {{right}}, bas {{bottom}}",
+    "boxFieldsLabel": "{{kind}} {{index}}",
+    "boxFieldAriaLabel": "{{kind}} {{index}} {{field}}",
     "fieldX": "x",
     "fieldY": "y",
     "fieldWidth": "largeur",
     "fieldHeight": "hauteur",
     "x": "X",
     "y": "Y",
-    "w": "L",
-    "h": "H",
+    "w": "Largeur",
+    "h": "Hauteur",
     "removeBox": "Supprimer la zone",
-    "removeBoxAriaLabel": "Supprimer la zone {{kind}} {{index}}",
+    "removeBoxAriaLabel": "Supprimer la zone : {{kind}} {{index}}",
+    "boxRemoved": "{{kind}} {{index}} supprimée",
+    "boxDeselected": "{{kind}} {{index}} désélectionnée",
     "loading": "Chargement…",
     "spriteMissingEmptyPreview": "Le sprite {{group}}, {{image}} n'existe pas — aperçu vide affiché.",
     "spriteMissing": "Le sprite {{group}}, {{image}} n'existe pas.",
     "play": "Lecture",
     "pause": "Pause",
-    "step": "Étape",
+    "step": "Image suivante",
     "noFramesToPlay": "Aucune image à lire.",
     "playbackPreview": "Aperçu de la lecture",
-    "removeAnimationWarning": "Cette animation a {{count}} image{{suffix}}.",
-    "confirmRemoveAnimation": "Confirmer la suppression ({{count}} image{{suffix}})",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "animationToggle_one": "Animation {{number}} ({{count}} image)",
+    "animationToggle_other": "Animation {{number}} ({{count}} images)",
+    "removeAnimationWarning_one": "Cette animation a {{count}} image.",
+    "removeAnimationWarning_other": "Cette animation a {{count}} images.",
+    "confirmRemoveAnimation_one": "Confirmer la suppression ({{count}} image)",
+    "confirmRemoveAnimation_other": "Confirmer la suppression ({{count}} images)",
+    "removeAnimationEmpty": "Cette animation n'a aucune image.",
+    "confirmRemoveEmpty": "Confirmer la suppression",
+    "timeHelpLabel": "Aide : durée",
+    "timeHelp": "1 tick = 1/60 s ; -1 = image maintenue.",
+    "modeMove": "Déplacer",
+    "modeResize": "Redimensionner",
+    "modeMoveAnnouncement": "{{kind}} {{index}} : mode déplacement",
+    "modeResizeAnnouncement": "{{kind}} {{index}} : mode redimensionnement",
+    "boxMoved": "{{kind}} {{index}} déplacée en x {{x}}, y {{y}}",
+    "boxResized": "{{kind}} {{index}} redimensionnée : largeur {{width}}, hauteur {{height}}",
+    "clsnCanvasLabel_one": "Éditeur de zones, {{count}} zone",
+    "clsnCanvasLabel_other": "Éditeur de zones, {{count}} zones",
+    "playbackCanvasLabel": "Aperçu de l'animation, image {{index}} sur {{total}}",
+    "noSprites": "Ce personnage n'a pas encore de sprite : les images ne peuvent rien afficher.",
+    "goToSprites": "Aller aux sprites"
   },
   "commands": {
+    "removed": "Commande supprimée : {{name}}",
     "heading": "Commandes",
     "addCommand": "Ajouter une commande",
     "noCommandsYet": "Aucune commande pour l'instant.",
     "loadingCommands": "Chargement des commandes…",
-    "loadError": "Impossible de lire le fichier .cmd : {{message}}. Vous pouvez toujours créer de nouvelles commandes ci-dessous.",
     "nameLabel": "Nom",
     "inputSequenceLabel": "Séquence d'entrée",
-    "inputHint": "Stocké tel quel (par ex. « ~D, DF, F, a ») -- non validé selon la syntaxe d'entrée MUGEN/Ikemen.",
-    "timeLabel": "Durée",
-    "bufferTimeLabel": "Durée de mémorisation",
+    "inputHint": "Enregistrée exactement comme saisie, par exemple « ~D, DF, F, a ». L'éditeur ne la vérifie pas selon la syntaxe d'entrée MUGEN/Ikemen.",
+    "timeLabel": "Fenêtre de la séquence (ticks)",
+    "bufferTimeLabel": "Mémorisation de la commande (ticks)",
     "targetStateLabel": "État cible",
     "removeCommandAriaLabel": "Supprimer la commande {{name}}",
     "unnamed": "(sans nom)",
@@ -306,13 +361,17 @@
     "nameDuplicate": "Une autre commande utilise déjà ce nom.",
     "inputEmpty": "La séquence d'entrée ne peut pas être vide.",
     "targetStateNotWholeNumber": "L'état cible doit être un nombre entier.",
-    "targetStateNotFound": "Aucun état {{state}} n'existe."
+    "targetStateNotFound": "Aucun état {{state}} n'existe.",
+    "timeHelpLabel": "Aide : fenêtre de la séquence",
+    "timeHelp": "Nombre de ticks pendant lesquels toute la séquence doit être saisie. 1 tick = 1/60 s.",
+    "bufferTimeHelpLabel": "Aide : délai de saisie des commandes",
+    "bufferTimeHelp": "Nombre de ticks pendant lesquels une commande reste active une fois saisie, pour qu'une pression un peu trop tôt compte quand même. 1 tick = 1/60 s."
   },
   "save": {
     "heading": "Exportation",
     "refreshExport": "Actualiser l'exportation",
     "preparingExport": "Préparation de l'exportation…",
-    "blockedPendingSpriteEdits": "L'exportation est bloquée : les modifications de sprites en attente ne peuvent pas encore être enregistrées dans un fichier .sff. Annulez les modifications ci-dessous pour exporter, ou attendez que cette prise en charge soit disponible.",
+    "blockedPendingSpriteEdits": "L'exportation est bloquée : les modifications de sprites en attente ne peuvent pas encore être enregistrées dans un fichier .sff. Annulez les modifications ci-dessous pour exporter, ou attendez que ce soit pris en charge.",
     "fileNameWithStatus": "{{fileName}} ({{status}})",
     "unchanged": "inchangé",
     "modified": "modifié",
@@ -332,8 +391,7 @@
     "rowUndecodable": "{{key}} — Lecture impossible",
     "noAudioData": "aucune donnée audio",
     "nowPlaying": "Lecture de {{key}}",
-    "empty": "Ce personnage n'a pas de fichier de sons. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
-    "loadFailed": "Le fichier de sons n'a pas pu être chargé. Corrigez le fichier puis rechargez le dossier du personnage."
+    "empty": "Ce personnage n'a pas de fichier son. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files]."
   },
   "validation": {
     "allClear": "Aucun problème détecté.",
@@ -344,8 +402,8 @@
     "noPalette": "Aucune palette n'est déclarée.",
     "animationDuplicate": "L'animation {{number}} est définie plusieurs fois.",
     "animationNoFrame": "L'animation {{number}} n'a aucune frame.",
-    "stateDuplicate": "Le StateDef {{number}} est défini plusieurs fois.",
-    "stateMissingAnimation": "Le StateDef {{state}} utilise l'animation {{anim}}, qui n'existe pas.",
+    "stateDuplicate": "L'état {{number}} est défini plusieurs fois.",
+    "stateMissingAnimation": "L'état {{state}} utilise l'animation {{anim}}, qui n'existe pas.",
     "commandNameEmpty": "La commande {{n}} n'a pas de nom.",
     "commandInputEmpty": "La commande {{n}} n'a pas de séquence de touches.",
     "animationMissingSprite_one": "L'animation {{number}} utilise {{count}} sprite qui n'existe pas.",
@@ -394,7 +452,7 @@
     "states": {
       "title": "États",
       "description": "Décrivez ce que fait le personnage dans chaque état : debout, saut, attaque.",
-      "help": "Un StateDef décrit ce que fait le personnage dans un état. Ses contrôleurs s'exécutent à chaque image tant que le personnage est dans cet état."
+      "help": "Un état décrit ce que fait le personnage à un moment donné. Ses contrôleurs s'exécutent à chaque image tant que le personnage est dans cet état. Dans les fichiers, un état s'écrit StateDef."
     },
     "commands": {
       "title": "Commandes",
@@ -403,7 +461,7 @@
     "animations": {
       "title": "Animations",
       "description": "Modifiez les frames et leurs boîtes de collision.",
-      "help": "Les boîtes Clsn1 sont les zones où une attaque touche ; les boîtes Clsn2 sont les zones où le personnage peut être touché."
+      "help": "Une zone d'attaque est l'endroit où un coup touche ; une zone vulnérable est l'endroit où le personnage peut être touché. Dans les fichiers, elles s'appellent Clsn1 et Clsn2."
     },
     "output": {
       "title": "Export",
@@ -465,7 +523,14 @@
     "openHint": "Appuyez sur ? hors d'un champ de saisie pour ouvrir cette fenêtre.",
     "editing": "Édition et sortie",
     "colShortcut": "Raccourci",
-    "colAction": "Action"
+    "colAction": "Action",
+    "keyEscape": "Échap",
+    "clsnTitle": "Zones d'attaque et zones vulnérables",
+    "clsnIntro": "Quand une zone est sélectionnée dans l'éditeur d'animations :",
+    "clsnResize": "Basculer entre le mode déplacement et le mode redimensionnement",
+    "clsnArrows": "Déplacer la zone, ou la redimensionner en mode redimensionnement, de 1 unité",
+    "clsnShiftArrows": "Idem, de 10 unités",
+    "clsnEscape": "Quitter le mode redimensionnement ; une seconde pression désélectionne la zone"
   },
   "output": {
     "severity": {
@@ -538,5 +603,8 @@
     "body_other": "Ces fichiers n'ont pas pu être lus et seront exclus : {{names}}. Le personnage exporté sera incomplet.",
     "confirm": "Exporter quand même",
     "cancel": "Annuler"
+  },
+  "filePicker": {
+    "none": "Aucun fichier choisi"
   }
 }

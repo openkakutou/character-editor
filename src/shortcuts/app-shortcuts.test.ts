@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  APP_SHORTCUT_ACTIONS,
+  appShortcutActions,
   getAppShortcuts,
   registerAppShortcutActions,
   resetAppShortcutsForTests,
@@ -11,7 +11,7 @@ describe("registerAppShortcutActions", () => {
     const manager = getAppShortcuts();
     const bindings = manager.list();
 
-    for (const action of APP_SHORTCUT_ACTIONS) {
+    for (const action of appShortcutActions()) {
       const binding = bindings.find((b) => b.id === action.id);
       expect(binding).toBeDefined();
       expect(binding?.key).toBe(action.defaultKey);
@@ -20,7 +20,7 @@ describe("registerAppShortcutActions", () => {
   });
 
   it("registers no two actions under the same default key (edge case: silent shadowing)", () => {
-    const keys = APP_SHORTCUT_ACTIONS.map((a) => a.defaultKey);
+    const keys = appShortcutActions().map((a) => a.defaultKey);
     const uniqueKeys = new Set(keys);
     expect(uniqueKeys.size).toBe(keys.length);
   });
@@ -33,7 +33,7 @@ describe("registerAppShortcutActions", () => {
     const ids = manager.list().map((b) => b.id);
     const uniqueIds = new Set(ids);
     expect(ids.length).toBe(uniqueIds.size);
-    expect(ids.length).toBe(APP_SHORTCUT_ACTIONS.length);
+    expect(ids.length).toBe(appShortcutActions().length);
   });
 });
 
@@ -56,5 +56,20 @@ describe("getAppShortcuts", () => {
     const after = getAppShortcuts();
     expect(after).not.toBe(before);
     expect(after.getBinding("undo")).toBe("Ctrl+Z");
+  });
+});
+
+describe("shortcut labels", () => {
+  it("re-resolve in the active language when the locale changes", async () => {
+    const { getI18n, initAppI18n } = await import("../i18n/i18n.ts");
+    await initAppI18n();
+    const manager = getAppShortcuts();
+    expect(manager.list().find((b) => b.id === "undo")?.label).toBe("Undo");
+    await getI18n()?.changeLanguage("fr");
+    const undo = manager.list().find((b) => b.id === "undo");
+    expect(undo?.label).toBe("Annuler");
+    expect(undo?.key).toBe("Ctrl+Z");
+    await getI18n()?.changeLanguage("en");
+    window.localStorage.clear();
   });
 });

@@ -6,6 +6,7 @@
 // distinct from the empty state of a character that has no sound file.
 import { onLocaleChange, t } from "../i18n/i18n.ts";
 import { createProblemView } from "../problems/problem-view.ts";
+import { createListRow, focusKitControl } from "../ui/list-row.ts";
 import type { CharacterData, Sound } from "../wasm/types.ts";
 
 /** Plays one sound at a time. Injectable: jsdom has no Web Audio. */
@@ -114,12 +115,12 @@ export function renderSoundBrowser(
   const playbackErrors = new Map<SoundKey, string>();
   let playing: SoundKey | null = null;
 
-  const panel = document.createElement("wuik-panel");
+  const panel = document.createElement("div");
   panel.className = "sound-browser";
-  const heading = document.createElement("h3");
+  const heading = document.createElement("h2");
+  heading.className = "editor-title";
   const status = document.createElement("p");
   status.className = "sound-browser__status";
-  status.setAttribute("role", "status");
   const body = document.createElement("div");
   panel.append(heading, status, body);
   root.replaceChildren(panel);
@@ -168,28 +169,27 @@ export function renderSoundBrowser(
     return [row, details.element];
   }
 
-  function renderRow(sound: Sound): HTMLButtonElement {
+  function renderRow(sound: Sound): HTMLElement {
     const key = keyOf(sound);
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "sound-browser__sound";
-    row.dataset.key = key;
     const reason = undecodableReason(sound) ?? playbackErrors.get(key);
-    if (reason !== undefined) {
-      row.setAttribute("aria-disabled", "true");
-      row.textContent = t(
-        "sounds.rowUndecodable",
-        "{{key}} — Can't be played",
-        { key },
-      );
-    } else {
-      const isPlaying = playing === key;
-      row.setAttribute("aria-pressed", String(isPlaying));
-      row.textContent = isPlaying
-        ? t("sounds.rowStop", "{{key}} — Stop", { key })
-        : t("sounds.rowPlay", "{{key}} — Play", { key });
-    }
-    row.addEventListener("click", () => toggle(sound));
+    const isPlaying = reason === undefined && playing === key;
+    const row = createListRow({
+      className: "sound-browser__sound",
+      unavailable: reason !== undefined,
+      selected: isPlaying,
+      text:
+        reason !== undefined
+          ? t("sounds.rowUndecodable", "{{key}} — Can't be played", { key })
+          : isPlaying
+            ? t("sounds.rowStop", "{{key}} — Stop", { key })
+            : t("sounds.rowPlay", "{{key}} — Play", { key }),
+    });
+    row.dataset.key = key;
+    if (reason === undefined) row.dataset.playing = String(isPlaying);
+    row.addEventListener("click", () => {
+      if (row.getAttribute("aria-disabled") === "true") return;
+      toggle(sound);
+    });
     return row;
   }
 
@@ -197,19 +197,17 @@ export function renderSoundBrowser(
     const list = document.createElement("div");
     list.className = "sound-browser__list";
     for (const group of groups) {
-      const toggleButton = document.createElement("button");
-      toggleButton.type = "button";
-      toggleButton.className = "sound-browser__group-toggle";
       const expanded = expandedGroups.has(group.index);
-      toggleButton.setAttribute("aria-expanded", String(expanded));
-      toggleButton.textContent = t(
-        "sounds.groupToggle",
-        "Group {{index}} ({{count}})",
-        {
+      const toggleButton = createListRow({
+        className: "sound-browser__group-toggle",
+        expandable: true,
+        expanded,
+        text: t("sounds.groupToggle", "Group {{index}} ({{count}})", {
           index: String(group.index),
           count: String(group.sounds.length),
-        },
-      );
+        }),
+      });
+      toggleButton.dataset.groupIndex = String(group.index);
       toggleButton.addEventListener("click", () => {
         if (expandedGroups.has(group.index)) expandedGroups.delete(group.index);
         else expandedGroups.add(group.index);
@@ -225,17 +223,20 @@ export function renderSoundBrowser(
   }
 
   function render(): void {
-    // Rebuilding the list would drop the focused row: put focus back on it.
-    const focusedKey = (document.activeElement as HTMLElement | null)?.dataset
-      ?.key;
+    // Rebuilding the list would drop the focused row or group: put focus back.
+    const focused = (document.activeElement as HTMLElement | null)?.dataset;
+    const selector =
+      focused?.key !== undefined
+        ? `.sound-browser__sound[data-key="${focused.key}"]`
+        : focused?.groupIndex !== undefined
+          ? `.sound-browser__group-toggle[data-group-index="${focused.groupIndex}"]`
+          : undefined;
     renderContent();
-    if (focusedKey !== undefined) {
-      panel
-        .querySelector<HTMLElement>(
-          `.sound-browser__sound[data-key="${focusedKey}"]`,
-        )
-        ?.focus();
-    }
+    const target =
+      selector === undefined
+        ? null
+        : panel.querySelector<HTMLElement>(selector);
+    if (target) focusKitControl(target);
   }
 
   function renderContent(): void {
@@ -251,16 +252,12 @@ export function renderSoundBrowser(
     if (files.sndIssue) {
       const error = document.createElement("div");
       error.className = "sound-browser__error";
-      const message = document.createElement("p");
-      message.textContent = t(
-        "sounds.loadFailed",
-        "The sound file could not be loaded. Fix the file and load the character folder again.",
-      );
-      const details = createProblemView(
-        { code: "unknown", params: {}, detail: files.sndIssue },
-        { detailsOnly: true },
-      );
-      error.append(message, details.element);
+      const problem = createProblemView({
+        code: "load.soundFile",
+        params: {},
+        detail: files.sndIssue,
+      });
+      error.append(problem.element);
       body.appendChild(error);
     } else if (groups.length === 0) {
       const empty = document.createElement("p");

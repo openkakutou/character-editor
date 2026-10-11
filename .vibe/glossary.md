@@ -14,7 +14,7 @@ A single displayed image within an Animation: which Sprite to show, where to sho
 _Sources: `src/wasm/types.ts`, `src/animations/animation-editor.ts`, `src/animations/animation-logic.ts`_
 
 ## Collision box
-An axis-aligned box attached to a Frame that defines a region used for hit detection: an attack box (`clsn1`, shown as "Hit" in `animations`' editor) or a vulnerability box (`clsn2`, shown as "Hurt"). Addable, draggable, resizable (by pointer, arrow keys, or exact numeric coordinates), and deletable, with every committed coordinate snapped to an integer pixel — see `.vibe/decisions/007-animation-editor-clsn-interaction-model.md`.
+An axis-aligned box attached to a Frame that defines a region used for hit detection: a hit box (`clsn1`, "Zone d'attaque" in French) or a hurt box (`clsn2`, "Zone vulnérable" in French); "Clsn1"/"Clsn2" appear only as the format term in help texts. Addable, draggable, resizable (by pointer, arrow keys, or exact numeric coordinates), and deletable, with every committed coordinate snapped to an integer pixel — see `.vibe/decisions/007-animation-editor-clsn-interaction-model.md`.
 _Sources: `src/wasm/types.ts`, `src/animations/animation-editor.ts`, `src/animations/animation-logic.ts`_
 
 ## Sprite

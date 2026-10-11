@@ -1,10 +1,3 @@
-// The palette editor (backlog item 005): edit an existing palette's colors,
-// create a new one (blank or duplicated from the current one), preview it
-// live against a chosen sprite, and save it as a downloadable `.act` file.
-// Builds on the sprite browser (item 004): reuses its own pixel-drawing
-// effect rather than duplicating it. See palette.ts's own doc comment and
-// .vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md
-// for the semantic-vs-file-order model this screen edits against.
 import { pushHistoryCommand } from "../history/app-history.ts";
 import { onLocaleChange, t } from "../i18n/i18n.ts";
 import {
@@ -15,6 +8,14 @@ import { createPreviewFailure } from "../problems/preview-failure.ts";
 import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
 import { detailOf } from "../problems/problem.ts";
 import { defaultDrawPixels } from "../sprites/sprite-browser.ts";
+// The palette editor (backlog item 005): edit an existing palette's colors,
+// create a new one (blank or duplicated from the current one), preview it
+// live against a chosen sprite, and save it as a downloadable `.act` file.
+// Builds on the sprite browser (item 004): reuses its own pixel-drawing
+// effect rather than duplicating it. See palette.ts's own doc comment and
+// .vibe/decisions/005-palette-model-semantic-index-order-shared-reversal.md
+// for the semantic-vs-file-order model this screen edits against.
+import { createFilePicker } from "../ui/file-picker.ts";
 import {
   type SpritePixelResult,
   type WasmBridgeOptions,
@@ -223,26 +224,25 @@ export function renderPaletteEditor(
     options.onHistoryPush?.();
   }
 
-  const panel = document.createElement("wuik-panel");
+  const panel = document.createElement("div");
   panel.className = "palette-editor";
 
-  const heading = document.createElement("h3");
+  const heading = document.createElement("h2");
+
+  heading.className = "editor-title";
   panel.appendChild(heading);
 
   const sourceSection = document.createElement("div");
   sourceSection.className = "palette-editor__source";
 
-  const uploadLabel = document.createElement("label");
-  // A text node (not `uploadLabel.textContent`) so its own visible text can
-  // be retranslated in place without wiping out the nested `<input>`
-  // appended right after it -- same trick as
-  // `new-character-wizard-view.ts`'s `nameLabelText`.
-  const uploadLabelText = document.createTextNode("");
-  uploadLabel.appendChild(uploadLabelText);
-  const uploadInputEl = document.createElement("input");
-  uploadInputEl.type = "file";
-  uploadInputEl.accept = ".act";
-  uploadLabel.appendChild(uploadInputEl);
+  const uploadPicker = createFilePicker({
+    accept: ".act",
+    buttonKey: "palettes.loadActFile",
+    buttonDefault: "Load .act file to edit",
+    typeKey: "palettes.actFileType",
+    typeDefault: "An .act palette file",
+  });
+  const uploadInputEl = uploadPicker.input;
 
   const newBlankButton = document.createElement("wuik-button");
   newBlankButton.className = "palette-editor__new-blank";
@@ -254,11 +254,7 @@ export function renderPaletteEditor(
   duplicateButtonEl.setAttribute("disabled", "");
 
   function renderStaticText(): void {
-    heading.textContent = t("palettes.heading", "Palette Editor");
-    uploadLabelText.textContent = t(
-      "palettes.loadActFile",
-      "Load .act file to edit",
-    );
+    heading.textContent = t("palettes.heading", "Palette editor");
     newBlankButton.textContent = t(
       "palettes.newBlankPalette",
       "New blank palette",
@@ -274,14 +270,14 @@ export function renderPaletteEditor(
     section: "palettes",
     key: "upload",
     sink: options.problems,
-    onDismiss: () => uploadInputEl.focus(),
+    onDismiss: () => uploadPicker.focus(),
   });
   teardownUploadFailure = () => uploadFailure.destroy();
   const sourceErrorEl = uploadFailure.element;
   sourceErrorEl.classList.add("palette-editor__source-error");
 
   sourceSection.append(
-    uploadLabel,
+    uploadPicker.element,
     newBlankButton,
     duplicateButtonEl,
     sourceErrorEl,
@@ -327,10 +323,12 @@ export function renderPaletteEditor(
       bytes = await readFileBytes(file);
     } catch (error) {
       uploadInputEl.value = "";
+      uploadPicker.refresh();
       showUploadFailure(detailOf(error));
       return;
     }
     uploadInputEl.value = "";
+    uploadPicker.refresh();
     const result = parseActBytes(bytes);
     if (!result.ok) {
       showUploadFailure(result.error);
@@ -351,6 +349,9 @@ export function renderPaletteEditor(
     } else {
       duplicateButtonEl.removeAttribute("disabled");
     }
+    const focusedSwatch = bodyContainer.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement).dataset.swatchIndex
+      : undefined;
     bodyContainer.replaceChildren();
     if (activePalette === null) return;
 
@@ -372,12 +373,19 @@ export function renderPaletteEditor(
         }),
       );
       swatch.classList.toggle("is-selected", index === selectedIndex);
+      swatch.setAttribute("aria-pressed", String(index === selectedIndex));
     }
 
     for (let i = 0; i < PALETTE_COLOR_COUNT; i++) {
       const swatch = document.createElement("button");
       swatch.type = "button";
       swatch.className = "palette-editor__swatch";
+      swatch.dataset.swatchIndex = String(i);
+      const mark = document.createElement("span");
+      mark.className = "palette-editor__swatch-mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = "✓";
+      swatch.appendChild(mark);
       updateSwatch(swatch, i);
       swatch.addEventListener("click", () => selectIndex(i));
       grid.appendChild(swatch);
@@ -455,10 +463,12 @@ export function renderPaletteEditor(
     const previewSection = document.createElement("div");
     previewSection.className = "palette-editor__preview";
 
-    const spriteLabel = document.createElement("label");
-    spriteLabel.textContent = t("palettes.previewSprite", "Preview sprite");
-    const spriteSelect = document.createElement("select");
+    const spriteSelect = document.createElement("wuik-select");
     spriteSelect.className = "palette-editor__preview-sprite";
+    spriteSelect.setAttribute(
+      "label",
+      t("palettes.previewSprite", "Preview sprite"),
+    );
     const allSprites = characterNonNull.sprites.flatMap((g) => g.sprites);
     for (const sprite of allSprites) {
       const option = document.createElement("option");
@@ -469,28 +479,35 @@ export function renderPaletteEditor(
         sprite.group === previewSprite.group &&
         sprite.image === previewSprite.image
       ) {
-        option.selected = true;
+        spriteSelect.setAttribute("value", option.value);
       }
       spriteSelect.appendChild(option);
     }
-    spriteSelect.addEventListener("change", () => {
-      const [group, image] = spriteSelect.value.split(",").map(Number);
+    spriteSelect.addEventListener("wuik-change", (event) => {
+      const value = (event as CustomEvent<{ value: string }>).detail.value;
+      const [group, image] = value.split(",").map(Number);
       previewSprite = { group, image };
       renderPreview();
     });
-    spriteLabel.appendChild(spriteSelect);
 
     const canvas = document.createElement("canvas");
     canvas.className = "palette-editor__preview-canvas";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute(
+      "aria-label",
+      t("palettes.previewCanvasEmpty", "Recolored preview"),
+    );
     canvas.hidden = true;
 
     const previewStatus = document.createElement("p");
     previewStatus.className = "palette-editor__preview-status";
     previewStatus.setAttribute("role", "status");
 
-    previewSection.append(spriteLabel, canvas, previewStatus);
+    previewSection.append(spriteSelect, canvas, previewStatus);
 
     const saveButtonEl = document.createElement("wuik-button");
+
+    saveButtonEl.setAttribute("variant", "secondary");
     saveButtonEl.className = "palette-editor__save";
     saveButtonEl.textContent = t("palettes.saveAsAct", "Save as .act");
     saveButtonEl.addEventListener("click", () => {
@@ -526,6 +543,17 @@ export function renderPaletteEditor(
         return;
       }
       const sprite = previewSprite;
+      canvas.setAttribute(
+        "aria-label",
+        t(
+          "palettes.previewCanvasLabel",
+          "Recolored preview, sprite {{group}}, {{image}}",
+          {
+            group: String(sprite.group),
+            image: String(sprite.image),
+          },
+        ),
+      );
       void runPreview(
         previewGuard,
         () =>
@@ -558,6 +586,9 @@ export function renderPaletteEditor(
 
     updateDetail();
     renderPreview();
+    if (focusedSwatch !== undefined) {
+      swatchButtons[Number(focusedSwatch)]?.focus();
+    }
   }
 
   // This screen is only ever mounted once per loaded character (see

@@ -232,7 +232,9 @@ export function createAppShell(options: AppShellOptions): AppShell {
       hint.dataset.help = id;
       header.appendChild(hint);
     }
-    const body = element("div", "shell__content");
+    // A kit panel: the one wrapper every section's content shares.
+    const body = document.createElement("wuik-panel");
+    body.className = "shell__content";
     panel.append(header, body);
     panel.hidden = true;
     main.appendChild(panel);
@@ -246,9 +248,9 @@ export function createAppShell(options: AppShellOptions): AppShell {
   const saveStatus = element("span", "shell__save-status");
   const localeStatus = element("span", "shell__locale");
   statusBar.append(saveStatus, localeStatus);
-  const liveRegion = element("div", "shell__live");
+  const liveRegion = element("div", "shell__live visually-hidden");
   liveRegion.setAttribute("role", "status");
-  const alertRegion = element("div", "shell__live");
+  const alertRegion = element("div", "shell__live visually-hidden");
   alertRegion.setAttribute("role", "alert");
 
   const body = element("div", "shell__body");

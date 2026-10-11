@@ -108,7 +108,7 @@ export function createDependencyCards(
       view.setProblem(problem);
     }
     const replace = document.createElement("wuik-button");
-    replace.setAttribute("variant", "primary");
+    replace.setAttribute("variant", "secondary");
     replace.dataset.action = "replace-file";
     replace.dataset.kind = entry.file.kind;
     replace.textContent = entry.busy
@@ -138,7 +138,7 @@ export function createDependencyCards(
       view.setProblem(engine.problem);
     }
     const retry = document.createElement("wuik-button");
-    retry.setAttribute("variant", "primary");
+    retry.setAttribute("variant", "secondary");
     retry.dataset.action = "retry-engine";
     retry.textContent = engine.busy
       ? t("banner.retrying", "Retrying…")

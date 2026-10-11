@@ -33,3 +33,28 @@ describe("tCount", () => {
     expect(tCount("test.errors", 0, defaults)).toBe("0 error");
   });
 });
+
+describe("tCount with the catalogs (flow 003, F18)", () => {
+  afterEach(async () => {
+    await getI18n()?.changeLanguage("en");
+  });
+
+  it("gives French 0 and 1 the singular and 2 the plural", async () => {
+    await initAppI18n();
+    await getI18n()?.changeLanguage("fr");
+    const text = (n: number) =>
+      tCount("sprites.unsavedBanner", n, { one: "?", other: "?" });
+    expect(text(0)).toBe("0 modification de sprite non enregistrée.");
+    expect(text(1)).toBe("1 modification de sprite non enregistrée.");
+    expect(text(2)).toBe("2 modifications de sprite non enregistrées.");
+  });
+
+  it("gives English 0 and 2 the plural and 1 the singular", async () => {
+    await initAppI18n();
+    const text = (n: number) =>
+      tCount("sprites.unsavedBanner", n, { one: "?", other: "?" });
+    expect(text(0)).toBe("0 unsaved sprite changes.");
+    expect(text(1)).toBe("1 unsaved sprite change.");
+    expect(text(2)).toBe("2 unsaved sprite changes.");
+  });
+});

@@ -30,6 +30,16 @@
         "title": "Couldn't open this folder",
         "action": "Choose another folder.",
         "actionRetry": "Try again or choose another folder."
+      },
+      "commandFile": {
+        "title": "Couldn't read the command file",
+        "cause": "The .cmd file may be damaged.",
+        "action": "You can still create new commands below."
+      },
+      "soundFile": {
+        "title": "Couldn't load the sound file",
+        "cause": "The .snd file may be damaged.",
+        "action": "Fix the file, then load the character folder again."
       }
     },
     "format": {
@@ -126,14 +136,13 @@
     "loadedNoOptional": "Character loaded: {{name}}. No {{extensions}} supplied.",
     "loadedWithOptional": "Character loaded: {{name}}. Also loaded {{extensions}}.",
     "zssAmbiguousNote": "Note: {{count}} .zss files were found in the folder — none was used, only a single .zss file is supported.",
-    "loadError": "Could not load character: {{message}}",
     "errorNoFilesDrop": "Couldn't read anything from the dropped folder — your browser may not support folder drag-and-drop here. Try the folder picker button instead.",
     "errorNoFilesPicker": "This folder is empty — pick a folder that contains the character's .def file.",
     "errorNoCandidate": "No .def file found in this folder — expected one like kfm.def.",
-    "errorReadFile": "Could not read {{fileName}}: {{message}}",
     "errorReferenceMissingKey": "The selected .def doesn't reference a {{extension}} file at all.",
     "errorReferenceNotFound": "The selected .def references \"{{referencedName}}\" for its {{extension}} file, but that file wasn't found anywhere in the selected folder.",
     "errorReferenceAmbiguous": "The selected .def references \"{{referencedName}}\" for its {{extension}} file, but {{count}} files in the folder share that name — could not tell which one to use.",
+    "errorGather": "The files could not be read from the selection.",
     "causeRead": "Couldn't read {{fileName}}.",
     "causeParse": "The editor couldn't understand these character files."
   },
@@ -151,7 +160,13 @@
     "nameRequiredToCreate": "A name is required to create a new character."
   },
   "shortcuts": {
-    "heading": "Keyboard shortcuts"
+    "heading": "Keyboard shortcuts",
+    "undo": "Undo",
+    "redo": "Redo",
+    "downloadAll": "Download all",
+    "addAnimation": "Add animation",
+    "addState": "Add state",
+    "addCommand": "Add command"
   },
   "characteristics": {
     "identityHeading": "Identity",
@@ -173,13 +188,13 @@
     "cannotBeEmpty": "{{label}} cannot be empty."
   },
   "stateEditor": {
-    "heading": "State/Combat Logic",
-    "addStateDef": "Add StateDef",
-    "noStateDefsYet": "No StateDefs yet.",
-    "statedefSummary": "Statedef {{number}} (type: {{type}}, moveType: {{moveType}}, physics: {{physics}})",
-    "addController": "Add controller",
-    "removeStateDef": "Remove StateDef",
-    "noControllersYet": "No controllers yet.",
+    "heading": "State and combat logic",
+    "addStateDef": "Add state",
+    "noStateDefsYet": "No states yet.",
+    "statedefSummary": "State {{number}} (type: {{type}}, move type: {{moveType}}, physics: {{physics}})",
+    "addController": "Add state controller",
+    "removeStateDef": "Remove state",
+    "noControllersYet": "No state controllers yet.",
     "unsupportedBadge": "Unsupported (from file)",
     "none": "(none)",
     "controllerReadonlySummary": "triggers: {{triggers}}; parameters: {{parameters}}",
@@ -192,14 +207,21 @@
     "addParameter": "Add parameter",
     "removeParameter": "Remove parameter",
     "removeParameterAriaLabel": "Remove parameter #{{index}}",
-    "removeStateDefWarning": "This state has {{count}} controller{{suffix}}. Other controllers may target this state number.",
-    "confirmRemoveStateDef": "Confirm remove ({{count}} controller{{suffix}})",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "removeStateDefWarning_one": "This state has {{count}} controller. Other controllers may target this state number.",
+    "removeStateDefWarning_other": "This state has {{count}} controllers. Other controllers may target this state number.",
+    "confirmRemoveStateDef_one": "Confirm remove ({{count}} controller)",
+    "confirmRemoveStateDef_other": "Confirm remove ({{count}} controllers)",
+    "removeStateDefEmpty": "This state has no controllers. Other controllers may target this state number.",
+    "confirmRemoveEmpty": "Confirm remove",
+    "controllerType": "State controller type",
+    "triggerLabel": "Trigger {{index}}",
+    "parameterName": "Parameter {{index}} name",
+    "parameterValue": "Parameter {{index}} value"
   },
   "sprites": {
-    "unsavedBanner": "{{count}} unsaved sprite change{{suffix}}.",
+    "noFileChosen": "Choose an image to import first.",
     "deletedHeading": "Deleted sprites",
-    "deletedReferenced": "{{group}}, {{image}} — referenced by {{count}} frame{{suffix}}",
     "deletedUnreferenced": "{{group}}, {{image}} — not referenced by any animation frame",
     "browserHeading": "Sprites ({{count}})",
     "empty": "No sprites found.",
@@ -215,15 +237,25 @@
     "loading": "Loading…",
     "replace": "Replace",
     "delete": "Delete",
-    "referencedByFrames": "Referenced by {{count}} animation frame{{suffix}}.",
     "notReferenced": "Not referenced by any animation frame.",
-    "confirmDeleteWithCount": "Confirm delete (referenced by {{count}} frame{{suffix}})",
     "confirmDelete": "Confirm delete",
     "cancel": "Cancel",
-    "decodeError": "This image could not be decoded — check the file is a supported format. ({{detail}})"
+    "decodeError": "This image could not be decoded — check the file is a supported format. ({{detail}})",
+    "chooseImage": "Choose an image",
+    "imageType": "A PNG or PCX image",
+    "unsavedBanner_one": "{{count}} unsaved sprite change.",
+    "unsavedBanner_other": "{{count}} unsaved sprite changes.",
+    "deletedReferenced_one": "{{group}}, {{image}} — used by {{count}} frame",
+    "deletedReferenced_other": "{{group}}, {{image}} — used by {{count}} frames",
+    "referencedByFrames_one": "Used by {{count}} animation frame.",
+    "referencedByFrames_other": "Used by {{count}} animation frames.",
+    "confirmDeleteWithCount_one": "Confirm delete (used by {{count}} frame)",
+    "confirmDeleteWithCount_other": "Confirm delete (used by {{count}} frames)",
+    "previewCanvasLabel": "Sprite preview, group {{group}}, image {{image}}, {{index}} of {{total}}",
+    "importing": "Importing…"
   },
   "palettes": {
-    "heading": "Palette Editor",
+    "heading": "Palette editor",
     "loadActFile": "Load .act file to edit",
     "newBlankPalette": "New blank palette",
     "duplicateCurrentPalette": "Duplicate current palette",
@@ -235,13 +267,15 @@
     "saveAsAct": "Save as .act",
     "noPreviewSprites": "No sprites available to preview.",
     "loading": "Loading…",
-    "invalidActLength": "expected a {{expected}}-byte .act palette file (or {{withFooter}} bytes with a trailing footer), got {{actual}} bytes"
+    "invalidActLength": "This palette file has the wrong size: {{actual}} bytes. An .act file must be {{expected}} bytes, or {{withFooter}} bytes if it ends with extra data.",
+    "actFileType": "An .act palette file",
+    "previewCanvasLabel": "Recolored preview, sprite {{group}}, {{image}}",
+    "previewCanvasEmpty": "Recolored preview"
   },
   "animations": {
     "heading": "Animations",
     "addAnimation": "Add animation",
     "noAnimationsYet": "No animations yet.",
-    "animationToggle": "Animation {{number}} ({{count}} frame{{suffix}})",
     "loopStart": "Loop start",
     "addFrame": "Add frame",
     "removeAnimation": "Remove animation",
@@ -250,54 +284,75 @@
     "frameSpriteImageAriaLabel": "Frame {{index}} sprite image",
     "frameDurationAriaLabel": "Frame {{index}} duration",
     "spriteMissingInSheet": "Sprite {{group}}, {{image}} does not exist in the loaded sprite sheet.",
-    "hideClsnBoxes": "Hide Clsn boxes",
-    "editClsnBoxes": "Edit Clsn boxes ({{count}})",
+    "hideClsnBoxes": "Hide hit and hurt boxes",
+    "editClsnBoxes": "Edit hit and hurt boxes ({{count}})",
     "moveUp": "Move up",
     "moveDown": "Move down",
     "remove": "Remove",
     "group": "Group",
     "image": "Image",
-    "time": "Time",
-    "hit": "Hit",
-    "hurt": "Hurt",
-    "addClsn1": "Add Clsn1 (hit)",
-    "addClsn2": "Add Clsn2 (hurt)",
-    "boxAriaLabel": "{{kind}} box {{index}}: left {{left}}, top {{top}}, right {{right}}, bottom {{bottom}}",
-    "boxFieldsLabel": "{{kind}} box {{index}}",
-    "boxFieldAriaLabel": "{{kind}} box {{index}} {{field}}",
+    "time": "Duration (ticks)",
+    "hit": "Hit box",
+    "hurt": "Hurt box",
+    "addClsn1": "Add hit box (Clsn1)",
+    "addClsn2": "Add hurt box (Clsn2)",
+    "boxAriaLabel": "{{kind}} {{index}}: left {{left}}, top {{top}}, right {{right}}, bottom {{bottom}}",
+    "boxFieldsLabel": "{{kind}} {{index}}",
+    "boxFieldAriaLabel": "{{kind}} {{index}} {{field}}",
     "fieldX": "x",
     "fieldY": "y",
     "fieldWidth": "width",
     "fieldHeight": "height",
     "x": "X",
     "y": "Y",
-    "w": "W",
-    "h": "H",
+    "w": "Width",
+    "h": "Height",
     "removeBox": "Remove box",
-    "removeBoxAriaLabel": "Remove {{kind}} box {{index}}",
+    "removeBoxAriaLabel": "Remove box: {{kind}} {{index}}",
+    "boxRemoved": "{{kind}} {{index}} removed",
+    "boxDeselected": "{{kind}} {{index}} deselected",
     "loading": "Loading…",
     "spriteMissingEmptyPreview": "Sprite {{group}}, {{image}} does not exist — showing an empty preview.",
     "spriteMissing": "Sprite {{group}}, {{image}} does not exist.",
     "play": "Play",
     "pause": "Pause",
-    "step": "Step",
+    "step": "Next frame",
     "noFramesToPlay": "No frames to play.",
     "playbackPreview": "Playback preview",
-    "removeAnimationWarning": "This animation has {{count}} frame{{suffix}}.",
-    "confirmRemoveAnimation": "Confirm remove ({{count}} frame{{suffix}})",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "animationToggle_one": "Animation {{number}} ({{count}} frame)",
+    "animationToggle_other": "Animation {{number}} ({{count}} frames)",
+    "removeAnimationWarning_one": "This animation has {{count}} frame.",
+    "removeAnimationWarning_other": "This animation has {{count}} frames.",
+    "confirmRemoveAnimation_one": "Confirm remove ({{count}} frame)",
+    "confirmRemoveAnimation_other": "Confirm remove ({{count}} frames)",
+    "removeAnimationEmpty": "This animation has no frames.",
+    "confirmRemoveEmpty": "Confirm remove",
+    "timeHelpLabel": "Help: duration",
+    "timeHelp": "1 tick = 1/60 s. Use -1 to hold the frame.",
+    "modeMove": "Move",
+    "modeResize": "Resize",
+    "modeMoveAnnouncement": "{{kind}} {{index}}: move mode",
+    "modeResizeAnnouncement": "{{kind}} {{index}}: resize mode",
+    "boxMoved": "{{kind}} {{index}} moved to x {{x}}, y {{y}}",
+    "boxResized": "{{kind}} {{index}} resized: width {{width}}, height {{height}}",
+    "clsnCanvasLabel_one": "Hit and hurt box editor, {{count}} box",
+    "clsnCanvasLabel_other": "Hit and hurt box editor, {{count}} boxes",
+    "playbackCanvasLabel": "Playback preview, frame {{index}} of {{total}}",
+    "noSprites": "This character has no sprites yet, so frames cannot show an image.",
+    "goToSprites": "Go to Sprites"
   },
   "commands": {
+    "removed": "Command removed: {{name}}",
     "heading": "Commands",
     "addCommand": "Add command",
     "noCommandsYet": "No commands yet.",
     "loadingCommands": "Loading commands…",
-    "loadError": "Could not read the .cmd file: {{message}}. You can still create new commands below.",
     "nameLabel": "Name",
     "inputSequenceLabel": "Input sequence",
-    "inputHint": "Stored as-is (e.g. \"~D, DF, F, a\") -- not validated against MUGEN/Ikemen input syntax.",
-    "timeLabel": "Time",
-    "bufferTimeLabel": "Buffer time",
+    "inputHint": "Written exactly as typed, for example \"~D, DF, F, a\". The editor does not check it against the MUGEN/Ikemen input syntax.",
+    "timeLabel": "Sequence window (ticks)",
+    "bufferTimeLabel": "Command buffer (ticks)",
     "targetStateLabel": "Target state",
     "removeCommandAriaLabel": "Remove command {{name}}",
     "unnamed": "(unnamed)",
@@ -306,13 +361,17 @@
     "nameDuplicate": "Another command already uses this name.",
     "inputEmpty": "Input sequence cannot be empty.",
     "targetStateNotWholeNumber": "Target state must be a whole number.",
-    "targetStateNotFound": "No state {{state}} exists."
+    "targetStateNotFound": "No state {{state}} exists.",
+    "timeHelpLabel": "Help: sequence window",
+    "timeHelp": "Number of ticks within which the whole sequence must be entered. 1 tick = 1/60 s.",
+    "bufferTimeHelpLabel": "Help: command input delay",
+    "bufferTimeHelp": "Number of ticks a command stays active once entered, so that a slightly early press still counts. 1 tick = 1/60 s."
   },
   "save": {
     "heading": "Export",
     "refreshExport": "Refresh export",
     "preparingExport": "Preparing export…",
-    "blockedPendingSpriteEdits": "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.",
+    "blockedPendingSpriteEdits": "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait until this is supported.",
     "fileNameWithStatus": "{{fileName}} ({{status}})",
     "unchanged": "unchanged",
     "modified": "modified",
@@ -332,8 +391,7 @@
     "rowUndecodable": "{{key}} — Can't be played",
     "noAudioData": "no audio data",
     "nowPlaying": "Playing {{key}}",
-    "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
-    "loadFailed": "The sound file could not be loaded. Fix the file and load the character folder again."
+    "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section."
   },
   "validation": {
     "allClear": "No problem found.",
@@ -344,8 +402,8 @@
     "noPalette": "No palette is declared.",
     "animationDuplicate": "Animation {{number}} is defined more than once.",
     "animationNoFrame": "Animation {{number}} has no frame.",
-    "stateDuplicate": "StateDef {{number}} is defined more than once.",
-    "stateMissingAnimation": "StateDef {{state}} uses animation {{anim}}, which does not exist.",
+    "stateDuplicate": "State {{number}} is defined more than once.",
+    "stateMissingAnimation": "State {{state}} uses animation {{anim}}, which does not exist.",
     "commandNameEmpty": "Command {{n}} has no name.",
     "commandInputEmpty": "Command {{n}} has no input sequence.",
     "animationMissingSprite_one": "Animation {{number}} uses {{count}} sprite that does not exist.",
@@ -394,7 +452,7 @@
     "states": {
       "title": "States",
       "description": "Describe what the character does in each state: standing, jumping, attacking.",
-      "help": "A StateDef describes what the character does in one state. Its controllers run every frame while the character is in that state."
+      "help": "A state describes what the character does at a given moment. Its controllers run every frame while the character is in that state. In the files, a state is written as a StateDef."
     },
     "commands": {
       "title": "Commands",
@@ -403,7 +461,7 @@
     "animations": {
       "title": "Animations",
       "description": "Edit frames and their collision boxes.",
-      "help": "Clsn1 boxes are where an attack hits; Clsn2 boxes are where the character can be hit."
+      "help": "A hit box is where an attack touches; a hurt box is where the character can be hit. In the files they are called Clsn1 and Clsn2."
     },
     "output": {
       "title": "Export",
@@ -465,7 +523,14 @@
     "openHint": "Press ? outside a text field to open this dialog.",
     "editing": "Editing and output",
     "colShortcut": "Shortcut",
-    "colAction": "Action"
+    "colAction": "Action",
+    "keyEscape": "Escape",
+    "clsnTitle": "Hit and hurt boxes",
+    "clsnIntro": "With a box focused in the animation editor:",
+    "clsnResize": "Switch between move and resize mode",
+    "clsnArrows": "Move the box, or resize it in resize mode, by 1 unit",
+    "clsnShiftArrows": "Same, by 10 units",
+    "clsnEscape": "Leave resize mode; press again to deselect the box"
   },
   "output": {
     "severity": {
@@ -538,5 +603,8 @@
     "body_other": "These files could not be read and will be left out: {{names}}. The exported character will be incomplete.",
     "confirm": "Export anyway",
     "cancel": "Cancel"
+  },
+  "filePicker": {
+    "none": "No file chosen"
   }
 }

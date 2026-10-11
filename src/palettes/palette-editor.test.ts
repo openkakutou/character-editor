@@ -148,6 +148,61 @@ describe("renderPaletteEditor", () => {
     expect(duplicateButton(root).hasAttribute("disabled")).toBe(false);
   });
 
+  it("swatches are buttons with aria-pressed and a non-colour selected mark", () => {
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      resolveSpritePixels: stubResolve(),
+      drawPixels: vi.fn(),
+    });
+    newBlankButton(root).click();
+
+    swatches(root)[5].click();
+
+    expect(swatches(root)[5].tagName).toBe("BUTTON");
+    expect(swatches(root)[5].getAttribute("aria-pressed")).toBe("true");
+    expect(swatches(root)[0].getAttribute("aria-pressed")).toBe("false");
+    const mark = swatches(root)[5].querySelector(
+      ".palette-editor__swatch-mark",
+    );
+    expect(mark?.textContent).toBe("✓");
+    expect(mark?.getAttribute("aria-hidden")).toBe("true");
+    expect(swatches(root)[5].getAttribute("aria-label")).toContain("5");
+  });
+
+  it("keeps focus on the same swatch after the body is rebuilt", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const handle = renderPaletteEditor(
+      root,
+      makeCharacter(),
+      new Uint8Array(),
+      {
+        resolveSpritePixels: stubResolve(),
+        drawPixels: vi.fn(),
+      },
+    );
+    newBlankButton(root).click();
+    swatches(root)[9].focus();
+    expect(document.activeElement).toBe(swatches(root)[9]);
+
+    handle.refresh();
+
+    expect(document.activeElement).toBe(swatches(root)[9]);
+  });
+
+  it("gives the preview canvas an image role and an accessible name", () => {
+    const root = document.createElement("div");
+    renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
+      resolveSpritePixels: stubResolve(),
+      drawPixels: vi.fn(),
+    });
+    newBlankButton(root).click();
+
+    const canvas = root.querySelector(".palette-editor__preview-canvas");
+    expect(canvas?.getAttribute("role")).toBe("img");
+    expect(canvas?.getAttribute("aria-label")).toBeTruthy();
+  });
+
   it("flags index 0 as reserved but selecting another index hides the note", () => {
     const root = document.createElement("div");
     renderPaletteEditor(root, makeCharacter(), new Uint8Array(), {
@@ -245,6 +300,36 @@ describe("renderPaletteEditor", () => {
     expect(sffBytesArg).toEqual(new Uint8Array([1, 2, 3]));
     expect(requestsArg).toEqual([[0, 0]]);
     expect(overrideArg).toEqual(serializeActBytes(blankPalette()));
+  });
+
+  it("picks the preview sprite with a kit select that re-requests the recolored preview", () => {
+    const resolveSpritePixels = vi.fn(stubResolve());
+    const root = document.createElement("div");
+    const character = makeCharacter();
+    character.sprites[0].sprites.push({
+      ...character.sprites[0].sprites[0],
+      image: 3,
+    });
+    renderPaletteEditor(root, character, new Uint8Array(), {
+      resolveSpritePixels,
+    });
+    newBlankButton(root).click();
+
+    const select = root.querySelector(".palette-editor__preview-sprite");
+    expect(select?.localName).toBe("wuik-select");
+    expect(select?.getAttribute("label")).toBe("Preview sprite");
+    expect(select?.querySelectorAll("option")).toHaveLength(2);
+    expect(select?.getAttribute("value")).toBe("0,0");
+
+    select?.dispatchEvent(
+      new CustomEvent("wuik-change", { detail: { value: "0,3" } }),
+    );
+    expect(resolveSpritePixels).toHaveBeenLastCalledWith(
+      expect.anything(),
+      [[0, 3]],
+      expect.anything(),
+      undefined,
+    );
   });
 
   it("shows a status message instead of crashing when the character has no sprites to preview", () => {
@@ -473,7 +558,7 @@ describe("renderPaletteEditor", () => {
       await initAppI18n();
       await getI18n()?.changeLanguage("fr");
 
-      expect(root.querySelector("h3")?.textContent).toBe("Éditeur de palette");
+      expect(root.querySelector("h2")?.textContent).toBe("Éditeur de palette");
       expect(newBlankButton(root).textContent).toBe("Nouvelle palette vierge");
       expect(swatches(root)).toHaveLength(256);
       expect(

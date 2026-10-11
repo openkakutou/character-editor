@@ -374,11 +374,11 @@ describe("renderAnimationEditor — animation/frame CRUD and reorder", () => {
   });
 });
 
-describe("renderAnimationEditor — Clsn box editing", () => {
-  function openClsnEditor(root: HTMLElement, animationNumber: number): void {
-    click(action(frameRows(root, animationNumber)[0], "toggle-clsn"));
-  }
+function openClsnEditor(root: HTMLElement, animationNumber: number): void {
+  click(action(frameRows(root, animationNumber)[0], "toggle-clsn"));
+}
 
+describe("renderAnimationEditor — Clsn box editing", () => {
   it("adds a Clsn1 box with numeric fields reflecting its bounds, and it's deletable without confirmation", () => {
     const root = document.createElement("div");
     const onChange = vi.fn();
@@ -574,6 +574,279 @@ describe("renderAnimationEditor — Clsn box editing", () => {
   });
 });
 
+describe("renderAnimationEditor — keyboard Clsn resize mode", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  function mountWithBoxes(boxCount = 1) {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const onChange = vi.fn();
+    const character = fixtureCharacter({
+      animations: [{ number: 0, frames: [frame()], loopStart: 0 }],
+    });
+    renderAnimationEditor(root, character, null, [], { onChange });
+    toggleAnimation(root, 0);
+    openClsnEditor(root, 0);
+    for (let i = 0; i < boxCount; i++) click(action(root, "add-clsn1"));
+    return { root, onChange, character };
+  }
+
+  function boxAt(root: HTMLElement, index: number): HTMLElement {
+    return need(
+      root.querySelector<HTMLElement>(
+        `.animation-editor__box[data-kind="clsn1"][data-box-index="${index}"]`,
+      ),
+      "box",
+    );
+  }
+
+  function key(
+    el: Element,
+    k: string,
+    init: KeyboardEventInit = {},
+  ): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", {
+      key: k,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    el.dispatchEvent(event);
+    return event;
+  }
+
+  function lastBox(onChange: ReturnType<typeof vi.fn>) {
+    return onChange.mock.calls.at(-1)?.[0].animations[0].frames[0].clsn1[0];
+  }
+
+  function modeBadge(root: HTMLElement, index = 0): string {
+    return (
+      boxAt(root, index).querySelector(".animation-editor__box-mode")
+        ?.textContent ?? ""
+    );
+  }
+
+  function live(root: HTMLElement): HTMLElement {
+    return need(
+      root.querySelector<HTMLElement>(".animation-editor__live"),
+      "live region",
+    );
+  }
+
+  it("R toggles resize mode: the text badge changes and the mode is announced", () => {
+    const { root } = mountWithBoxes();
+    const box = boxAt(root, 0);
+    box.focus();
+    expect(modeBadge(root)).toBe("Move");
+
+    const event = key(box, "r");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(modeBadge(root)).toBe("Resize");
+    expect(live(root).textContent).toContain("resize mode");
+    key(boxAt(root, 0), "R");
+    expect(modeBadge(root)).toBe("Move");
+  });
+
+  it("the live region is polite and is the same element across rebuilds", () => {
+    const { root } = mountWithBoxes();
+    const region = live(root);
+    expect(region.getAttribute("aria-live")).toBe("polite");
+    boxAt(root, 0).focus();
+
+    key(boxAt(root, 0), "ArrowRight");
+
+    expect(live(root)).toBe(region);
+  });
+
+  it("arrows resize the bottom/right edges in resize mode, Shift moves by 10, through onChange", () => {
+    const { root, onChange } = mountWithBoxes();
+    boxAt(root, 0).focus();
+    const before = lastBox(onChange);
+    key(boxAt(root, 0), "r");
+
+    key(boxAt(root, 0), "ArrowRight");
+    let after = lastBox(onChange);
+    expect(after.right - before.right).toBe(1);
+    expect(after.left).toBe(before.left);
+
+    key(boxAt(root, 0), "ArrowDown", { shiftKey: true });
+    after = lastBox(onChange);
+    expect(after.bottom - before.bottom).toBe(10);
+    expect(after.top).toBe(before.top);
+  });
+
+  it("in move mode arrows still move the box and prevent page scrolling", () => {
+    const { root, onChange } = mountWithBoxes();
+    boxAt(root, 0).focus();
+    const before = lastBox(onChange);
+
+    const event = key(boxAt(root, 0), "ArrowLeft");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(lastBox(onChange).left - before.left).toBe(-1);
+    expect(lastBox(onChange).right - before.right).toBe(-1);
+  });
+
+  it("does not prevent default for keys it does not handle", () => {
+    const { root } = mountWithBoxes();
+    boxAt(root, 0).focus();
+
+    expect(key(boxAt(root, 0), "a").defaultPrevented).toBe(false);
+  });
+
+  it("Escape in move mode really deselects the box and announces it", () => {
+    const { root } = mountWithBoxes();
+    boxAt(root, 0).focus();
+
+    const event = key(boxAt(root, 0), "Escape");
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(boxAt(root, 0));
+    expect(modeBadge(root)).toBe("");
+    expect(live(root).textContent).toContain("deselected");
+  });
+
+  it("refocuses the focused box, mode kept, after a full editor rebuild", () => {
+    const { root, onChange, character } = mountWithBoxes(2);
+    boxAt(root, 1).focus();
+    key(boxAt(root, 1), "r");
+
+    renderAnimationEditor(root, character, null, [], { onChange });
+
+    expect(document.activeElement).toBe(boxAt(root, 1));
+    expect(modeBadge(root, 1)).toBe("Resize");
+  });
+
+  it("moves focus to a neighbouring Remove button after removing a box, and announces it", () => {
+    const { root } = mountWithBoxes(2);
+    const removes = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>('[data-action="remove-clsn-box"]'),
+      );
+    click(removes()[0]);
+    expect(removes()).toHaveLength(1);
+    const inner = removes()[0].shadowRoot?.querySelector("button");
+    expect(removes()[0].shadowRoot?.activeElement).toBe(inner);
+    expect(live(root).textContent).toContain("removed");
+
+    click(removes()[0]);
+    const add = root.querySelector<HTMLElement>('[data-action="add-clsn1"]');
+    expect(add?.shadowRoot?.activeElement).toBe(
+      add?.shadowRoot?.querySelector("button"),
+    );
+  });
+
+  it("ignores R typed inside a text field", () => {
+    const { root } = mountWithBoxes();
+    const box = boxAt(root, 0);
+    box.focus();
+    const input = document.createElement("input");
+    box.appendChild(input);
+
+    key(input, "r");
+
+    expect(modeBadge(root)).toBe("Move");
+  });
+
+  it("Escape in resize mode returns to move mode, announces it and keeps focus", () => {
+    const { root } = mountWithBoxes();
+    boxAt(root, 0).focus();
+    key(boxAt(root, 0), "r");
+
+    const first = key(boxAt(root, 0), "Escape");
+
+    expect(first.defaultPrevented).toBe(true);
+    expect(modeBadge(root)).toBe("Move");
+    expect(live(root).textContent).toContain("move mode");
+    expect(document.activeElement).toBe(boxAt(root, 0));
+  });
+
+  it("keeps focus on the same box (by index) and the mode after a rebuild", () => {
+    const { root } = mountWithBoxes(2);
+    boxAt(root, 1).focus();
+    key(boxAt(root, 1), "r");
+
+    key(boxAt(root, 1), "ArrowDown");
+
+    expect(document.activeElement).toBe(boxAt(root, 1));
+    expect(modeBadge(root, 1)).toBe("Resize");
+  });
+
+  it("resets to move mode when selection moves to another box or the box loses focus", () => {
+    const { root } = mountWithBoxes(2);
+    boxAt(root, 0).focus();
+    key(boxAt(root, 0), "r");
+
+    boxAt(root, 1).focus();
+    expect(modeBadge(root, 1)).toBe("Move");
+    boxAt(root, 0).focus();
+    expect(modeBadge(root, 0)).toBe("Move");
+
+    key(boxAt(root, 0), "r");
+    boxAt(root, 0).blur();
+    boxAt(root, 0).focus();
+    expect(modeBadge(root, 0)).toBe("Move");
+  });
+
+  it("debounces the size announcement by about 300 ms", () => {
+    vi.useFakeTimers();
+    const { root } = mountWithBoxes();
+    boxAt(root, 0).focus();
+    key(boxAt(root, 0), "r");
+    const modeText = live(root).textContent;
+
+    key(boxAt(root, 0), "ArrowRight");
+    key(boxAt(root, 0), "ArrowRight");
+    expect(live(root).textContent).toBe(modeText);
+
+    vi.advanceTimersByTime(299);
+    expect(live(root).textContent).toBe(modeText);
+    vi.advanceTimersByTime(2);
+    expect(live(root).textContent).toContain("resized: width");
+  });
+
+  it("makes resize handles at least 24 px so the hit area is large enough", () => {
+    const { root } = mountWithBoxes();
+    const handle = need(
+      boxAt(root, 0).querySelector<HTMLElement>("[data-handle]"),
+      "handle",
+    );
+    expect(Number.parseInt(handle.style.width, 10)).toBeGreaterThanOrEqual(24);
+    expect(Number.parseInt(handle.style.height, 10)).toBeGreaterThanOrEqual(24);
+  });
+
+  it("labels the collision canvas as an image and updates the count", () => {
+    const { root } = mountWithBoxes(2);
+    const canvas = need(
+      root.querySelector(".animation-editor__canvas"),
+      "canvas",
+    );
+    expect(canvas.getAttribute("role")).toBe("img");
+    expect(canvas.getAttribute("aria-label")).toBe(
+      "Hit and hurt box editor, 2 boxes",
+    );
+
+    click(action(root, "add-clsn2"));
+    expect(canvas.getAttribute("aria-label")).toBe(
+      "Hit and hurt box editor, 3 boxes",
+    );
+  });
+
+  it("labels the playback canvas as an image with the current frame", () => {
+    const { root } = mountWithBoxes();
+    const canvas = need(
+      root.querySelector(".animation-editor__playback-canvas"),
+      "playback canvas",
+    );
+    expect(canvas.getAttribute("role")).toBe("img");
+    expect(canvas.getAttribute("aria-label")).toContain("1 of 1");
+  });
+});
+
 describe("renderAnimationEditor — playback preview", () => {
   function playbackControls(root: HTMLElement, animationNumber: number) {
     const scope = need(
@@ -736,8 +1009,8 @@ describe("renderAnimationEditor — localization (backlog item 012)", () => {
         .querySelector(
           '[data-animation="0"] .animation-editor__animation-toggle',
         )
-        ?.getAttribute("aria-expanded"),
-    ).toBe("true");
+        ?.hasAttribute("expanded"),
+    ).toBe(true);
   });
 
   describe("robust previews (UX flow 002, F5)", () => {
@@ -880,5 +1153,84 @@ describe("renderAnimationEditor — localization (backlog item 012)", () => {
       expect(draw).toHaveBeenCalledTimes(1);
       expect(draw.mock.calls[0][2]).toBe(2);
     });
+  });
+});
+
+describe("renderAnimationEditor — plain-language labels (flow 003, F22)", () => {
+  it("labels the duration in ticks and explains it with a help hint", () => {
+    const root = document.createElement("div");
+    renderAnimationEditor(root, fixtureCharacter(), null, [], {
+      onChange: vi.fn(),
+    });
+    addAnimation(root);
+    toggleAnimation(root, 0);
+    addFrame(root, 0);
+    const row = frameRows(root, 0)[0] as HTMLElement;
+    expect(row.textContent).toContain("Duration (ticks)");
+    const hint = row.querySelector("wuik-help-hint");
+    expect(hint?.textContent).toBe(
+      "1 tick = 1/60 s. Use -1 to hold the frame.",
+    );
+    expect(hint?.closest("label")).toBeNull();
+  });
+
+  it("uses a plural-aware frame count, with 0, 1 and 2 frames", () => {
+    const root = document.createElement("div");
+    const animations = [0, 1, 2].map((count) => ({
+      number: count,
+      loopStart: 0,
+      frames: Array.from({ length: count }, () => frame()),
+    }));
+    renderAnimationEditor(root, fixtureCharacter({ animations }), null, [], {
+      onChange: vi.fn(),
+    });
+    const labels = [
+      ...root.querySelectorAll(".animation-editor__animation-toggle"),
+    ].map((el) => el.textContent);
+    expect(labels).toEqual([
+      "Animation 0 (0 frames)",
+      "Animation 1 (1 frame)",
+      "Animation 2 (2 frames)",
+    ]);
+  });
+});
+
+describe("renderAnimationEditor — character without sprites (flow 001 leftover)", () => {
+  function render(
+    sprites: SpriteGroup[],
+    onGoToSprites?: () => void,
+  ): HTMLElement {
+    const root = document.createElement("div");
+    renderAnimationEditor(root, fixtureCharacter({ sprites }), null, [], {
+      onChange: vi.fn(),
+      onGoToSprites,
+    });
+    return root;
+  }
+
+  it("explains the missing sprites and links to the Sprites section", () => {
+    const onGoToSprites = vi.fn();
+    const root = render([], onGoToSprites);
+
+    const note = root.querySelector(".animation-editor__no-sprites");
+    expect(note?.textContent).toContain("no sprites");
+    const link = need(
+      root.querySelector('[data-action="go-to-sprites"]'),
+      "go-to-sprites button",
+    );
+    expect(link.textContent).toBe("Go to Sprites");
+    click(link);
+    expect(onGoToSprites).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no note when the character has sprites", () => {
+    const root = render(spriteGroups(), vi.fn());
+    expect(root.querySelector(".animation-editor__no-sprites")).toBeNull();
+  });
+
+  it("shows no note when only an empty group exists but a caller gave no link", () => {
+    const root = render([{ index: 0, sprites: [] }]);
+    expect(root.querySelector('[data-action="go-to-sprites"]')).toBeNull();
+    expect(root.querySelector(".animation-editor__no-sprites")).not.toBeNull();
   });
 });

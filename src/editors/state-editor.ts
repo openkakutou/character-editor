@@ -1,3 +1,4 @@
+import { t } from "../i18n/i18n.ts";
 // State/combat logic editor (backlog item 007): a structured editor over
 // the parsed `.cns` model -- browse StateDefs and add/edit/remove/reorder
 // their Controllers, including trigger expressions and parameters. A
@@ -10,7 +11,9 @@
 // for that definition, why it's frozen at load time rather than
 // re-evaluated live, and why only removing a whole StateDef (not a single
 // Controller) requires a confirm step.
-import { t } from "../i18n/i18n.ts";
+import { tCount } from "../i18n/plural.ts";
+import { createListRow } from "../ui/list-row.ts";
+import { createTextField } from "../ui/text-field.ts";
 import type { CharacterData, Controller, StateDef } from "../wasm/types.ts";
 
 export interface StateEditorOptions {
@@ -67,7 +70,9 @@ export function renderStateEditor(
   container.className = "state-editor";
 
   const heading = document.createElement("h2");
-  heading.textContent = t("stateEditor.heading", "State/Combat Logic");
+
+  heading.className = "editor-title";
+  heading.textContent = t("stateEditor.heading", "State and combat logic");
   container.appendChild(heading);
 
   const list = document.createElement("div");
@@ -77,7 +82,7 @@ export function renderStateEditor(
   const addStateDefButton = document.createElement("wuik-button");
   addStateDefButton.setAttribute("variant", "secondary");
   addStateDefButton.dataset.action = "add-statedef";
-  addStateDefButton.textContent = t("stateEditor.addStateDef", "Add StateDef");
+  addStateDefButton.textContent = t("stateEditor.addStateDef", "Add state");
   container.appendChild(addStateDefButton);
 
   let stateDefs: StateDef[] = character.stateDefs;
@@ -95,7 +100,7 @@ export function renderStateEditor(
   function renderList(): void {
     if (stateDefs.length === 0) {
       list.replaceChildren(
-        emptyState(t("stateEditor.noStateDefsYet", "No StateDefs yet.")),
+        emptyState(t("stateEditor.noStateDefsYet", "No states yet.")),
       );
       return;
     }
@@ -109,21 +114,22 @@ export function renderStateEditor(
     panel.className = "state-editor__statedef";
     panel.dataset.statedef = String(def.number);
 
-    const toggleButton = document.createElement("button");
-    toggleButton.type = "button";
-    toggleButton.className = "state-editor__statedef-toggle";
     const isExpanded = expanded.has(def.number);
-    toggleButton.setAttribute("aria-expanded", String(isExpanded));
-    toggleButton.textContent = t(
-      "stateEditor.statedefSummary",
-      "Statedef {{number}} (type: {{type}}, moveType: {{moveType}}, physics: {{physics}})",
-      {
-        number: String(def.number),
-        type: def.type || "?",
-        moveType: def.moveType || "?",
-        physics: def.physics || "?",
-      },
-    );
+    const toggleButton = createListRow({
+      className: "state-editor__statedef-toggle",
+      expandable: true,
+      expanded: isExpanded,
+      text: t(
+        "stateEditor.statedefSummary",
+        "State {{number}} (type: {{type}}, move type: {{moveType}}, physics: {{physics}})",
+        {
+          number: String(def.number),
+          type: def.type || "?",
+          moveType: def.moveType || "?",
+          physics: def.physics || "?",
+        },
+      ),
+    });
 
     const body = document.createElement("div");
     body.className = "state-editor__statedef-body";
@@ -133,7 +139,7 @@ export function renderStateEditor(
     toggleButton.addEventListener("click", () => {
       const nowExpanded = body.hidden;
       body.hidden = !nowExpanded;
-      toggleButton.setAttribute("aria-expanded", String(nowExpanded));
+      toggleButton.toggleAttribute("expanded", nowExpanded);
       if (nowExpanded) {
         expanded.add(def.number);
       } else {
@@ -161,14 +167,16 @@ export function renderStateEditor(
     addControllerButton.dataset.action = "add-controller";
     addControllerButton.textContent = t(
       "stateEditor.addController",
-      "Add controller",
+      "Add state controller",
     );
 
     const removeStateDefButton = document.createElement("wuik-button");
+
+    removeStateDefButton.setAttribute("variant", "secondary");
     removeStateDefButton.dataset.action = "remove-statedef";
     removeStateDefButton.textContent = t(
       "stateEditor.removeStateDef",
-      "Remove StateDef",
+      "Remove state",
     );
 
     const removeConfirmArea = document.createElement("div");
@@ -182,7 +190,9 @@ export function renderStateEditor(
     function renderControllers(): void {
       if (rows.length === 0) {
         controllersList.replaceChildren(
-          emptyState(t("stateEditor.noControllersYet", "No controllers yet.")),
+          emptyState(
+            t("stateEditor.noControllersYet", "No state controllers yet."),
+          ),
         );
         return;
       }
@@ -297,14 +307,15 @@ export function renderStateEditor(
       );
       rowEl.appendChild(readOnly);
     } else {
-      const typeInput = document.createElement("input");
-      typeInput.type = "text";
-      typeInput.dataset.field = "type";
-      typeInput.value = row.controller.type;
-      typeInput.addEventListener("blur", () => {
-        row.controller = { ...row.controller, type: typeInput.value };
-        handlers.onCommit();
+      const typeInput = createTextField({
+        label: t("stateEditor.controllerType", "State controller type"),
+        value: row.controller.type,
+        onCommit: (value) => {
+          row.controller = { ...row.controller, type: value };
+          handlers.onCommit();
+        },
       });
+      typeInput.dataset.field = "type";
       rowEl.appendChild(typeInput);
 
       rowEl.appendChild(renderTriggers(row, handlers.onCommit));
@@ -326,6 +337,8 @@ export function renderStateEditor(
     moveDown.addEventListener("click", handlers.onMoveDown);
 
     const remove = document.createElement("wuik-button");
+
+    remove.setAttribute("variant", "secondary");
     remove.dataset.action = "remove-controller";
     remove.textContent = t("stateEditor.remove", "Remove");
     remove.addEventListener("click", handlers.onRemove);
@@ -356,6 +369,7 @@ export function renderStateEditor(
     }
 
     const list = document.createElement("div");
+    list.className = "state-editor__field-list";
     const addButton = document.createElement("wuik-button");
     addButton.setAttribute("variant", "secondary");
     addButton.dataset.action = "add-trigger";
@@ -365,14 +379,18 @@ export function renderStateEditor(
       list.replaceChildren(
         ...triggerRows.map((triggerRow, i) => {
           const rowEl = document.createElement("div");
-          const input = document.createElement("input");
-          input.type = "text";
-          input.dataset.triggerIndex = String(i);
-          input.value = triggerRow.value;
-          input.addEventListener("blur", () => {
-            triggerRow.value = input.value;
-            commitTriggers();
+          rowEl.className = "state-editor__field-row";
+          const input = createTextField({
+            label: t("stateEditor.triggerLabel", "Trigger {{index}}", {
+              index: String(i + 1),
+            }),
+            value: triggerRow.value,
+            onCommit: (value) => {
+              triggerRow.value = value;
+              commitTriggers();
+            },
           });
+          input.dataset.triggerIndex = String(i);
 
           const removeButton = document.createElement("wuik-button");
           removeButton.setAttribute("variant", "secondary");
@@ -438,6 +456,7 @@ export function renderStateEditor(
     }
 
     const list = document.createElement("div");
+    list.className = "state-editor__field-list";
     const addButton = document.createElement("wuik-button");
     addButton.setAttribute("variant", "secondary");
     addButton.dataset.action = "add-parameter";
@@ -447,26 +466,35 @@ export function renderStateEditor(
       list.replaceChildren(
         ...paramRows.map((p, i) => {
           const rowEl = document.createElement("div");
+          rowEl.className = "state-editor__field-row";
 
-          const keyInput = document.createElement("input");
-          keyInput.type = "text";
+          const keyInput = createTextField({
+            label: t("stateEditor.parameterName", "Parameter {{index}} name", {
+              index: String(i + 1),
+            }),
+            value: p.key,
+            onCommit: (value) => {
+              p.key = value;
+              commitParameters();
+            },
+          });
           keyInput.dataset.parameterIndex = String(i);
           keyInput.dataset.parameterPart = "key";
-          keyInput.value = p.key;
-          keyInput.addEventListener("blur", () => {
-            p.key = keyInput.value;
-            commitParameters();
-          });
 
-          const valueInput = document.createElement("input");
-          valueInput.type = "text";
+          const valueInput = createTextField({
+            label: t(
+              "stateEditor.parameterValue",
+              "Parameter {{index}} value",
+              { index: String(i + 1) },
+            ),
+            value: p.value,
+            onCommit: (value) => {
+              p.value = value;
+              commitParameters();
+            },
+          });
           valueInput.dataset.parameterIndex = String(i);
           valueInput.dataset.parameterPart = "value";
-          valueInput.value = p.value;
-          valueInput.addEventListener("blur", () => {
-            p.value = valueInput.value;
-            commitParameters();
-          });
 
           const removeButton = document.createElement("wuik-button");
           removeButton.setAttribute("variant", "secondary");
@@ -513,23 +541,31 @@ export function renderStateEditor(
   ): HTMLElement {
     const wrapper = document.createElement("div");
 
-    const suffix = controllerCount === 1 ? "" : "s";
-
     const warning = document.createElement("p");
     warning.setAttribute("role", "status");
-    warning.textContent = t(
-      "stateEditor.removeStateDefWarning",
-      "This state has {{count}} controller{{suffix}}. Other controllers may target this state number.",
-      { count: String(controllerCount), suffix },
-    );
+    warning.textContent =
+      controllerCount === 0
+        ? t(
+            "stateEditor.removeStateDefEmpty",
+            "This state has no controllers. Other controllers may target this state number.",
+          )
+        : tCount("stateEditor.removeStateDefWarning", controllerCount, {
+            one: "This state has {{count}} controller. Other controllers may target this state number.",
+            other:
+              "This state has {{count}} controllers. Other controllers may target this state number.",
+          });
 
     const confirmButton = document.createElement("wuik-button");
+
+    confirmButton.setAttribute("variant", "danger");
     confirmButton.dataset.action = "confirm-remove-statedef";
-    confirmButton.textContent = t(
-      "stateEditor.confirmRemoveStateDef",
-      "Confirm remove ({{count}} controller{{suffix}})",
-      { count: String(controllerCount), suffix },
-    );
+    confirmButton.textContent =
+      controllerCount === 0
+        ? t("stateEditor.confirmRemoveEmpty", "Confirm remove")
+        : tCount("stateEditor.confirmRemoveStateDef", controllerCount, {
+            one: "Confirm remove ({{count}} controller)",
+            other: "Confirm remove ({{count}} controllers)",
+          });
     confirmButton.addEventListener("click", handlers.onConfirm);
 
     const cancelButton = document.createElement("wuik-button");

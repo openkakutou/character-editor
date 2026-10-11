@@ -34,4 +34,4 @@ A web editor to create and modify MUGEN / Ikemen GO-compatible fighting-game cha
 
 ## Vocabulary
 
-Character, StateDef, Controller, Command, Animation, Frame, Clsn1 / Clsn2 (collision boxes), Palette, Sprite, Group, Export. Keep these terms as in the format.
+Character / Personnage, State / État, State controller / Contrôleur d'état, Command / Commande, Animation, Frame / Image, Hit box / Zone d'attaque, Hurt box / Zone vulnérable, Palette, Sprite, Group / Groupe, Export / Exporter. StateDef and Clsn1 / Clsn2 are format terms only: they appear in help text, never as UI labels.

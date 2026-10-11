@@ -139,15 +139,6 @@
   border-top: var(--wuik-border-width) solid var(--wuik-color-border);
 }
 
-.shell__live {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 /* Below 1024 px the sidebar becomes a modal drawer. */
 .shell.is-narrow .shell__body {
   grid-template-columns: minmax(0, 1fr);
@@ -181,9 +172,10 @@
   }
 }
 
-/* The toolbar scrolls sideways when crowded instead of wrapping its labels. */
-.shell__toolbar {
-  overflow-x: auto;
+/* A crowded toolbar wraps onto a second row: every control, the language selector included, stays reachable. */
+.shell__toolbar wuik-toolbar {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
 
 .shell__toolbar wuik-toolbar > * {

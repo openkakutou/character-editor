@@ -212,6 +212,25 @@ describe("renderCommandEditor", () => {
     expect(last.states[0]?.controllers).toEqual([]);
   });
 
+  it("builds each command as a kit panel whose numeric fields share the one field class (flow 003, F10, F21)", async () => {
+    const root = document.createElement("div");
+    renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+      onChange: vi.fn(),
+      loadCmd: stubLoadCmd({ ok: true, commandFile: loadedCommandFile() }),
+    });
+    await vi.waitFor(() => {
+      expect(rows(root)).toHaveLength(1);
+    });
+    const row = rows(root)[0];
+
+    expect(row.localName).toBe("wuik-panel");
+    for (const field of ["time", "bufferTime", "targetState"]) {
+      expect(numberField(row, field).classList.contains("field-number")).toBe(
+        true,
+      );
+    }
+  });
+
   it("shows an inline error for a target state number that doesn't exist, without touching an existing link until fixed", async () => {
     const root = document.createElement("div");
     const onChange = vi.fn();
@@ -235,6 +254,109 @@ describe("renderCommandEditor", () => {
     );
     const last = onChange.mock.calls.at(-1)?.[0] as CommandFile;
     expect(last.commands).toEqual([]);
+  });
+
+  it("links an invalid field to its visible error with aria-invalid and aria-describedby, and removes both once fixed", async () => {
+    const root = document.createElement("div");
+    renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+      onChange: vi.fn(),
+      loadCmd: stubLoadCmd({ ok: true, commandFile: loadedCommandFile() }),
+    });
+    await vi.waitFor(() => {
+      expect(rows(root)).toHaveLength(1);
+    });
+    const row = rows(root)[0];
+    const field = numberField(row, "targetState");
+
+    setValue(field, "42");
+
+    const error = fieldError(row, "targetState");
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toBe(error.id);
+    expect(error.id).not.toBe("");
+    expect(error.hidden).toBe(false);
+    expect(error.getAttribute("role")).toBe("alert");
+    expect(error.hasAttribute("aria-live")).toBe(false);
+
+    setValue(field, "");
+    expect(error.hasAttribute("role")).toBe(false);
+
+    expect(field.hasAttribute("aria-invalid")).toBe(false);
+    expect(field.hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("moves focus to the first invalid field when Enter is pressed in an invalid row", async () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+      onChange: vi.fn(),
+      loadCmd: stubLoadCmd({ ok: true, commandFile: loadedCommandFile() }),
+    });
+    await vi.waitFor(() => {
+      expect(rows(root)).toHaveLength(1);
+    });
+    const row = rows(root)[0];
+    const time = numberField(row, "time");
+    setValue(numberField(row, "targetState"), "42");
+
+    time.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+
+    expect(document.activeElement).toBe(numberField(row, "targetState"));
+    root.remove();
+  });
+
+  it("ignores Enter on a button of an invalid row", async () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+      onChange: vi.fn(),
+      loadCmd: stubLoadCmd({ ok: true, commandFile: loadedCommandFile() }),
+    });
+    await vi.waitFor(() => {
+      expect(rows(root)).toHaveLength(1);
+    });
+    const row = rows(root)[0];
+    setValue(numberField(row, "targetState"), "42");
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+    removeButton(row).dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.activeElement).not.toBe(numberField(row, "targetState"));
+    root.remove();
+  });
+
+  it("moves focus to the adjacent row (or Add command) and announces a removal", async () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    renderCommandEditor(root, fixtureCharacter(), new Uint8Array([1]), {
+      onChange: vi.fn(),
+      loadCmd: stubLoadCmd({ ok: true, commandFile: loadedCommandFile() }),
+    });
+    await vi.waitFor(() => {
+      expect(rows(root)).toHaveLength(1);
+    });
+    addButton(root).click();
+    expect(rows(root)).toHaveLength(2);
+
+    removeButton(rows(root)[0]).click();
+
+    expect(rows(root)).toHaveLength(1);
+    expect(root.querySelector('[aria-live="polite"]')?.textContent).toContain(
+      "removed",
+    );
+    const inner = textField(rows(root)[0], "name").shadowRoot?.querySelector(
+      "input",
+    );
+    expect(inner).toBeTruthy();
+    expect(textField(rows(root)[0], "name").shadowRoot?.activeElement).toBe(
+      inner,
+    );
+    root.remove();
   });
 
   it("re-keys a command's target-state link when the command is renamed", async () => {
@@ -322,7 +444,13 @@ describe("renderCommandEditor", () => {
     await vi.waitFor(() => {
       const alert = root.querySelector('[role="alert"]');
       expect(alert).not.toBeNull();
-      expect(alert?.textContent).toContain("malformed .cmd file");
+      expect(alert?.textContent).toContain("Couldn't read the command file");
+      expect(alert?.querySelector(".problem__detail")?.textContent).toBe(
+        "malformed .cmd file",
+      );
+      expect(
+        alert?.querySelector<HTMLElement>(".problem__detail")?.hidden,
+      ).toBe(true);
     });
 
     addButton(root).click();
@@ -370,9 +498,11 @@ describe("renderCommandEditor", () => {
 
       const alert = root.querySelector('[role="alert"]');
       expect(alert?.textContent).toContain(
-        "Impossible de lire le fichier .cmd",
+        "Impossible de lire le fichier de commandes",
       );
-      expect(alert?.textContent).toContain("malformed .cmd file");
+      expect(alert?.querySelector(".problem__detail")?.textContent).toBe(
+        "malformed .cmd file",
+      );
     });
   });
 });

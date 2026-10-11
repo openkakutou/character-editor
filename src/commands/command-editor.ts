@@ -1,3 +1,5 @@
+import { onLocaleChange, t } from "../i18n/i18n.ts";
+import { createProblemView } from "../problems/problem-view.ts";
 // Command editor (backlog item 008): a structured editor over the parsed
 // `.cmd` model — view/edit an existing character's input commands (name,
 // input sequence, timing overrides) and optionally map each one to a
@@ -18,7 +20,8 @@
 // `resolveSpritePixels`. A missing or unparseable `.cmd` file degrades to a
 // visible message plus a blank starting point, never a silent crash or a
 // dead end -- the user can still create new commands from scratch.
-import { onLocaleChange, t } from "../i18n/i18n.ts";
+import { createHelpHint } from "../ui/help-hint.ts";
+import { focusKitControl } from "../ui/list-row.ts";
 import {
   type LoadCmdResult,
   type WasmBridgeOptions,
@@ -99,13 +102,21 @@ export function renderCommandEditor(
   container.className = "command-editor";
 
   const heading = document.createElement("h2");
+
+  heading.className = "editor-title";
   heading.textContent = t("commands.heading", "Commands");
   container.appendChild(heading);
 
-  const statusEl = document.createElement("p");
+  const statusEl = document.createElement("div");
   statusEl.className = "command-editor__status";
   statusEl.hidden = true;
   container.appendChild(statusEl);
+
+  // Persistent polite region: announces removals, which move focus.
+  const liveEl = document.createElement("p");
+  liveEl.className = "visually-hidden";
+  liveEl.setAttribute("aria-live", "polite");
+  container.appendChild(liveEl);
 
   const listEl = document.createElement("div");
   listEl.className = "command-editor__list";
@@ -139,10 +150,13 @@ export function renderCommandEditor(
       statusEl.textContent = t("commands.loadingCommands", "Loading commands…");
     } else {
       statusEl.setAttribute("role", "alert");
-      statusEl.textContent = t(
-        "commands.loadError",
-        "Could not read the .cmd file: {{message}}. You can still create new commands below.",
-        { message: currentStatus.message },
+      // The parser's own text stays behind "Show details".
+      statusEl.replaceChildren(
+        createProblemView({
+          code: "load.commandFile",
+          params: {},
+          detail: currentStatus.message,
+        }).element,
       );
     }
   }
@@ -223,13 +237,17 @@ export function renderCommandEditor(
     if (message === null) {
       input.classList.remove("is-invalid");
       input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
       errorEl.hidden = true;
+      errorEl.removeAttribute("role");
       errorEl.textContent = "";
       return;
     }
     input.classList.add("is-invalid");
     input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", errorEl.id);
     errorEl.hidden = false;
+    errorEl.setAttribute("role", "alert");
     errorEl.textContent = message;
   }
 
@@ -238,6 +256,7 @@ export function renderCommandEditor(
     field: string,
     label: string,
     type: "number",
+    help?: { label: string; text: string },
   ): { input: HTMLInputElement; error: HTMLElement } {
     const wrapper = document.createElement("div");
     wrapper.className = "command-editor__field";
@@ -249,17 +268,21 @@ export function renderCommandEditor(
     labelEl.htmlFor = inputId;
     labelEl.textContent = label;
     wrapper.appendChild(labelEl);
+    if (help !== undefined) {
+      wrapper.appendChild(createHelpHint(help.label, help.text));
+    }
 
     const input = document.createElement("input");
     input.type = type;
     input.id = inputId;
-    input.className = "command-editor__input";
+    input.className = "field-number";
     input.dataset.field = field;
     wrapper.appendChild(input);
 
     const error = document.createElement("span");
     error.className = "command-editor__field-error";
     error.dataset.fieldError = field;
+    error.id = `${inputId}-error`;
     error.hidden = true;
     wrapper.appendChild(error);
 
@@ -299,11 +322,17 @@ export function renderCommandEditor(
     input.setAttribute("error", message);
   }
 
+  function focusField(field: HTMLElement): void {
+    const inner = field.shadowRoot?.querySelector("input");
+    if (inner) inner.focus();
+    else field.focus();
+  }
+
   function buildRow(row: CommandRow): {
     element: HTMLElement;
     refresh: () => void;
   } {
-    const rowEl = document.createElement("div");
+    const rowEl = document.createElement("wuik-panel");
     rowEl.className = "command-editor__row";
     rowEl.dataset.commandRow = String(row.id);
 
@@ -325,23 +354,37 @@ export function renderCommandEditor(
     hint.className = "command-editor__hint";
     hint.textContent = t(
       "commands.inputHint",
-      'Stored as-is (e.g. "~D, DF, F, a") -- not validated against MUGEN/Ikemen input syntax.',
+      'Written exactly as typed, for example "~D, DF, F, a". The editor does not check it against the MUGEN/Ikemen input syntax.',
     );
     rowEl.appendChild(hint);
 
     const time = buildField(
       rowEl,
       "time",
-      t("commands.timeLabel", "Time"),
+      t("commands.timeLabel", "Sequence window (ticks)"),
       "number",
+      {
+        label: t("commands.timeHelpLabel", "Help: sequence window"),
+        text: t(
+          "commands.timeHelp",
+          "Number of ticks within which the whole sequence must be entered. 1 tick = 1/60 s.",
+        ),
+      },
     );
     time.input.value = String(row.command.time);
 
     const bufferTime = buildField(
       rowEl,
       "bufferTime",
-      t("commands.bufferTimeLabel", "Buffer time"),
+      t("commands.bufferTimeLabel", "Command buffer (ticks)"),
       "number",
+      {
+        label: t("commands.bufferTimeHelpLabel", "Help: command input delay"),
+        text: t(
+          "commands.bufferTimeHelp",
+          "Number of ticks a command stays active once entered, so that a slightly early press still counts. 1 tick = 1/60 s.",
+        ),
+      },
     );
     bufferTime.input.value = String(row.command.bufferTime);
 
@@ -418,7 +461,37 @@ export function renderCommandEditor(
       onRowEdited();
     });
 
+    // "Submit": Enter in a field of this row reveals every error and moves
+    // focus to the first invalid field. The kit's text inputs announce their
+    // own error, so no live attribute is added here (announce once).
+    rowEl.addEventListener("keydown", (event) => {
+      // Only a text or number field submits; a button keeps Enter for itself.
+      const target = event.target as HTMLElement | null;
+      const isField =
+        target === nameInput ||
+        target === inputInput ||
+        (target instanceof HTMLInputElement &&
+          (target.type === "text" || target.type === "number"));
+      if (event.key !== "Enter" || !isField) return;
+      const validation = validateRow(row);
+      const firstInvalid: HTMLElement | null =
+        validation.nameError !== null
+          ? nameInput
+          : validation.inputError !== null
+            ? inputInput
+            : validation.targetStateError !== null
+              ? targetState.input
+              : null;
+      if (firstInvalid === null) return;
+      event.preventDefault();
+      row.touched = true;
+      refresh();
+      focusField(firstInvalid);
+    });
+
     removeButton.addEventListener("click", () => {
+      const index = rows.findIndex((r) => r.id === row.id);
+      const removedName = row.command.name;
       rows = rows.filter((r) => r.id !== row.id);
       if (row.lastLinkedName !== null) {
         commandFile = {
@@ -428,6 +501,18 @@ export function renderCommandEditor(
       }
       commitAll();
       renderList();
+      const neighbour = rows[Math.min(index, rows.length - 1)];
+      const nextField =
+        neighbour === undefined
+          ? null
+          : listEl.querySelector<HTMLElement>(
+              `[data-command-row="${neighbour.id}"] [data-field="name"]`,
+            );
+      if (nextField) focusField(nextField);
+      else focusKitControl(addCommandButton);
+      liveEl.textContent = t("commands.removed", "Command removed: {{name}}", {
+        name: removedName || t("commands.unnamed", "(unnamed)"),
+      });
     });
 
     function refresh(): void {

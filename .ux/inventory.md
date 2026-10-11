@@ -51,12 +51,8 @@
 
 ## Known gaps
 
-- Native file inputs ("Choose Files / No file chosen") are unstyled and English in the French UI; shortcut labels are English
-- StateDef and Animation rows render as tiny default buttons; headings use inconsistent levels and styles
-- No radius, shadow, motion or icon tokens; no sidebar, list, badge, toast or tooltip components in the kit
+- Flow 003 (2026-10-11) closed audit findings F6-F23. Still open: native numeric inputs (the kit text input is text-only), `aria-describedby` cannot cross the shadow DOM of `wuik-text-input`, `wuik-list-row` has no focusable-but-disabled state, kit `danger` button is filled (style.md asks for an outline); 256 palette swatches are individual tab stops; Undo does not refocus the touched element; Sounds (read-only) has no empty-state action
 - Design system looks generic and its component ergonomics are poor (user feedback)
-- Audit 2026-10-08 (`.ux/audit/2026-10-08.md`): the dead-end "Loading…" states are fixed by flow 002 (2026-10-09); collision boxes not keyboard-resizable; English in the French UI (shortcuts, file pickers, raw errors); no toolbar wrap at 390 px
-- Flow 001 deviations still open: see the flow's "Implementation notes" (robust load states, empty-state actions, editor inner content)
 
 ## Application shell (flow 001, implemented 2026-10-08)
 
@@ -71,3 +67,10 @@
 - Components: `problem-view` (message, cause, next step, Show/Copy details), `problems-banner`, `dependency-cards` (section message cards with Replace file or Retry), `inline-error` (under the failed control, dismissable), `preview-failure` + `preview-guard` (request token, Retry, dimmed last frame), `engine-retry` (one in-flight attempt), `replace-file` (checks with the engine before one undoable command), `export-confirm-dialog`.
 - Home: named progress steps after 300 ms with Cancel; version-blocked screen; failures announced once through a Home alert region.
 - Not built: "N previews unavailable / Retry all" (the editor has one preview per view); `showDirectoryPicker`.
+
+## Editor polish pass (flow 003, implemented 2026-10-11)
+
+- Clsn boxes: `R` toggles move/resize, text badge, persistent live region, Escape returns to move then deselects, 24 px handles, focus kept across rebuilds and removals.
+- Wrappers in `src/ui/`: `file-picker` (localized button + status, never the browser's), `help-hint`, `list-row` (`wuik-list-row`), `text-field` (`wuik-text-input`). Native numeric fields share one `.field-number` class (kit gap).
+- Content: shortcut labels and key caps localized, plurals via `tCount` (0 and 1 singular in French), one vocabulary (State, State controller, Hit box / Hurt box), full labels with "?" help on animation and command timing fields.
+- Every section body sits in a `wuik-panel`; one primary button per view; `showDirectoryPicker` used when available.

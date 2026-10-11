@@ -314,6 +314,128 @@ describe("renderCharacterFileInput", () => {
       expect(clickSpy).toHaveBeenCalledOnce();
     });
 
+    describe("with showDirectoryPicker", () => {
+      function handleFor(files: File[]) {
+        return {
+          kind: "directory" as const,
+          name: "ryu",
+          async *values() {
+            for (const file of files) {
+              yield {
+                kind: "file" as const,
+                name: file.name,
+                getFile: async () => file,
+              };
+            }
+          },
+        };
+      }
+
+      it("opens the folder with the directory picker instead of the hidden input", async () => {
+        const root = document.createElement("div");
+        const onLoaded = vi.fn();
+        const showDirectoryPicker = vi.fn(async () =>
+          handleFor(requiredFolderFiles()),
+        );
+        renderCharacterFileInput(root, {
+          onLoaded,
+          bridgeOptions: testOptions,
+          showDirectoryPicker,
+        });
+        const clickSpy = vi.spyOn(picker(root), "click");
+
+        root.querySelector<HTMLElement>('[data-action="open-folder"]')?.click();
+
+        await vi.waitFor(() => expect(onLoaded).toHaveBeenCalled());
+        expect(showDirectoryPicker).toHaveBeenCalledOnce();
+        expect(clickSpy).not.toHaveBeenCalled();
+      });
+
+      it("does nothing when the user dismisses the directory picker", async () => {
+        const root = document.createElement("div");
+        const onLoaded = vi.fn();
+        const showDirectoryPicker = vi.fn(async () => {
+          throw new DOMException("dismissed", "AbortError");
+        });
+        renderCharacterFileInput(root, { onLoaded, showDirectoryPicker });
+        const clickSpy = vi.spyOn(picker(root), "click");
+
+        root.querySelector<HTMLElement>('[data-action="open-folder"]')?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(onLoaded).not.toHaveBeenCalled();
+        expect(clickSpy).not.toHaveBeenCalled();
+      });
+
+      it("reports an error while gathering the folder instead of falling back", async () => {
+        const root = document.createElement("div");
+        const onFailure = vi.fn();
+        const showDirectoryPicker = vi.fn(async () => ({
+          kind: "directory" as const,
+          name: "ryu",
+          // biome-ignore lint/correctness/useYield: fails on first read
+          async *values() {
+            throw new Error("denied");
+          },
+        }));
+        renderCharacterFileInput(root, {
+          onLoaded: vi.fn(),
+          onFailure,
+          showDirectoryPicker,
+        });
+        const clickSpy = vi.spyOn(picker(root), "click");
+
+        root.querySelector<HTMLElement>('[data-action="open-folder"]')?.click();
+
+        await vi.waitFor(() => expect(onFailure).toHaveBeenCalledOnce());
+        expect(clickSpy).not.toHaveBeenCalled();
+        expect(errorBlock(root)).not.toBeNull();
+      });
+
+      it("falls back to the hidden input when the directory picker fails", async () => {
+        const root = document.createElement("div");
+        const showDirectoryPicker = vi.fn(async () => {
+          throw new DOMException("blocked", "SecurityError");
+        });
+        renderCharacterFileInput(root, {
+          onLoaded: vi.fn(),
+          showDirectoryPicker,
+        });
+        const clickSpy = vi.spyOn(picker(root), "click");
+
+        root.querySelector<HTMLElement>('[data-action="open-folder"]')?.click();
+
+        await vi.waitFor(() => expect(clickSpy).toHaveBeenCalledOnce());
+      });
+    });
+
+    it("reports a drop that cannot be read as a load failure", async () => {
+      const root = document.createElement("div");
+      const onLoaded = vi.fn();
+      const onFailure = vi.fn();
+      renderCharacterFileInput(root, { onLoaded, onFailure });
+      document.body.appendChild(root);
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: {
+          items: [
+            {
+              webkitGetAsEntry: () => {
+                throw new Error("boom");
+              },
+            },
+          ],
+        },
+      });
+      document.body.dispatchEvent(event);
+
+      await vi.waitFor(() => expect(onFailure).toHaveBeenCalledOnce());
+      expect(onLoaded).not.toHaveBeenCalled();
+      expect(errorBlock(root)).not.toBeNull();
+      root.remove();
+    });
+
     it("loads a folder dropped anywhere on the window", async () => {
       const root = document.createElement("div");
       const onLoaded = vi.fn();

@@ -111,7 +111,7 @@ export function parseActBytes(raw: Uint8Array): ParseActResult {
       ok: false,
       error: t(
         "palettes.invalidActLength",
-        "expected a {{expected}}-byte .act palette file (or {{withFooter}} bytes with a trailing footer), got {{actual}} bytes",
+        "This palette file has the wrong size: {{actual}} bytes. An .act file must be {{expected}} bytes, or {{withFooter}} bytes if it ends with extra data.",
         {
           expected: String(PALETTE_BYTE_LENGTH),
           withFooter: String(PALETTE_BYTE_LENGTH + 4),

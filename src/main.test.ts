@@ -900,6 +900,37 @@ describe("renderApp", () => {
       expect(document.title).toBe("Identity — Character Editor");
     });
 
+    it("wraps every section's content in one kit panel (flow 003, F12)", async () => {
+      const root = newRoot();
+      renderApp(root, "0.1.0", "0.17.0", { bridgeOptions });
+      await loadCharacter(root);
+
+      const contents = [
+        ...root.querySelectorAll<HTMLElement>(".shell__content"),
+      ];
+      expect(contents).toHaveLength(8);
+      for (const content of contents) {
+        expect(content.localName).toBe("wuik-panel");
+      }
+    });
+
+    it("keeps the toolbar Export as the only primary button in the sections (flow 003, F12)", async () => {
+      const root = newRoot();
+      renderApp(root, "0.1.0", "0.17.0", { bridgeOptions });
+      await loadCharacter(root);
+
+      expect(
+        root.querySelectorAll(
+          '.shell__content wuik-button:not([variant]), .shell__content wuik-button[variant="primary"]',
+        ),
+      ).toHaveLength(0);
+      expect(
+        root
+          .querySelector('.shell__toolbar [data-action="download-all"]')
+          ?.getAttribute("variant"),
+      ).toBe("primary");
+    });
+
     it("shows one section at a time when navigating, and keeps the other sections mounted with their state", async () => {
       const root = newRoot();
       renderApp(root, "0.1.0", "0.17.0", { bridgeOptions });

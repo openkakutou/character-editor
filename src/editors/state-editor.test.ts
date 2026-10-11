@@ -62,13 +62,17 @@ function controllerRows(
   );
 }
 
-function setValue(input: HTMLInputElement, value: string): void {
-  input.value = value;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+/** Types into a kit text field (reported as `wuik-input`). */
+function setValue(input: Element, value: string): void {
+  input.setAttribute("value", value);
+  input.dispatchEvent(
+    new CustomEvent("wuik-input", { detail: { value }, bubbles: true }),
+  );
 }
 
-function blur(input: HTMLInputElement): void {
-  input.dispatchEvent(new Event("blur", { bubbles: true }));
+/** Leaves a kit text field (`focusout` crosses the shadow boundary). */
+function blur(input: Element): void {
+  input.dispatchEvent(new Event("focusout", { bubbles: true }));
 }
 
 function click(el: Element | null): void {
@@ -122,10 +126,14 @@ describe("renderStateEditor", () => {
     const rows = controllerRows(root, 0);
     expect(rows).toHaveLength(2);
     expect(
-      rows[0].querySelector<HTMLInputElement>('[data-field="type"]')?.value,
+      rows[0]
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.getAttribute("value"),
     ).toBe("VelSet");
     expect(
-      rows[1].querySelector<HTMLInputElement>('[data-field="type"]')?.value,
+      rows[1]
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.getAttribute("value"),
     ).toBe("ChangeState");
   });
 
@@ -143,7 +151,7 @@ describe("renderStateEditor", () => {
 
     expect(controllerRows(root, 0)).toHaveLength(0);
     expect(root.querySelector(`[data-statedef="0"]`)?.textContent).toMatch(
-      /no controllers/i,
+      /no state controllers/i,
     );
   });
 
@@ -171,21 +179,19 @@ describe("renderStateEditor", () => {
     click(toggle(root, 0));
 
     const row = controllerRows(root, 0)[0];
-    const typeInput = row.querySelector<HTMLInputElement>(
-      '[data-field="type"]',
-    );
+    const typeInput = row.querySelector<HTMLElement>('[data-field="type"]');
     if (!typeInput) throw new Error("type input not found");
     setValue(typeInput, "VelAdd");
     blur(typeInput);
 
-    const triggerInput = row.querySelector<HTMLInputElement>(
+    const triggerInput = row.querySelector<HTMLElement>(
       '[data-trigger-index="0"]',
     );
     if (!triggerInput) throw new Error("trigger input not found");
     setValue(triggerInput, "Time = 1");
     blur(triggerInput);
 
-    const paramValueInput = row.querySelector<HTMLInputElement>(
+    const paramValueInput = row.querySelector<HTMLElement>(
       '[data-parameter-index="0"][data-parameter-part="value"]',
     );
     if (!paramValueInput) throw new Error("parameter value input not found");
@@ -200,6 +206,47 @@ describe("renderStateEditor", () => {
       triggers: ["Time = 1"],
       parameters: { x: "5" },
     });
+  });
+
+  it("edits type, triggers and parameters with labelled kit text fields (flow 003, F10)", () => {
+    const root = document.createElement("div");
+    renderStateEditor(
+      root,
+      fixtureCharacter({
+        stateDefs: [
+          stateDef({
+            number: 0,
+            controllers: [
+              {
+                type: "VelSet",
+                triggers: ["Time = 0"],
+                parameters: { x: "1" },
+              },
+            ],
+          }),
+        ],
+      }),
+      { onChange: vi.fn() },
+    );
+    click(toggle(root, 0));
+
+    const row = controllerRows(root, 0)[0];
+    const fields = [
+      row.querySelector('[data-field="type"]'),
+      row.querySelector('[data-trigger-index="0"]'),
+      row.querySelector('[data-parameter-part="key"]'),
+      row.querySelector('[data-parameter-part="value"]'),
+    ];
+    expect(fields.map((f) => f?.localName)).toEqual(
+      Array(4).fill("wuik-text-input"),
+    );
+    expect(fields.map((f) => f?.getAttribute("label"))).toEqual([
+      "State controller type",
+      "Trigger 1",
+      "Parameter 1 name",
+      "Parameter 1 value",
+    ]);
+    expect(row.querySelector("input")).toBeNull();
   });
 
   it("adds a new controller with an empty, editable type -- never flagged unsupported", () => {
@@ -223,12 +270,10 @@ describe("renderStateEditor", () => {
     expect(
       rows[0].querySelector(".state-editor__unsupported-badge"),
     ).toBeNull();
-    const typeInput = rows[0].querySelector<HTMLInputElement>(
-      '[data-field="type"]',
-    );
+    const typeInput = rows[0].querySelector<HTMLElement>('[data-field="type"]');
     expect(typeInput).not.toBeNull();
-    expect(typeInput?.value).toBe("");
-    expect(typeInput?.disabled).toBe(false);
+    expect(typeInput?.getAttribute("value")).toBe("");
+    expect(typeInput?.hasAttribute("disabled")).toBe(false);
 
     const lastPatch = onChange.mock.calls.at(-1)?.[0] as Partial<CharacterData>;
     expect(lastPatch.stateDefs?.[0].controllers).toHaveLength(1);
@@ -303,10 +348,14 @@ describe("renderStateEditor", () => {
 
     rows = controllerRows(root, 0);
     expect(
-      rows[0].querySelector<HTMLInputElement>('[data-field="type"]')?.value,
+      rows[0]
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.getAttribute("value"),
     ).toBe("Second");
     expect(
-      rows[1].querySelector<HTMLInputElement>('[data-field="type"]')?.value,
+      rows[1]
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.getAttribute("value"),
     ).toBe("First");
 
     const lastPatch = onChange.mock.calls.at(-1)?.[0] as Partial<CharacterData>;
@@ -349,8 +398,10 @@ describe("renderStateEditor", () => {
       click(rows[1].querySelector('[data-action="move-down"]')),
     ).not.toThrow();
 
-    const types = controllerRows(root, 0).map(
-      (r) => r.querySelector<HTMLInputElement>('[data-field="type"]')?.value,
+    const types = controllerRows(root, 0).map((r) =>
+      r
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.getAttribute("value"),
     );
     expect(types).toEqual(["First", "Second"]);
   });
@@ -378,12 +429,12 @@ describe("renderStateEditor", () => {
       controllerRows(root, 0)[0].querySelector('[data-action="add-trigger"]'),
     );
     let row = controllerRows(root, 0)[0];
-    const newTrigger = row.querySelector<HTMLInputElement>(
+    const newTrigger = row.querySelector<HTMLElement>(
       '[data-trigger-index="1"]',
     );
     expect(newTrigger).not.toBeNull();
-    setValue(newTrigger as HTMLInputElement, "Ctrl");
-    blur(newTrigger as HTMLInputElement);
+    setValue(newTrigger as HTMLElement, "Ctrl");
+    blur(newTrigger as HTMLElement);
 
     let lastPatch = onChange.mock.calls.at(-1)?.[0] as Partial<CharacterData>;
     expect(lastPatch.stateDefs?.[0].controllers[0].triggers).toEqual([
@@ -420,10 +471,10 @@ describe("renderStateEditor", () => {
       controllerRows(root, 0)[0].querySelector('[data-action="add-parameter"]'),
     );
     const row = controllerRows(root, 0)[0];
-    const newKey = row.querySelector<HTMLInputElement>(
+    const newKey = row.querySelector<HTMLElement>(
       '[data-parameter-index="1"][data-parameter-part="key"]',
     );
-    const newValue = row.querySelector<HTMLInputElement>(
+    const newValue = row.querySelector<HTMLElement>(
       '[data-parameter-index="1"][data-parameter-part="value"]',
     );
     if (!newKey || !newValue) throw new Error("new parameter row not found");
@@ -485,10 +536,9 @@ describe("renderStateEditor", () => {
     );
     click(toggle(root, 0));
 
-    const typeInput = controllerRows(
-      root,
-      0,
-    )[0].querySelector<HTMLInputElement>('[data-field="type"]');
+    const typeInput = controllerRows(root, 0)[0].querySelector<HTMLElement>(
+      '[data-field="type"]',
+    );
     if (!typeInput) throw new Error("type input not found");
     setValue(typeInput, "");
     blur(typeInput);
@@ -496,7 +546,9 @@ describe("renderStateEditor", () => {
     const row = controllerRows(root, 0)[0];
     expect(row.querySelector(".state-editor__unsupported-badge")).toBeNull();
     expect(
-      row.querySelector<HTMLInputElement>('[data-field="type"]')?.disabled,
+      row
+        .querySelector<HTMLElement>('[data-field="type"]')
+        ?.hasAttribute("disabled"),
     ).toBe(false);
   });
 
@@ -608,7 +660,7 @@ describe("renderStateEditor", () => {
       );
       // "type: A" (the raw domain value) survives untranslated inside the
       // otherwise-French summary.
-      expect(toggle?.textContent).toContain("Statedef 5");
+      expect(toggle?.textContent).toContain("État 5");
       expect(toggle?.textContent).toContain("type : A");
     });
 

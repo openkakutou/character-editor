@@ -72,7 +72,7 @@ export function describeBlockedReason(reason: ExportBlockedReason): string {
   if (reason.kind === "pending-sprite-edits") {
     return t(
       "save.blockedPendingSpriteEdits",
-      "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait for that support to land.",
+      "Export is blocked: pending sprite edits can't be saved to a .sff file yet. Undo the edits below to export, or wait until this is supported.",
     );
   }
   return problemSentence(blockedProblem(reason));

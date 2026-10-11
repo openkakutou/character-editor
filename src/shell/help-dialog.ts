@@ -3,7 +3,10 @@
 // used to sit above the editors. Opened by the Help button or `?`.
 import type { ShortcutManager } from "@openkakutou/web-ui-kit";
 import { onLocaleChange, t } from "../i18n/i18n.ts";
-import { getAppShortcuts } from "../shortcuts/app-shortcuts.ts";
+import {
+  getAppShortcuts,
+  registerAppShortcutActions,
+} from "../shortcuts/app-shortcuts.ts";
 import { sectionTitle } from "./section-text.ts";
 import { SECTION_IDS, sectionNumber } from "./sections.ts";
 
@@ -46,7 +49,53 @@ export function createHelpDialog(
   };
   panel.manager = manager;
 
-  dialog.append(heading, intro, navTitle, navList, openNote, panelTitle, panel);
+  const clsnTitle = document.createElement("h3");
+  const clsnIntro = document.createElement("p");
+  const clsnList = document.createElement("table");
+  clsnList.className = "help-dialog__nav help-dialog__clsn";
+
+  dialog.append(
+    heading,
+    intro,
+    navTitle,
+    navList,
+    clsnTitle,
+    clsnIntro,
+    clsnList,
+    openNote,
+    panelTitle,
+    panel,
+  );
+
+  function shortcutTable(
+    rows: readonly (readonly [string, string])[],
+  ): HTMLElement[] {
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (const text of [
+      t("help.colShortcut", "Shortcut"),
+      t("help.colAction", "Action"),
+    ]) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = text;
+      headRow.appendChild(cell);
+    }
+    head.appendChild(headRow);
+    const body = document.createElement("tbody");
+    for (const [keys, label] of rows) {
+      const row = document.createElement("tr");
+      const keyCell = document.createElement("td");
+      const kbd = document.createElement("kbd");
+      kbd.textContent = keys;
+      keyCell.appendChild(kbd);
+      const action = document.createElement("td");
+      action.textContent = label;
+      row.append(keyCell, action);
+      body.appendChild(row);
+    }
+    return [head, body];
+  }
 
   function renderText(): void {
     heading.textContent = t("help.title", "Keyboard shortcuts");
@@ -89,10 +138,40 @@ export function createHelpDialog(
       "help.openHint",
       "Press ? outside a text field to open this dialog.",
     );
+    clsnTitle.textContent = t("help.clsnTitle", "Hit and hurt boxes");
+    clsnIntro.textContent = t(
+      "help.clsnIntro",
+      "With a box focused in the animation editor:",
+    );
+    clsnList.replaceChildren(
+      ...shortcutTable([
+        ["R", t("help.clsnResize", "Switch between move and resize mode")],
+        [
+          "← ↑ → ↓",
+          t(
+            "help.clsnArrows",
+            "Move the box, or resize it in resize mode, by 1 unit",
+          ),
+        ],
+        ["Shift + ← ↑ → ↓", t("help.clsnShiftArrows", "Same, by 10 units")],
+        [
+          t("help.keyEscape", "Escape"),
+          t(
+            "help.clsnEscape",
+            "Leave resize mode; press again to deselect the box",
+          ),
+        ],
+      ]),
+    );
     panelTitle.textContent = t("help.editing", "Editing and output");
   }
   renderText();
-  const stopLocale = onLocaleChange(renderText);
+  const stopLocale = onLocaleChange(() => {
+    renderText();
+    // Re-resolve the action labels, then make the panel redraw them.
+    registerAppShortcutActions(manager);
+    panel.manager = manager;
+  });
 
   return {
     element: dialog,

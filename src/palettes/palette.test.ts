@@ -146,7 +146,7 @@ describe("parseActBytes", () => {
       const result = parseActBytes(new Uint8Array(700));
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toContain("700 octets reçus");
+        expect(result.error).toContain("700 octets");
         expect(result.error).toContain("768");
       }
     });

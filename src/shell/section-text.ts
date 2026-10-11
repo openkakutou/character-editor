@@ -31,7 +31,7 @@ const DEFAULTS: Record<SectionId, SectionDefaults> = {
     title: "States",
     description:
       "Describe what the character does in each state: standing, jumping, attacking.",
-    help: "A StateDef describes what the character does in one state. Its controllers run every frame while the character is in that state.",
+    help: "A state describes what the character does at a given moment. Its controllers run every frame while the character is in that state. In the files, a state is written as a StateDef.",
   },
   commands: {
     title: "Commands",
@@ -40,7 +40,7 @@ const DEFAULTS: Record<SectionId, SectionDefaults> = {
   animations: {
     title: "Animations",
     description: "Edit frames and their collision boxes.",
-    help: "Clsn1 boxes are where an attack hits; Clsn2 boxes are where the character can be hit.",
+    help: "A hit box is where an attack touches; a hurt box is where the character can be hit. In the files they are called Clsn1 and Clsn2.",
   },
   output: {
     title: "Export",

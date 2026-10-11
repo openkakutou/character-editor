@@ -162,6 +162,8 @@ function renderScalarSection(
   section.className = "characteristics-editor__section";
 
   const title = document.createElement("h2");
+
+  title.className = "editor-title";
   title.textContent = heading;
   section.appendChild(title);
 
@@ -245,6 +247,8 @@ function renderListSection(
   section.className = "characteristics-editor__section";
 
   const title = document.createElement("h2");
+
+  title.className = "editor-title";
   title.textContent = label;
   section.appendChild(title);
 

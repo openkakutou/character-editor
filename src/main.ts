@@ -658,6 +658,7 @@ export function renderApp(
       {
         onChange: onAnimationsPatch,
         onEngineFailure: (error) => engine.report(error),
+        onGoToSprites: () => goTo("sprites"),
       },
     );
   }

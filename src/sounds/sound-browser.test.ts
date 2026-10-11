@@ -71,8 +71,8 @@ function expandAll(root: HTMLElement): void {
   }
 }
 
-function rows(root: HTMLElement): HTMLButtonElement[] {
-  return [...root.querySelectorAll<HTMLButtonElement>(".sound-browser__sound")];
+function rows(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(".sound-browser__sound")];
 }
 
 describe("renderSoundBrowser", () => {
@@ -104,13 +104,15 @@ describe("renderSoundBrowser", () => {
     expect(player.play).toHaveBeenCalledTimes(1);
     expect(player.play.mock.calls[0][0]).toMatchObject({ group: 0, sample: 0 });
     expect(rows(root)[0].textContent).toContain("Stop");
-    expect(rows(root)[0].getAttribute("aria-pressed")).toBe("true");
-    expect(root.querySelector("[role=status]")?.textContent).toContain("0,0");
+    expect(rows(root)[0].dataset.playing).toBe("true");
+    expect(root.querySelector(".sound-browser__status")?.textContent).toContain(
+      "0,0",
+    );
 
     player.end();
 
     expect(rows(root)[0].textContent).toContain("Play");
-    expect(rows(root)[0].getAttribute("aria-pressed")).toBe("false");
+    expect(rows(root)[0].dataset.playing).toBe("false");
   });
 
   it("stops the first sample when another is clicked, so only one row is playing", () => {
@@ -123,9 +125,7 @@ describe("renderSoundBrowser", () => {
 
     expect(player.stop).toHaveBeenCalled();
     expect(player.play).toHaveBeenCalledTimes(2);
-    const playing = rows(root).filter(
-      (r) => r.getAttribute("aria-pressed") === "true",
-    );
+    const playing = rows(root).filter((r) => r.dataset.playing === "true");
     expect(playing).toHaveLength(1);
     expect(playing[0].textContent).toContain("5,1");
   });
@@ -139,7 +139,7 @@ describe("renderSoundBrowser", () => {
     rows(root)[1].click();
 
     expect(player.stop).toHaveBeenCalled();
-    expect(rows(root)[1].getAttribute("aria-pressed")).toBe("false");
+    expect(rows(root)[1].dataset.playing).toBe("false");
     expect(player.play).toHaveBeenCalledTimes(1);
   });
 
@@ -162,7 +162,7 @@ describe("renderSoundBrowser", () => {
     expect(root.querySelector<HTMLElement>(".problem__detail")?.hidden).toBe(
       true,
     );
-    expect(bad.disabled).toBe(false);
+    expect(bad.hasAttribute("disabled")).toBe(false);
     expect(bad.getAttribute("aria-disabled")).toBe("true");
 
     bad.click();
@@ -206,7 +206,80 @@ describe("renderSoundBrowser", () => {
     );
     expect(rows(root)[0].getAttribute("aria-disabled")).toBe("true");
     rows(root)[1].click();
-    expect(rows(root)[1].getAttribute("aria-pressed")).toBe("true");
+    expect(rows(root)[1].dataset.playing).toBe("true");
+  });
+
+  it("announces a play row once: the label changes, with no aria-pressed and no live status", () => {
+    const player = fakePlayer();
+    const root = mount(character(twoGroups), player);
+    expandAll(root);
+
+    rows(root)[0].click();
+
+    expect(rows(root)[0].hasAttribute("aria-pressed")).toBe(false);
+    expect(root.querySelector("[role=status]")).toBeNull();
+    expect(rows(root)[0].textContent).toContain("Stop");
+  });
+
+  it("builds group and sound rows from kit list rows, the playing one marked selected", () => {
+    const root = mount(character(twoGroups), fakePlayer());
+    const groupToggle = root.querySelector(".sound-browser__group-toggle");
+    expect(groupToggle?.localName).toBe("wuik-list-row");
+    expect(groupToggle?.hasAttribute("expandable")).toBe(true);
+    expect(groupToggle?.hasAttribute("expanded")).toBe(false);
+    expandAll(root);
+
+    expect(
+      root
+        .querySelector(".sound-browser__group-toggle")
+        ?.hasAttribute("expanded"),
+    ).toBe(true);
+    expect(rows(root)[0].localName).toBe("wuik-list-row");
+    rows(root)[0].click();
+    expect(rows(root)[0].hasAttribute("selected")).toBe(true);
+    expect(rows(root)[1].hasAttribute("selected")).toBe(false);
+  });
+
+  it("puts focus back on a group's toggle after toggling it", () => {
+    const root = mount(character(twoGroups), fakePlayer());
+    document.body.append(root);
+    const focused: string[] = [];
+    const spy = vi
+      .spyOn(HTMLElement.prototype, "focus")
+      .mockImplementation(function (this: HTMLElement) {
+        const host = (this.getRootNode() as ShadowRoot).host ?? this;
+        focused.push((host as HTMLElement).dataset.groupIndex ?? "");
+      });
+    const toggle = root.querySelector<HTMLElement>(
+      '.sound-browser__group-toggle[data-group-index="5"]',
+    );
+    toggle?.setAttribute("tabindex", "0");
+    const active = vi
+      .spyOn(document, "activeElement", "get")
+      .mockReturnValue(toggle ?? null);
+
+    toggle?.click();
+
+    active.mockRestore();
+    spy.mockRestore();
+    root.remove();
+    expect(focused).toEqual(["5"]);
+  });
+
+  it("ignores clicks on a disabled row", () => {
+    const player = fakePlayer();
+    player.play.mockImplementationOnce(() => {
+      throw new Error("unsupported sample rate");
+    });
+    const root = mount(character(twoGroups), player);
+    expandAll(root);
+    rows(root)[0].click();
+    player.play.mockClear();
+
+    rows(root)[0].click();
+
+    expect(rows(root)[0].getAttribute("aria-disabled")).toBe("true");
+    expect(player.play).not.toHaveBeenCalled();
   });
 
   it("shows the 'no sound file' empty state when the character has no sounds and no issue", () => {
@@ -231,10 +304,12 @@ describe("renderSoundBrowser", () => {
     const error = root.querySelector(".sound-browser__error");
     // Plain DOM, announced once elsewhere: no live attribute of its own.
     expect(error?.hasAttribute("role")).toBe(false);
-    expect(error?.querySelector("p")?.textContent).toContain(
-      "The sound file could not be loaded.",
+    expect(error?.querySelector(".problem__title")?.textContent).toBe(
+      "Couldn't load the sound file",
     );
-    expect(error?.querySelector("p")?.textContent).not.toContain("ryu.snd");
+    expect(error?.querySelector(".problem__title")?.textContent).not.toContain(
+      "ryu.snd",
+    );
     expect(error?.querySelector(".problem__detail")?.textContent).toBe(
       "ryu.snd: file not found in the folder",
     );
@@ -267,9 +342,9 @@ describe("renderSoundBrowser", () => {
 
       await getI18n()?.changeLanguage("fr");
 
-      expect(root.querySelector("h3")?.textContent).toContain("Sons");
+      expect(root.querySelector("h2")?.textContent).toContain("Sons");
       expect(rows(root)[0].textContent).toContain("Arrêter");
-      expect(rows(root)[0].getAttribute("aria-pressed")).toBe("true");
+      expect(rows(root)[0].dataset.playing).toBe("true");
       expect(rows(root)).toHaveLength(3);
     });
   });

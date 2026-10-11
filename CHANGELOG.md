@@ -14,13 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A sprite sheet from an unsupported version gets its own screen with the found and supported versions and a way back.
 - Failures are explained in plain words in English and French, with the technical text behind "Show details" and "Copy details".
 
+- Collision boxes can be moved and resized from the keyboard: `R` switches between moving and resizing, arrows change the box (Shift for steps of 10), Escape leaves the mode, with the mode shown and announced.
+- Folders can be opened with the browser's own folder picker where it exists.
+
 ### Fixed
+
+- Shortcut labels, file pickers, plurals, error messages and the names of states, sound files and hit/hurt boxes are now fully in the chosen language, with plain wording and help on timing fields.
+- Palette swatches show which one is selected without relying on colour; preview canvases have names; command field errors are announced; a sound row is no longer announced twice.
 
 - The new-character dialog no longer stays stuck on "Creating…" when creation fails: it keeps your entries and shows what went wrong.
 - Sprite and palette previews no longer stay on "Loading…" or show a stale image: a failed preview has its own Retry, and the engine failing shows a banner with Retry instead of an unhandled error.
 - Failed sprite and palette imports are explained under the control, counted on the section badge and dismissable.
 
 ### Changed
+
+- Editors share the same building blocks (panels, list rows, fields, buttons) with one primary button per view; the toolbar wraps on narrow windows.
 
 - The editor is now organised as an application: a sidebar lists the eight sections (Identity, Sprites, Sounds, Palettes, States, Commands, Animations, Export) and only one is shown at a time, with the others kept as you left them. Alt+1…8 jump to a section and `?` opens the help.
 - A new home screen offers Open folder, a folder drop zone and New character; the keyboard shortcuts moved into a Help dialog.

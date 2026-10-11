@@ -50,7 +50,7 @@ export function createHomeView(options: HomeViewOptions): HomeView {
   chrome.append(localeSwitcher, themeToggle.element);
 
   const alertRegion = document.createElement("div");
-  alertRegion.className = "shell__live";
+  alertRegion.className = "shell__live visually-hidden";
   alertRegion.setAttribute("role", "alert");
   let alertTimer: number | undefined;
   function alert(message: string): void {

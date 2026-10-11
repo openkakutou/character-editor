@@ -87,8 +87,13 @@ export async function collectFilesFromEntry(
   entry: EntryLike,
 ): Promise<GatheredFile[]> {
   if (entry.isFile) {
-    const file = await readEntryFile(entry);
-    return [{ file, relativePath: toRelativePath(entry.fullPath) }];
+    // One unreadable file must not discard the whole folder.
+    try {
+      const file = await readEntryFile(entry);
+      return [{ file, relativePath: toRelativePath(entry.fullPath) }];
+    } catch {
+      return [];
+    }
   }
 
   const children = await readAllEntries(entry.createReader());
@@ -125,4 +130,45 @@ export function filesFromWebkitDirectoryFiles(
     file,
     relativePath: file.webkitRelativePath || file.name,
   }));
+}
+
+/** The subset of a File System Access handle this module reads. */
+export interface FileHandleLike {
+  kind: "file";
+  name: string;
+  getFile(): Promise<File>;
+}
+
+export interface DirectoryHandleLike {
+  kind: "directory";
+  name: string;
+  values(): AsyncIterable<HandleLike>;
+}
+
+export type HandleLike = FileHandleLike | DirectoryHandleLike;
+
+async function collectFromHandle(
+  handle: HandleLike,
+  prefix: string,
+): Promise<GatheredFile[]> {
+  const relativePath = `${prefix}${handle.name}`;
+  if (handle.kind === "file") {
+    return [{ file: await handle.getFile(), relativePath }];
+  }
+  const gathered: GatheredFile[] = [];
+  for await (const child of handle.values()) {
+    gathered.push(...(await collectFromHandle(child, `${relativePath}/`)));
+  }
+  return gathered;
+}
+
+/**
+ * Gathers every file under a folder picked with `showDirectoryPicker()`, in
+ * the same shape (paths start with the folder's own name) as the
+ * `webkitdirectory` picker.
+ */
+export function filesFromDirectoryHandle(
+  handle: DirectoryHandleLike,
+): Promise<GatheredFile[]> {
+  return collectFromHandle(handle, "");
 }

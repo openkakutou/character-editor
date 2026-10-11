@@ -14,6 +14,7 @@
 // share their persisted overrides.
 import { ShortcutManager } from "@openkakutou/web-ui-kit";
 import type { ShortcutAction } from "@openkakutou/web-ui-kit";
+import { onLocaleChange, t } from "../i18n/i18n.ts";
 
 const STORAGE_KEY = "character-editor-shortcuts";
 
@@ -27,22 +28,62 @@ const STORAGE_KEY = "character-editor-shortcuts";
  * colliding with AltGr, which many European keyboard layouts synthesize as
  * `ctrlKey + altKey` both true.
  */
-export const APP_SHORTCUT_ACTIONS: readonly ShortcutAction[] = [
-  { id: "undo", label: "Undo", defaultKey: "Ctrl+Z" },
-  { id: "redo", label: "Redo", defaultKey: "Ctrl+Y" },
+const SHORTCUT_DEFS: readonly {
+  id: string;
+  defaultKey: string;
+  labelKey: string;
+  label: string;
+}[] = [
+  {
+    id: "undo",
+    defaultKey: "Ctrl+Z",
+    labelKey: "shortcuts.undo",
+    label: "Undo",
+  },
+  {
+    id: "redo",
+    defaultKey: "Ctrl+Y",
+    labelKey: "shortcuts.redo",
+    label: "Redo",
+  },
   {
     id: "download-all",
-    label: "Save / export (download all)",
     defaultKey: "Ctrl+S",
+    labelKey: "shortcuts.downloadAll",
+    label: "Download all",
   },
-  { id: "add-animation", label: "Add animation", defaultKey: "Alt+Shift+A" },
-  { id: "add-statedef", label: "Add StateDef", defaultKey: "Alt+Shift+S" },
-  { id: "add-command", label: "Add command", defaultKey: "Alt+Shift+C" },
+  {
+    id: "add-animation",
+    defaultKey: "Alt+Shift+A",
+    labelKey: "shortcuts.addAnimation",
+    label: "Add animation",
+  },
+  {
+    id: "add-statedef",
+    defaultKey: "Alt+Shift+S",
+    labelKey: "shortcuts.addState",
+    label: "Add state",
+  },
+  {
+    id: "add-command",
+    defaultKey: "Alt+Shift+C",
+    labelKey: "shortcuts.addCommand",
+    label: "Add command",
+  },
 ];
+
+/** The actions with their labels resolved in the active language. */
+export function appShortcutActions(): readonly ShortcutAction[] {
+  return SHORTCUT_DEFS.map((def) => ({
+    id: def.id,
+    label: t(def.labelKey, def.label),
+    defaultKey: def.defaultKey,
+  }));
+}
 
 /** Registers every `APP_SHORTCUT_ACTIONS` entry on `manager`. Idempotent -- `ShortcutManager.register` overwrites by id, so calling this more than once on the same manager never duplicates a row. */
 export function registerAppShortcutActions(manager: ShortcutManager): void {
-  for (const action of APP_SHORTCUT_ACTIONS) {
+  for (const action of appShortcutActions()) {
     manager.register(action);
   }
 }
@@ -54,6 +95,9 @@ export function getAppShortcuts(): ShortcutManager {
   if (manager === undefined) {
     manager = new ShortcutManager({ storageKey: STORAGE_KEY });
     registerAppShortcutActions(manager);
+    const shared = manager;
+    // Labels follow the language; keys and overrides are untouched.
+    onLocaleChange(() => registerAppShortcutActions(shared));
   }
   return manager;
 }

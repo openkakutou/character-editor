@@ -1,7 +1,7 @@
 ---
 id: 003
 title: Editor polish pass (accessibility, content, consistency)
-status: designed
+status: implemented
 date: 2026-10-11
 finding: F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F18, F19, F20, F21, F22, F23 (audit 2026-10-08)
 job: "2 — build and refine animations and collision boxes; 3 — contextual help on format terms"
@@ -61,3 +61,10 @@ One pass delivered as a single commit (user's choice), organised by axis so it s
 
 - New features beyond the audit findings; an annotated tour of format terms.
 - Changing the kit itself: any missing part is reported, not built here.
+
+## Implementation notes (2026-10-11)
+
+- Delivered in one commit as decided (decision 004). Reviewed with `ux:review`; every High and Medium finding fixed.
+- Not built: Undo refocusing the touched element (editors rebuild on undo and carry no target), compact drop zone (obsolete since the shell hides Home), roving tabindex on the 256 swatches, number-field helper, shell dimension tokens, busy state before the replace-file picker, announcement of sound playback errors.
+- Kit gaps to report: numeric text input, `aria-describedby` through `wuik-text-input`, `wuik-list-row` focusable disabled state, outline `danger` button.
+- Visual baselines regenerated in the CI Playwright image; the Clsn baseline crops the box label at the viewport edge (screenshot bounds, not page clipping).

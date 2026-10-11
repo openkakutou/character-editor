@@ -39,12 +39,28 @@ import {
   loadCharacterFromChosenDef,
   loadCharacterFromFolderFiles,
 } from "./character-file-input.ts";
-import type { GatheredFile } from "./folder-entries.ts";
 import {
   type DataTransferItemLike,
+  type DirectoryHandleLike,
+  type GatheredFile,
   filesFromDataTransferItems,
+  filesFromDirectoryHandle,
   filesFromWebkitDirectoryFiles,
 } from "./folder-entries.ts";
+
+/** The browser's own directory picker, where it exists (Chromium). */
+function defaultShowDirectoryPicker():
+  | (() => Promise<DirectoryHandleLike>)
+  | undefined {
+  const browser = window as unknown as {
+    showDirectoryPicker?: (options: {
+      mode: "read";
+    }) => Promise<DirectoryHandleLike>;
+  };
+  const show = browser.showDirectoryPicker;
+  if (typeof show !== "function") return undefined;
+  return () => show.call(window, { mode: "read" });
+}
 
 export interface UnsupportedVersionInfo {
   fileName: string;
@@ -87,6 +103,12 @@ export interface CharacterFileInputViewOptions {
   isActive?: () => boolean;
   /** Extra controls placed after "Open folder" in the same row (the New character button). */
   extraActions?: readonly HTMLElement[];
+  /**
+   * The browser's directory picker (`window.showDirectoryPicker`), used by
+   * "Open folder" when present; without it the hidden `webkitdirectory`
+   * input is used. Injectable for testing.
+   */
+  showDirectoryPicker?: () => Promise<DirectoryHandleLike>;
 }
 
 type Phase = "idle" | "loading" | "needs-selection" | "done";
@@ -108,7 +130,8 @@ type StatusDescriptor =
     }
   | { kind: "needsSelection"; count: number }
   | { kind: "error"; result: ErrorResult; source: "picker" | "drop" }
-  | { kind: "engineError"; detail: string };
+  | { kind: "engineError"; detail: string }
+  | { kind: "gatherError"; detail: string };
 
 /** The named steps of the progress list, in order. */
 const STEPS = ["folder", "definition", "files", "engine", "open"] as const;
@@ -232,6 +255,18 @@ function problemOfDescriptor(descriptor: StatusDescriptor): Problem | null {
       detail: descriptor.detail,
     };
   }
+  if (descriptor.kind === "gatherError") {
+    return {
+      code: "load.failed",
+      params: {
+        cause: t(
+          "input.errorGather",
+          "The files could not be read from the selection.",
+        ),
+      },
+      detail: descriptor.detail,
+    };
+  }
   return null;
 }
 
@@ -240,6 +275,7 @@ function formatStatus(descriptor: StatusDescriptor): string {
     case "none":
     case "error":
     case "engineError":
+    case "gatherError":
       return "";
     case "cancelled":
       return t("progress.cancelled", "Loading cancelled");
@@ -783,8 +819,45 @@ export function renderCharacterFileInput(
     );
   });
 
+  const showDirectoryPicker =
+    options.showDirectoryPicker ?? defaultShowDirectoryPicker();
+
+  async function openWithDirectoryPicker(
+    show: () => Promise<DirectoryHandleLike>,
+  ): Promise<void> {
+    let handle: DirectoryHandleLike;
+    try {
+      handle = await show();
+    } catch (error) {
+      // Dismissing the dialog is not a failure; any other refusal of the
+      // dialog itself falls back to the hidden input, which works everywhere.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      picker.click();
+      return;
+    }
+    // Gathering can take a while on a big folder: show the loading phase now.
+    beginLoad();
+    const load = currentLoad;
+    let files: GatheredFile[];
+    try {
+      files = await filesFromDirectoryHandle(handle);
+    } catch (error) {
+      if (load === null || load.signal.aborted) return;
+      stopProgressTimers();
+      currentLoad = null;
+      fail({ kind: "gatherError", detail: detailOf(error) });
+      return;
+    }
+    if (load === null || load.signal.aborted) return;
+    lastSource = "picker";
+    lastGatheredFiles = files;
+    void finishLoading((opts) => loadCharacterFromFolderFiles(files, opts));
+  }
+
   function openPicker(): void {
-    if (phase !== "loading") picker.click();
+    if (phase === "loading") return;
+    if (showDirectoryPicker === undefined) picker.click();
+    else void openWithDirectoryPicker(showDirectoryPicker);
   }
 
   dropZone.addEventListener("wuik-files-selected", (event) => {
@@ -818,8 +891,12 @@ export function renderCharacterFileInput(
       items: readonly DataTransferItemLike[];
     } | null;
     const items = dataTransfer ? Array.from(dataTransfer.items) : [];
-    void filesFromDataTransferItems(items).then((files) =>
-      handleGathered(files, "drop"),
+    void filesFromDataTransferItems(items).then(
+      (files) => handleGathered(files, "drop"),
+      (error: unknown) => {
+        lastSource = "drop";
+        fail({ kind: "gatherError", detail: detailOf(error) });
+      },
     );
   }
   window.addEventListener("dragover", onWindowDragOver);

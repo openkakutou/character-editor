@@ -1,4 +1,5 @@
 import { t } from "../i18n/i18n.ts";
+import { tCount } from "../i18n/plural.ts";
 import { createPreviewFailure } from "../problems/preview-failure.ts";
 import { createPreviewGuard, runPreview } from "../problems/preview-guard.ts";
 import { detailOf } from "../problems/problem.ts";
@@ -7,6 +8,9 @@ import {
   mergeSpriteGroups,
   spriteEditFor,
 } from "../sprites/sprite-edits.ts";
+import { createHelpHint } from "../ui/help-hint.ts";
+import { focusKitControl } from "../ui/list-row.ts";
+import { createListRow } from "../ui/list-row.ts";
 // Animation editor (backlog item 006): create and edit `.air` animations —
 // add/remove/reorder Frames, edit each Frame's sprite reference and
 // duration, add/drag/resize/delete Clsn1 (hitbox) / Clsn2 (hurtbox) boxes
@@ -68,12 +72,12 @@ function resetViewportToFit(viewport: HTMLElement): void {
   (viewport as unknown as { resetToFit?: () => void }).resetToFit?.();
 }
 
-/** "Hit"/"Hurt", the short word for a Clsn box's own kind -- UI chrome
+/** "Hit box"/"Hurt box", the name for a Clsn box's own kind -- UI chrome
  * describing app state, not raw file data. */
 function clsnKindLabel(kind: "clsn1" | "clsn2"): string {
   return kind === "clsn1"
-    ? t("animations.hit", "Hit")
-    : t("animations.hurt", "Hurt");
+    ? t("animations.hit", "Hit box")
+    : t("animations.hurt", "Hurt box");
 }
 
 /** Schedules/cancels a playback timer — real `window.setTimeout`/`clearTimeout` by default, injectable for deterministic tests. */
@@ -88,10 +92,31 @@ const defaultPlaybackTimer: PlaybackTimer = {
 };
 
 /** Per-`root` UI-only state (which animations are expanded, which frame's Clsn panel is open per animation) that survives a full re-render — see the comment where this is read in renderAnimationEditor. */
-const uiStateByRoot = new WeakMap<
-  HTMLElement,
-  { expanded: Set<number>; openClsnFrame: Map<number, Frame> }
->();
+type ClsnKeyMode = "move" | "resize";
+
+interface AnimationUiState {
+  expanded: Set<number>;
+  openClsnFrame: Map<number, Frame>;
+  /** The box the keyboard move/resize mode applies to; null when no box is active. Survives rebuilds, resets on selection change or blur. */
+  clsnKey: { kind: "clsn1" | "clsn2"; index: number; mode: ClsnKeyMode } | null;
+  /** True while the whole editor is being re-rendered, so the blur caused by removing the focused box does not reset the mode. */
+  rebuilding: boolean;
+}
+
+const uiStateByRoot = new WeakMap<HTMLElement, AnimationUiState>();
+
+/** How long arrow-key size/position announcements are coalesced. */
+const ANNOUNCE_DEBOUNCE_MS = 300;
+/** Minimum pointer target size (px) for resize handles and tiny boxes. */
+const MIN_TARGET_SIZE = 24;
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || target.hasAttribute("contenteditable")) {
+    return true;
+  }
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+}
 
 export interface AnimationEditorOptions {
   /** Called with a patch to merge into the loaded character on every committed edit. */
@@ -112,6 +137,8 @@ export interface AnimationEditorOptions {
   playbackTimer?: PlaybackTimer;
   /** Called when a preview request rejects: the engine itself is unavailable. */
   onEngineFailure?: (error: unknown) => void;
+  /** Opens the Sprites section; offered when the character has no sprite to show. */
+  onGoToSprites?: () => void;
 }
 
 /**
@@ -130,8 +157,37 @@ export function renderAnimationEditor(
   spriteEdits: readonly SpriteEdit[],
   options: AnimationEditorOptions,
 ): void {
+  let uiState = uiStateByRoot.get(root);
+  if (!uiState) {
+    uiState = {
+      expanded: new Set(),
+      openClsnFrame: new Map(),
+      clsnKey: null,
+      rebuilding: false,
+    };
+    uiStateByRoot.set(root, uiState);
+  }
+  const state: AnimationUiState = uiState;
+  state.rebuilding = true;
+  // The full rebuild drops the focused box: remember where it was.
+  const previouslyActive = document.activeElement;
+  const refocus =
+    previouslyActive instanceof HTMLElement &&
+    root.contains(previouslyActive) &&
+    previouslyActive.classList.contains("animation-editor__box")
+      ? {
+          animation:
+            previouslyActive.closest<HTMLElement>("[data-animation]")?.dataset
+              .animation ?? null,
+          kind: previouslyActive.dataset.kind,
+          index: previouslyActive.dataset.boxIndex,
+        }
+      : null;
   root.replaceChildren();
-  if (character === null) return;
+  if (character === null) {
+    state.rebuilding = false;
+    return;
+  }
   const characterNonNull: CharacterData = character;
 
   const resolvePixels =
@@ -143,8 +199,34 @@ export function renderAnimationEditor(
   container.className = "animation-editor";
 
   const heading = document.createElement("h2");
+
+  heading.className = "editor-title";
   heading.textContent = t("animations.heading", "Animations");
   container.appendChild(heading);
+
+  const hasNoSprites = mergeSpriteGroups(
+    characterNonNull.sprites,
+    spriteEdits,
+  ).every((group) => group.sprites.length === 0);
+  if (hasNoSprites) {
+    const note = document.createElement("div");
+    note.className = "animation-editor__no-sprites";
+    const message = document.createElement("p");
+    message.textContent = t(
+      "animations.noSprites",
+      "This character has no sprites yet, so frames cannot show an image.",
+    );
+    note.appendChild(message);
+    if (options.onGoToSprites !== undefined) {
+      const link = document.createElement("wuik-button");
+      link.setAttribute("variant", "secondary");
+      link.dataset.action = "go-to-sprites";
+      link.textContent = t("animations.goToSprites", "Go to Sprites");
+      link.addEventListener("click", options.onGoToSprites);
+      note.appendChild(link);
+    }
+    container.appendChild(note);
+  }
 
   const list = document.createElement("div");
   list.className = "animation-editor__list";
@@ -166,13 +248,8 @@ export function renderAnimationEditor(
   // rerenderAnimationEditor) — keyed off `root` itself via a WeakMap so
   // each independently rendered instance (as in this module's own tests)
   // still starts fresh.
-  let uiState = uiStateByRoot.get(root);
-  if (!uiState) {
-    uiState = { expanded: new Set(), openClsnFrame: new Map() };
-    uiStateByRoot.set(root, uiState);
-  }
-  const expanded = uiState.expanded;
-  const openClsnFrameByAnimation = uiState.openClsnFrame;
+  const expanded = state.expanded;
+  const openClsnFrameByAnimation = state.openClsnFrame;
 
   function mergedSpriteGroups() {
     return mergeSpriteGroups(characterNonNull.sprites, spriteEdits);
@@ -199,20 +276,21 @@ export function renderAnimationEditor(
     panel.className = "animation-editor__animation";
     panel.dataset.animation = String(anim.number);
 
-    const toggleButton = document.createElement("button");
-    toggleButton.type = "button";
-    toggleButton.className = "animation-editor__animation-toggle";
     const isExpanded = expanded.has(anim.number);
-    toggleButton.setAttribute("aria-expanded", String(isExpanded));
-    toggleButton.textContent = t(
-      "animations.animationToggle",
-      "Animation {{number}} ({{count}} frame{{suffix}})",
-      {
-        number: String(anim.number),
-        count: String(anim.frames.length),
-        suffix: anim.frames.length === 1 ? "" : "s",
-      },
-    );
+    const toggleButton = createListRow({
+      className: "animation-editor__animation-toggle",
+      expandable: true,
+      expanded: isExpanded,
+      text: tCount(
+        "animations.animationToggle",
+        anim.frames.length,
+        {
+          one: "Animation {{number}} ({{count}} frame)",
+          other: "Animation {{number}} ({{count}} frames)",
+        },
+        { number: String(anim.number) },
+      ),
+    });
 
     const body = document.createElement("div");
     body.className = "animation-editor__animation-body";
@@ -222,7 +300,7 @@ export function renderAnimationEditor(
     toggleButton.addEventListener("click", () => {
       const nowExpanded = body.hidden;
       body.hidden = !nowExpanded;
-      toggleButton.setAttribute("aria-expanded", String(nowExpanded));
+      toggleButton.toggleAttribute("expanded", nowExpanded);
       if (nowExpanded) {
         expanded.add(anim.number);
       } else {
@@ -267,6 +345,7 @@ export function renderAnimationEditor(
     loopStartLabel.textContent = t("animations.loopStart", "Loop start");
     const loopStartInput = document.createElement("input");
     loopStartInput.type = "number";
+    loopStartInput.className = "field-number";
     loopStartInput.min = "0";
     loopStartInput.step = "1";
     loopStartInput.value = String(loopStart);
@@ -284,6 +363,8 @@ export function renderAnimationEditor(
     addFrameButton.textContent = t("animations.addFrame", "Add frame");
 
     const removeAnimationButton = document.createElement("wuik-button");
+
+    removeAnimationButton.setAttribute("variant", "secondary");
     removeAnimationButton.dataset.action = "remove-animation";
     removeAnimationButton.textContent = t(
       "animations.removeAnimation",
@@ -424,6 +505,7 @@ export function renderAnimationEditor(
 
     const groupInput = document.createElement("input");
     groupInput.type = "number";
+    groupInput.className = "field-number";
     groupInput.min = "0";
     groupInput.step = "1";
     groupInput.dataset.field = "group";
@@ -441,6 +523,7 @@ export function renderAnimationEditor(
 
     const imageInput = document.createElement("input");
     imageInput.type = "number";
+    imageInput.className = "field-number";
     imageInput.min = "0";
     imageInput.step = "1";
     imageInput.dataset.field = "image";
@@ -458,6 +541,7 @@ export function renderAnimationEditor(
 
     const timeInput = document.createElement("input");
     timeInput.type = "number";
+    timeInput.className = "field-number";
     timeInput.step = "1";
     timeInput.dataset.field = "time";
     timeInput.setAttribute(
@@ -512,8 +596,8 @@ export function renderAnimationEditor(
     clsnToggle.dataset.action = "toggle-clsn";
     clsnToggle.setAttribute("aria-pressed", String(handlers.isClsnOpen));
     clsnToggle.textContent = handlers.isClsnOpen
-      ? t("animations.hideClsnBoxes", "Hide Clsn boxes")
-      : t("animations.editClsnBoxes", "Edit Clsn boxes ({{count}})", {
+      ? t("animations.hideClsnBoxes", "Hide hit and hurt boxes")
+      : t("animations.editClsnBoxes", "Edit hit and hurt boxes ({{count}})", {
           count: String(frame.clsn1.length + frame.clsn2.length),
         });
     clsnToggle.addEventListener("click", handlers.onToggleClsn);
@@ -533,6 +617,8 @@ export function renderAnimationEditor(
     moveDown.addEventListener("click", handlers.onMoveDown);
 
     const remove = document.createElement("wuik-button");
+
+    remove.setAttribute("variant", "secondary");
     remove.dataset.action = "remove-frame";
     remove.textContent = t("animations.remove", "Remove");
     remove.addEventListener("click", handlers.onRemove);
@@ -540,7 +626,13 @@ export function renderAnimationEditor(
     rowEl.append(
       wrapField(t("animations.group", "Group"), groupInput),
       wrapField(t("animations.image", "Image"), imageInput),
-      wrapField(t("animations.time", "Time"), timeInput),
+      wrapField(t("animations.time", "Duration (ticks)"), timeInput, {
+        label: t("animations.timeHelpLabel", "Help: duration"),
+        text: t(
+          "animations.timeHelp",
+          "1 tick = 1/60 s. Use -1 to hold the frame.",
+        ),
+      }),
       warning,
       clsnToggle,
       moveUp,
@@ -578,6 +670,7 @@ export function renderAnimationEditor(
     overlayWrapper.className = "animation-editor__overlay-wrapper";
     const canvas = document.createElement("canvas");
     canvas.className = "animation-editor__canvas";
+    canvas.setAttribute("role", "img");
     canvas.hidden = true;
     const boxesLayer = document.createElement("div");
     boxesLayer.className = "animation-editor__boxes-layer";
@@ -588,27 +681,111 @@ export function renderAnimationEditor(
     status.className = "animation-editor__clsn-status";
     status.setAttribute("role", "status");
 
+    // Persistent live region for the keyboard move/resize mode and the new
+    // size or position: created once here, never part of the rebuilt boxes,
+    // so the announcements survive the DOM rebuild each arrow press causes.
+    const live = document.createElement("p");
+    live.className = "animation-editor__live visually-hidden";
+    live.setAttribute("aria-live", "polite");
+    live.setAttribute("aria-atomic", "true");
+    let announceTimer: number | undefined;
+
+    function announceNow(message: string): void {
+      window.clearTimeout(announceTimer);
+      announceTimer = undefined;
+      live.textContent = message;
+    }
+    function announceDebounced(message: string): void {
+      window.clearTimeout(announceTimer);
+      announceTimer = window.setTimeout(() => {
+        announceTimer = undefined;
+        live.textContent = message;
+      }, ANNOUNCE_DEBOUNCE_MS);
+    }
+
     const addClsn1 = document.createElement("wuik-button");
     addClsn1.setAttribute("variant", "secondary");
     addClsn1.dataset.action = "add-clsn1";
-    addClsn1.textContent = t("animations.addClsn1", "Add Clsn1 (hit)");
+    addClsn1.textContent = t("animations.addClsn1", "Add hit box (Clsn1)");
     const addClsn2 = document.createElement("wuik-button");
     addClsn2.setAttribute("variant", "secondary");
     addClsn2.dataset.action = "add-clsn2";
-    addClsn2.textContent = t("animations.addClsn2", "Add Clsn2 (hurt)");
+    addClsn2.textContent = t("animations.addClsn2", "Add hurt box (Clsn2)");
 
     const boxList = document.createElement("div");
     boxList.className = "animation-editor__box-list";
 
+    let rebuildingBoxes = false;
+
     function renderBoxes(): void {
+      // Rebuilding drops the focused box: remember it and focus the box with
+      // the same kind and index afterwards.
+      const active = document.activeElement;
+      const focusedBox =
+        active instanceof HTMLElement && boxesLayer.contains(active)
+          ? { kind: active.dataset.kind, index: active.dataset.boxIndex }
+          : null;
+      rebuildingBoxes = true;
       boxesLayer.replaceChildren();
       boxList.replaceChildren();
       frame.clsn1.forEach((box, i) => renderBox(box, "clsn1", i));
       frame.clsn2.forEach((box, i) => renderBox(box, "clsn2", i));
+      canvas.setAttribute(
+        "aria-label",
+        tCount(
+          "animations.clsnCanvasLabel",
+          frame.clsn1.length + frame.clsn2.length,
+          {
+            one: "Hit and hurt box editor, {{count}} box",
+            other: "Hit and hurt box editor, {{count}} boxes",
+          },
+        ),
+      );
+      if (focusedBox) {
+        boxesLayer
+          .querySelector<HTMLElement>(
+            `.animation-editor__box[data-kind="${focusedBox.kind}"][data-box-index="${focusedBox.index}"]`,
+          )
+          ?.focus();
+      }
+      rebuildingBoxes = false;
+    }
+
+    function modeLabel(mode: ClsnKeyMode): string {
+      return mode === "resize"
+        ? t("animations.modeResize", "Resize")
+        : t("animations.modeMove", "Move");
+    }
+
+    function setMode(
+      kind: "clsn1" | "clsn2",
+      index: number,
+      mode: ClsnKeyMode,
+    ): void {
+      state.clsnKey = { kind, index, mode };
+      refreshModeBadges();
+    }
+
+    function refreshModeBadges(): void {
+      for (const el of boxesLayer.querySelectorAll<HTMLElement>(
+        ".animation-editor__box",
+      )) {
+        const badge = el.querySelector<HTMLElement>(
+          ".animation-editor__box-mode",
+        );
+        if (!badge) continue;
+        const key = state.clsnKey;
+        const active =
+          key !== null &&
+          key.kind === el.dataset.kind &&
+          String(key.index) === el.dataset.boxIndex;
+        badge.hidden = !active;
+        badge.textContent = active && key ? modeLabel(key.mode) : "";
+      }
     }
 
     /** A resize handle's fixed footprint and corner offset, in px, relative to the box's own edges. */
-    const HANDLE_SIZE = 10;
+    const HANDLE_SIZE = MIN_TARGET_SIZE;
     const HANDLE_OFFSET: Record<
       ClsnResizeHandle,
       { left: string; top: string }
@@ -634,7 +811,7 @@ export function renderAnimationEditor(
         "aria-label",
         t(
           "animations.boxAriaLabel",
-          "{{kind}} box {{index}}: left {{left}}, top {{top}}, right {{right}}, bottom {{bottom}}",
+          "{{kind}} {{index}}: left {{left}}, top {{top}}, right {{right}}, bottom {{bottom}}",
           {
             kind: clsnKindLabel(kind),
             index: String(index + 1),
@@ -665,6 +842,11 @@ export function renderAnimationEditor(
       badge.textContent = clsnKindLabel(kind);
       el.appendChild(badge);
 
+      const modeBadge = document.createElement("span");
+      modeBadge.className = "animation-editor__box-mode";
+      modeBadge.hidden = true;
+      el.appendChild(modeBadge);
+
       for (const handle of ["nw", "ne", "sw", "se"] as ClsnResizeHandle[]) {
         const handleEl = document.createElement("div");
         handleEl.className = `animation-editor__box-handle animation-editor__box-handle--${handle}`;
@@ -679,6 +861,22 @@ export function renderAnimationEditor(
 
       wireMoveDrag(el, kind, index);
       el.addEventListener("keydown", (e) => onBoxKeydown(e, kind, index));
+      el.addEventListener("focus", () => {
+        const key = state.clsnKey;
+        if (!key || key.kind !== kind || key.index !== index) {
+          setMode(kind, index, "move");
+        } else {
+          refreshModeBadges();
+        }
+      });
+      el.addEventListener("blur", () => {
+        if (rebuildingBoxes || state.rebuilding) return;
+        const key = state.clsnKey;
+        if (key && key.kind === kind && key.index === index) {
+          state.clsnKey = null;
+          refreshModeBadges();
+        }
+      });
 
       boxesLayer.appendChild(el);
       boxList.appendChild(renderBoxFields(box, kind, index));
@@ -780,6 +978,61 @@ export function renderAnimationEditor(
       kind: "clsn1" | "clsn2",
       index: number,
     ): void {
+      if (isTextEntryTarget(e.target)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = state.clsnKey;
+      const mode: ClsnKeyMode =
+        key && key.kind === kind && key.index === index ? key.mode : "move";
+      const name = {
+        kind: clsnKindLabel(kind),
+        index: String(index + 1),
+      };
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        const next: ClsnKeyMode = mode === "resize" ? "move" : "resize";
+        setMode(kind, index, next);
+        announceNow(
+          next === "resize"
+            ? t(
+                "animations.modeResizeAnnouncement",
+                "{{kind}} {{index}}: resize mode",
+                name,
+              )
+            : t(
+                "animations.modeMoveAnnouncement",
+                "{{kind}} {{index}}: move mode",
+                name,
+              ),
+        );
+        return;
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mode === "resize") {
+          // First Escape: leave resize mode.
+          setMode(kind, index, "move");
+          announceNow(
+            t(
+              "animations.modeMoveAnnouncement",
+              "{{kind}} {{index}}: move mode",
+              name,
+            ),
+          );
+          return;
+        }
+        // Second Escape: deselect the box.
+        state.clsnKey = null;
+        refreshModeBadges();
+        (e.currentTarget as HTMLElement | null)?.blur();
+        announceNow(
+          t("animations.boxDeselected", "{{kind}} {{index}} deselected", name),
+        );
+        return;
+      }
+
       const step = e.shiftKey ? 10 : 1;
       const deltas: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0],
@@ -792,7 +1045,28 @@ export function renderAnimationEditor(
       e.preventDefault();
       const current = boxesFor(kind)[index];
       if (!current) return;
-      updateBox(kind, index, moveClsnBox(current, delta[0], delta[1]));
+      const next =
+        mode === "resize"
+          ? resizeClsnBox(current, "se", delta[0], delta[1])
+          : moveClsnBox(current, delta[0], delta[1]);
+      updateBox(kind, index, next);
+      announceDebounced(
+        mode === "resize"
+          ? t(
+              "animations.boxResized",
+              "{{kind}} {{index}} resized: width {{width}}, height {{height}}",
+              {
+                ...name,
+                width: String(next.right - next.left),
+                height: String(next.bottom - next.top),
+              },
+            )
+          : t(
+              "animations.boxMoved",
+              "{{kind}} {{index}} moved to x {{x}}, y {{y}}",
+              { ...name, x: String(next.left), y: String(next.top) },
+            ),
+      );
     }
 
     function renderBoxFields(
@@ -806,14 +1080,10 @@ export function renderAnimationEditor(
       row.dataset.boxIndex = String(index);
 
       const label = document.createElement("span");
-      label.textContent = t(
-        "animations.boxFieldsLabel",
-        "{{kind}} box {{index}}",
-        {
-          kind: clsnKindLabel(kind),
-          index: String(index + 1),
-        },
-      );
+      label.textContent = t("animations.boxFieldsLabel", "{{kind}} {{index}}", {
+        kind: clsnKindLabel(kind),
+        index: String(index + 1),
+      });
 
       function boxFieldAriaLabel(
         fieldKey: string,
@@ -821,7 +1091,7 @@ export function renderAnimationEditor(
       ): string {
         return t(
           "animations.boxFieldAriaLabel",
-          "{{kind}} box {{index}} {{field}}",
+          "{{kind}} {{index}} {{field}}",
           {
             kind: clsnKindLabel(kind),
             index: String(index + 1),
@@ -867,25 +1137,38 @@ export function renderAnimationEditor(
       removeButton.dataset.action = "remove-clsn-box";
       removeButton.setAttribute(
         "aria-label",
-        t("animations.removeBoxAriaLabel", "Remove {{kind}} box {{index}}", {
+        t("animations.removeBoxAriaLabel", "Remove box: {{kind}} {{index}}", {
           kind: clsnKindLabel(kind),
           index: String(index + 1),
         }),
       );
       removeButton.textContent = t("animations.removeBox", "Remove box");
       removeButton.addEventListener("click", () => {
+        const position = Array.from(boxList.children).indexOf(row);
         const boxes = boxesFor(kind);
         boxes.splice(index, 1);
         deps.onCommit();
         renderBoxes();
+        const rows = Array.from(boxList.children);
+        const neighbour = rows[Math.min(position, rows.length - 1)];
+        const nextRemove = neighbour?.querySelector<HTMLElement>(
+          '[data-action="remove-clsn-box"]',
+        );
+        focusKitControl(nextRemove ?? addClsn1);
+        announceNow(
+          t("animations.boxRemoved", "{{kind}} {{index}} removed", {
+            kind: clsnKindLabel(kind),
+            index: String(index + 1),
+          }),
+        );
       });
 
       row.append(
         label,
         wrapField(t("animations.x", "X"), xInput),
         wrapField(t("animations.y", "Y"), yInput),
-        wrapField(t("animations.w", "W"), wInput),
-        wrapField(t("animations.h", "H"), hInput),
+        wrapField(t("animations.w", "Width"), wInput),
+        wrapField(t("animations.h", "Height"), hInput),
         removeButton,
       );
       return row;
@@ -898,6 +1181,7 @@ export function renderAnimationEditor(
     ): HTMLInputElement {
       const input = document.createElement("input");
       input.type = "number";
+      input.className = "field-number";
       input.step = "1";
       input.dataset.field = field;
       input.setAttribute("aria-label", label);
@@ -987,6 +1271,7 @@ export function renderAnimationEditor(
     wrapper.append(
       viewport,
       status,
+      live,
       failure.element,
       addClsn1,
       addClsn2,
@@ -1010,6 +1295,7 @@ export function renderAnimationEditor(
     viewport.className = "animation-editor__playback-viewport";
     const canvas = document.createElement("canvas");
     canvas.className = "animation-editor__playback-canvas";
+    canvas.setAttribute("role", "img");
     canvas.hidden = true;
     viewport.appendChild(canvas);
 
@@ -1030,6 +1316,8 @@ export function renderAnimationEditor(
     }
 
     const playButton = document.createElement("wuik-button");
+
+    playButton.setAttribute("variant", "secondary");
     playButton.dataset.action = "play";
     playButton.textContent = t("animations.play", "Play");
 
@@ -1041,7 +1329,7 @@ export function renderAnimationEditor(
     const stepButton = document.createElement("wuik-button");
     stepButton.setAttribute("variant", "secondary");
     stepButton.dataset.action = "step";
-    stepButton.textContent = t("animations.step", "Step");
+    stepButton.textContent = t("animations.step", "Next frame");
 
     let currentIndex = 0;
     let scheduledHandle: number | null = null;
@@ -1054,8 +1342,23 @@ export function renderAnimationEditor(
       }
     }
 
+    function updateCanvasLabel(): void {
+      canvas.setAttribute(
+        "aria-label",
+        t(
+          "animations.playbackCanvasLabel",
+          "Playback preview, frame {{index}} of {{total}}",
+          {
+            index: String(currentIndex + 1),
+            total: String(getFrames().length),
+          },
+        ),
+      );
+    }
+
     function showFrame(index: number): void {
       lastFrameIndex = index;
+      updateCanvasLabel();
       const frames = getFrames();
       const frame = frames[index];
       canvas.hidden = true;
@@ -1180,6 +1483,7 @@ export function renderAnimationEditor(
         status.textContent = "";
       }
       if (currentIndex >= frames.length) currentIndex = 0;
+      updateCanvasLabel();
     }
 
     playButton.addEventListener("click", play);
@@ -1210,22 +1514,27 @@ export function renderAnimationEditor(
     handlers: { onConfirm: () => void; onCancel: () => void },
   ): HTMLElement {
     const wrapper = document.createElement("div");
-    const suffix = frameCount === 1 ? "" : "s";
     const warning = document.createElement("p");
     warning.setAttribute("role", "status");
-    warning.textContent = t(
-      "animations.removeAnimationWarning",
-      "This animation has {{count}} frame{{suffix}}.",
-      { count: String(frameCount), suffix },
-    );
+    warning.textContent =
+      frameCount === 0
+        ? t("animations.removeAnimationEmpty", "This animation has no frames.")
+        : tCount("animations.removeAnimationWarning", frameCount, {
+            one: "This animation has {{count}} frame.",
+            other: "This animation has {{count}} frames.",
+          });
 
     const confirmButton = document.createElement("wuik-button");
+
+    confirmButton.setAttribute("variant", "danger");
     confirmButton.dataset.action = "confirm-remove-animation";
-    confirmButton.textContent = t(
-      "animations.confirmRemoveAnimation",
-      "Confirm remove ({{count}} frame{{suffix}})",
-      { count: String(frameCount), suffix },
-    );
+    confirmButton.textContent =
+      frameCount === 0
+        ? t("animations.confirmRemoveEmpty", "Confirm remove")
+        : tCount("animations.confirmRemoveAnimation", frameCount, {
+            one: "Confirm remove ({{count}} frame)",
+            other: "Confirm remove ({{count}} frames)",
+          });
     confirmButton.addEventListener("click", handlers.onConfirm);
 
     const cancelButton = document.createElement("wuik-button");
@@ -1238,11 +1547,20 @@ export function renderAnimationEditor(
     return wrapper;
   }
 
-  function wrapField(labelText: string, input: HTMLInputElement): HTMLElement {
+  function wrapField(
+    labelText: string,
+    input: HTMLInputElement,
+    help?: { label: string; text: string },
+  ): HTMLElement {
     const label = document.createElement("label");
     label.textContent = labelText;
     label.appendChild(input);
-    return label;
+    if (help === undefined) return label;
+    // The hint sits next to the label, not inside it: it is not part of the field's name.
+    const field = document.createElement("span");
+    field.className = "animation-editor__field";
+    field.append(label, createHelpHint(help.label, help.text));
+    return field;
   }
 
   function emptyState(text: string): HTMLElement {
@@ -1262,4 +1580,25 @@ export function renderAnimationEditor(
 
   renderList();
   root.appendChild(container);
+  const key = state.clsnKey;
+  if (
+    refocus !== null &&
+    key !== null &&
+    key.kind === refocus.kind &&
+    String(key.index) === refocus.index
+  ) {
+    const scope =
+      refocus.animation === null
+        ? root
+        : (root.querySelector<HTMLElement>(
+            `[data-animation="${refocus.animation}"]`,
+          ) ?? root);
+    // Focusing re-runs the box's focus handler, which keeps the mode badge.
+    scope
+      .querySelector<HTMLElement>(
+        `.animation-editor__box[data-kind="${refocus.kind}"][data-box-index="${refocus.index}"]`,
+      )
+      ?.focus();
+  }
+  state.rebuilding = false;
 }

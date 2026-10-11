@@ -91,7 +91,7 @@ describe("renderSpriteBrowser", () => {
   it("shows the total sprite count in the heading", () => {
     const root = document.createElement("div");
     renderSpriteBrowser(root, characterWithSprites(), sffBytes, []);
-    expect(root.querySelector("h3")?.textContent).toContain("2");
+    expect(root.querySelector("h2")?.textContent).toContain("2");
   });
 
   it("lazily mounts a group's sprite rows only once expanded", () => {
@@ -217,6 +217,68 @@ describe("renderSpriteBrowser", () => {
     });
   });
 
+  it("shows an Importing… busy state with aria-disabled while decoding, keeps focus, ignores a second click, then restores", async () => {
+    let finish: (r: ImageDecodeResult) => void = () => {};
+    const decodeImageFile = vi.fn(
+      () =>
+        new Promise<ImageDecodeResult>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+      onSpriteEdit: vi.fn(),
+      decodeImageFile,
+    });
+    const fileInput = root.querySelector<HTMLInputElement>(
+      ".sprite-browser__import-file",
+    );
+    Object.defineProperty(fileInput, "files", { value: [fakeFile()] });
+    fileInput?.dispatchEvent(new Event("change"));
+    const submit = root.querySelector<HTMLElement>(
+      ".sprite-browser__import-submit",
+    ) as HTMLElement;
+    submit.tabIndex = 0;
+    submit.focus();
+
+    submit.click();
+    submit.click();
+
+    expect(submit.getAttribute("aria-disabled")).toBe("true");
+    expect(submit.hasAttribute("disabled")).toBe(false);
+    expect(submit.textContent).toBe("Importing…");
+    expect(document.activeElement).toBe(submit);
+    expect(decodeImageFile).toHaveBeenCalledTimes(1);
+
+    finish({
+      ok: false,
+      error: "This image could not be decoded.",
+    });
+    await vi.waitFor(() =>
+      expect(submit.hasAttribute("aria-disabled")).toBe(false),
+    );
+    expect(submit.textContent).toBe("Import sprite");
+    root.remove();
+  });
+
+  it("labels the sprite preview canvas as an image with the sprite it shows", async () => {
+    const root = document.createElement("div");
+    renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+      onSpriteEdit: vi.fn(),
+      resolveSpritePixels: vi.fn().mockResolvedValue([okPixelResult(10, 20)]),
+      drawPixels: vi.fn(),
+    });
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__group-toggle")
+      ?.click();
+    root.querySelector<HTMLButtonElement>(".sprite-browser__sprite")?.click();
+
+    const canvas = root.querySelector(".sprite-browser__canvas");
+    expect(canvas?.getAttribute("role")).toBe("img");
+    expect(canvas?.getAttribute("aria-label")).toContain("group 0, image 0");
+  });
+
   it("shows a clear inline error and does not call onSpriteEdit when an imported file fails to decode", async () => {
     const onSpriteEdit = vi.fn();
     const decodeImageFile = vi.fn().mockResolvedValue({
@@ -242,6 +304,41 @@ describe("renderSpriteBrowser", () => {
       expect(root.textContent).toContain("could not be decoded"),
     );
     expect(onSpriteEdit).not.toHaveBeenCalled();
+  });
+
+  it("tells the user when Import is pressed with no file chosen", () => {
+    const onSpriteEdit = vi.fn();
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+      onSpriteEdit,
+    });
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__import-submit")
+      ?.click();
+    const message = root.querySelector(".sprite-browser__import-error");
+    expect(message?.hasAttribute("hidden")).toBe(false);
+    expect(message?.textContent).toContain("Choose an image");
+    expect(onSpriteEdit).not.toHaveBeenCalled();
+    root.remove();
+  });
+
+  it("shows the import failure when decoding rejects", async () => {
+    const root = document.createElement("div");
+    renderSpriteBrowser(root, characterWithSprites(), sffBytes, [], {
+      decodeImageFile: vi.fn().mockRejectedValue(new Error("boom")),
+    });
+    const fileInput = root.querySelector<HTMLInputElement>(
+      ".sprite-browser__import-file",
+    );
+    Object.defineProperty(fileInput, "files", { value: [fakeFile()] });
+    fileInput?.dispatchEvent(new Event("change"));
+    root
+      .querySelector<HTMLButtonElement>(".sprite-browser__import-submit")
+      ?.click();
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain("Couldn't import this sprite"),
+    );
   });
 
   it("replaces a selected sprite's pixels after a successful decode", async () => {
@@ -332,7 +429,7 @@ describe("renderSpriteBrowser", () => {
     });
     expect(
       root.querySelector(".sprite-browser__deleted")?.textContent,
-    ).toContain("referenced by 1 frame");
+    ).toContain("used by 1 frame");
   });
 
   it("cancelling a pending delete leaves the sprite untouched", async () => {
@@ -403,12 +500,12 @@ describe("renderSpriteBrowser", () => {
       await initAppI18n();
       await getI18n()?.changeLanguage("fr");
 
-      expect(root.querySelector("h3")?.textContent).toBe("Sprites (2)");
+      expect(root.querySelector("h2")?.textContent).toBe("Sprites (2)");
       expect(
         root
           .querySelector(".sprite-browser__group-toggle")
-          ?.getAttribute("aria-expanded"),
-      ).toBe("true");
+          ?.hasAttribute("expanded"),
+      ).toBe(true);
       expect(root.querySelectorAll(".sprite-browser__sprite")).toHaveLength(2);
       expect(
         root.querySelector(".sprite-browser__import-submit")?.textContent,
@@ -436,8 +533,8 @@ describe("renderSpriteBrowser", () => {
         expect(
           root
             .querySelectorAll<HTMLButtonElement>(".sprite-browser__sprite")[0]
-            ?.getAttribute("aria-current"),
-        ).toBe("true");
+            ?.hasAttribute("selected"),
+        ).toBe(true);
       });
     });
   });

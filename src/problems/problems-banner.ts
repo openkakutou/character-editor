@@ -114,7 +114,7 @@ export function createProblemsBanner(
     const sentence = document.createElement("p");
     sentence.textContent = problemSentence(engine.problem);
     const retry = document.createElement("wuik-button");
-    retry.setAttribute("variant", "primary");
+    retry.setAttribute("variant", "secondary");
     retry.dataset.action = "retry-engine";
     retry.textContent = engine.busy
       ? t("banner.retrying", "Retrying…")

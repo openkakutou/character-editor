@@ -32,11 +32,14 @@ export function renderOutputSection(
   root.classList.add("output-section");
 
   const problemsHeading = document.createElement("h2");
+
+  problemsHeading.className = "editor-title";
   const summary = document.createElement("p");
   summary.className = "output-section__summary";
   const problemList = document.createElement("ul");
   problemList.className = "output-section__problems";
   const filesHeading = document.createElement("h2");
+  filesHeading.className = "editor-title";
   const filesNote = document.createElement("p");
   filesNote.className = "output-section__note";
   const fileList = document.createElement("ul");
