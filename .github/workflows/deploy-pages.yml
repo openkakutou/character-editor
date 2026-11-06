@@ -12,6 +12,13 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# The WASM pins, each in exactly one place: the build job (tests) and the
+# visual job (the gate on deploy) must always run against the same releases.
+# Bumped by the producer's own release step, per roadmap decision 016.
+env:
+  CHARACTER_WASM_VERSION: v0.10.0
+  SND_WASM_VERSION: v0.7.1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,7 +47,13 @@ jobs:
       # — see this repo's own CLAUDE.md ("WASM dependency on character")
       # for where that pin lives.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.10.0
+        run: npm run wasm:download -- ${{ env.CHARACTER_WASM_VERSION }}
+
+      # The sound editor writes .snd files through snd's own WASM build,
+      # a separate module with its own wasm_exec.js: public/wasm/snd/.
+      # Pinned to an exact snd release, bumped the same way as character's.
+      - name: Download snd WASM release
+        run: npm run wasm:download -- ${{ env.SND_WASM_VERSION }} --repo openkakutou/snd --out public/wasm/snd
 
       - name: Test
         run: npm test
@@ -103,7 +116,10 @@ jobs:
       # above — same reason: every surface this suite screenshots decodes a
       # real sprite through the same real WASM build at runtime.
       - name: Download character WASM release
-        run: npm run wasm:download -- v0.10.0
+        run: npm run wasm:download -- ${{ env.CHARACTER_WASM_VERSION }}
+
+      - name: Download snd WASM release
+        run: npm run wasm:download -- ${{ env.SND_WASM_VERSION }} --repo openkakutou/snd --out public/wasm/snd
 
       - name: Visual regression tests
         run: npm run test:visual

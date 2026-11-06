@@ -17,6 +17,13 @@ export const EXIT_CODES = Object.freeze({
 
 const DEFAULT_REPO = "openkakutou/character";
 const DEFAULT_ASSETS = Object.freeze(["character.wasm", "wasm_exec.js"]);
+
+/** The release assets of `repo`: `<repo name>.wasm` plus its own `wasm_exec.js` (each Go version ships a matching one). */
+function defaultAssetsFor(repo) {
+  return repo === DEFAULT_REPO
+    ? DEFAULT_ASSETS
+    : [`${repo.split("/").pop()}.wasm`, "wasm_exec.js"];
+}
 const DEFAULT_OUT_DIR = "public/wasm";
 const DEFAULT_TIMEOUT_MS = 20_000;
 
@@ -39,7 +46,7 @@ export class DownloadError extends Error {
 export async function downloadWasmRelease({
   version,
   repo = DEFAULT_REPO,
-  assets = DEFAULT_ASSETS,
+  assets = defaultAssetsFor(repo),
   outDir = DEFAULT_OUT_DIR,
   fetchImpl = fetch,
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -48,6 +55,14 @@ export async function downloadWasmRelease({
   if (!version) {
     throw new DownloadError(
       "Missing version argument. Usage: download-wasm <version> (e.g. v0.1.0)",
+      EXIT_CODES.USAGE,
+    );
+  }
+
+  // owner/name, neither part "." or "..": the name also becomes a file name.
+  if (!/^(?!\.{1,2}\/)[\w.-]+\/(?!\.{1,2}$)[\w.-]+$/.test(repo)) {
+    throw new DownloadError(
+      `Invalid --repo "${repo}": expected owner/name (letters, digits, "-", "_" and ".").`,
       EXIT_CODES.USAGE,
     );
   }
@@ -87,57 +102,74 @@ export async function downloadWasmRelease({
 }
 
 async function fetchAsset({ url, asset, version, repo, fetchImpl, timeoutMs }) {
+  // The timer covers the body too: a response whose headers arrive and whose
+  // body then stalls must fail, not hang the script (and CI) forever.
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  let response;
   try {
-    response = await fetchImpl(url, { signal: controller.signal });
-  } catch (error) {
-    throw new DownloadError(
-      `Network error while downloading ${asset} for ${repo}@${version}: ${error.message} (${url})`,
-      EXIT_CODES.NETWORK,
-    );
+    let response;
+    try {
+      response = await fetchImpl(url, { signal: controller.signal });
+    } catch (error) {
+      throw new DownloadError(
+        `Network error while downloading ${asset} for ${repo}@${version}: ${error.message} (${url})`,
+        EXIT_CODES.NETWORK,
+      );
+    }
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new DownloadError(
+          `Could not find ${asset} for ${repo}@${version} (HTTP 404). The tag may not exist, or this release may not include this asset. Check https://github.com/${repo}/releases`,
+          EXIT_CODES.NOT_FOUND,
+        );
+      }
+      throw new DownloadError(
+        `Failed to download ${asset} for ${repo}@${version}: HTTP ${response.status} (${url})`,
+        EXIT_CODES.NETWORK,
+      );
+    }
+
+    let arrayBuffer;
+    try {
+      arrayBuffer = await response.arrayBuffer();
+    } catch (error) {
+      throw new DownloadError(
+        `Network error while reading ${asset} for ${repo}@${version}: ${error.message} (${url})`,
+        EXIT_CODES.NETWORK,
+      );
+    }
+    if (arrayBuffer.byteLength === 0) {
+      throw new DownloadError(
+        `Downloaded ${asset} for ${repo}@${version} is empty (0 bytes) — treating this as a failed download (${url})`,
+        EXIT_CODES.NETWORK,
+      );
+    }
+
+    return Buffer.from(arrayBuffer);
   } finally {
     clearTimeout(timeout);
   }
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new DownloadError(
-        `Could not find ${asset} for ${repo}@${version} (HTTP 404). The tag may not exist, or this release may not include this asset. Check https://github.com/${repo}/releases`,
-        EXIT_CODES.NOT_FOUND,
-      );
-    }
-    throw new DownloadError(
-      `Failed to download ${asset} for ${repo}@${version}: HTTP ${response.status} (${url})`,
-      EXIT_CODES.NETWORK,
-    );
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength === 0) {
-    throw new DownloadError(
-      `Downloaded ${asset} for ${repo}@${version} is empty (0 bytes) — treating this as a failed download (${url})`,
-      EXIT_CODES.NETWORK,
-    );
-  }
-
-  return Buffer.from(arrayBuffer);
 }
 
 function printUsage(stream) {
   stream.write(
     `${[
-      "Usage: download-wasm <version>",
+      "Usage: download-wasm <version> [--repo owner/name] [--out dir]",
       "",
       `Downloads character.wasm and wasm_exec.js from ${DEFAULT_REPO}'s`,
-      `release <version> into ${DEFAULT_OUT_DIR}/.`,
+      `release <version> into ${DEFAULT_OUT_DIR}/. With --repo, downloads`,
+      "<name>.wasm and that release's wasm_exec.js instead; with --out, writes",
+      "to that directory.",
       "",
-      "Example:",
+      "Examples:",
       "  npm run wasm:download -- v0.1.0",
+      "  npm run wasm:download -- v0.7.1 --repo openkakutou/snd --out public/wasm/snd",
       "",
       "Options:",
+      "  --repo owner/name  GitHub repository to download from",
+      "  --out dir          output directory",
       "  -h, --help     show this help",
       "  -v, --version  show this script's own version",
       "",
@@ -148,6 +180,36 @@ function printUsage(stream) {
       `  ${EXIT_CODES.NETWORK}  network error or unexpected failure`,
     ].join("\n")}\n`,
   );
+}
+
+/**
+ * Reads `<version> [--repo owner/name] [--out dir]`, flags in any position.
+ * An unknown flag or a flag with no value is an error: skipping it silently
+ * would download the default repository into the default directory.
+ */
+function parseArgs(argv) {
+  let version;
+  let repo;
+  let outDir;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--repo" || arg === "--out") {
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) {
+        return { error: `Missing value for ${arg}.` };
+      }
+      if (arg === "--repo") repo = value;
+      else outDir = value;
+      i++;
+    } else if (arg.startsWith("--")) {
+      return { error: `Unknown option ${arg}.` };
+    } else if (version === undefined) {
+      version = arg;
+    } else {
+      return { error: `Unexpected argument ${arg}.` };
+    }
+  }
+  return { version, repo, outDir };
 }
 
 /**
@@ -166,10 +228,21 @@ export async function main(argv = process.argv.slice(2), overrides = {}) {
     return 0;
   }
 
-  const [version] = argv;
+  const parsed = parseArgs(argv);
+  if (parsed.error) {
+    process.stderr.write(`${parsed.error}\n`);
+    printUsage(process.stderr);
+    return EXIT_CODES.USAGE;
+  }
+  const { version, repo, outDir } = parsed;
 
   try {
-    await downloadWasmRelease({ version, ...overrides });
+    await downloadWasmRelease({
+      version,
+      ...(repo === undefined ? {} : { repo }),
+      ...(outDir === undefined ? {} : { outDir }),
+      ...overrides,
+    });
     return 0;
   } catch (error) {
     if (error instanceof DownloadError) {

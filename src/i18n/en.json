@@ -391,7 +391,29 @@
     "rowUndecodable": "{{key}} — Can't be played",
     "noAudioData": "no audio data",
     "nowPlaying": "Playing {{key}}",
-    "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section."
+    "empty": "This character has no sound file. A .def file can reference one with a \"sound =\" line in its [Files] section.",
+    "chooseWav": "Choose a WAV file",
+    "wavType": "A WAV file (8 or 16-bit PCM)",
+    "groupLabel": "Group",
+    "sampleLabel": "Number",
+    "importSound": "Import sound",
+    "importing": "Importing…",
+    "noFileChosen": "Choose a WAV file to import first.",
+    "invalidGroup": "Enter a valid, non-negative group number.",
+    "invalidSample": "Enter a valid, non-negative sound number.",
+    "selected": "Selected: {{key}}",
+    "replace": "Replace audio",
+    "delete": "Delete",
+    "confirmDelete": "Confirm delete",
+    "cancel": "Cancel",
+    "notReferenced": "Not used by any controller.",
+    "referencedByControllers_one": "Used by {{count}} controller.",
+    "referencedByControllers_other": "Used by {{count}} controllers.",
+    "unresolvedControllers_one": "{{count}} other controller picks its sound with an expression and may play it.",
+    "unresolvedControllers_other": "{{count}} other controllers pick their sound with an expression and may play it.",
+    "confirmDeleteWithCount_one": "Confirm delete (used by {{count}} controller)",
+    "confirmDeleteWithCount_other": "Confirm delete (used by {{count}} controllers)",
+    "changedMeanwhile": "The sounds changed while this was being checked. Try again."
   },
   "validation": {
     "allClear": "No problem found.",
@@ -429,7 +451,8 @@
     "identity": "identity change",
     "states": "state change",
     "animations": "animation change",
-    "replaceFile": "replacement of {{fileName}}"
+    "replaceFile": "replacement of {{fileName}}",
+    "sounds": "sound change"
   },
   "sections": {
     "helpLabel": "Help: {{section}}",
@@ -443,7 +466,7 @@
     },
     "sounds": {
       "title": "Sounds",
-      "description": "Listen to the sounds the character can play."
+      "description": "Listen to the sounds the character can play, and import, replace or delete them."
     },
     "palettes": {
       "title": "Palettes",

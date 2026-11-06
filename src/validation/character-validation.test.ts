@@ -90,6 +90,7 @@ function documentWith(
     files: {} as CharacterDocument["files"],
     unreadable: [],
     spriteEdits: [],
+    soundEdits: [],
     commandFile: { ...emptyCommandFile(), commands },
   };
 }

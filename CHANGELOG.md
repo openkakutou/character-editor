@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Sounds can now be imported, replaced and deleted in the Sounds section. Import a WAV file as a new sound under a group and number of your choice, replace the audio of the selected sound, or delete it. Only plain 8-bit or 16-bit PCM WAV files are accepted, and anything else is refused with a clear message instead of being converted. Deleting a sound tells you how many controllers use it. Changes can be undone, and Export now writes the edited sound file along with the other files.
 - Opening a folder shows its steps (reading, finding the character, reading files, engine, opening) with a Cancel button; cancelling returns to Home with nothing opened.
 - A character whose sprite sheet, sound, command or script file cannot be read now opens anyway: a banner lists each file with "Replace file" (undoable), the sections that need it say so, and exporting asks first, naming the files left out.
 - A sprite sheet from an unsupported version gets its own screen with the found and supported versions and a way back.

@@ -3,9 +3,11 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { emptyCommandFile } from "../commands/command-logic.ts";
 import type { CharacterDocument } from "../document/character-document.ts";
+import type { SoundEdit } from "../sounds/sound-edits.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import { resetWasmBridgeForTests } from "../wasm/bridge.ts";
 import type { WasmBridgeOptions } from "../wasm/bridge.ts";
+import { decodeSndSound, resetSndBridgeForTests } from "../wasm/snd-bridge.ts";
 import type { CharacterData, CommandFile } from "../wasm/types.ts";
 import { exportCharacterFiles } from "./character-export.ts";
 
@@ -48,6 +50,7 @@ function baseDocument(
       cns: textBytes(""),
     },
     spriteEdits: [],
+    soundEdits: [],
     unreadable: [],
     commandFile: emptyCommandFile(),
     ...overrides,
@@ -406,5 +409,176 @@ describe("exportCharacterFiles (real WASM integration)", () => {
     const cns = result.files.find((f) => f.kind === "cns");
     expect(cns?.unchanged).toBe(false);
     expect(new TextDecoder().decode(cns?.bytes)).toContain("Statedef 12345");
+  });
+});
+
+describe("exportCharacterFiles: the .snd file", () => {
+  const sndBytes = textBytes("original snd");
+  const sound = {
+    group: 1,
+    sample: 1,
+    sampleRate: 8000,
+    channels: 1,
+    bitsPerSample: 16,
+    pcm: [1],
+  };
+  const addEdit: SoundEdit = {
+    kind: "add",
+    group: 1,
+    sample: 1,
+    wav: textBytes("wav"),
+    sound,
+  };
+
+  function saves(doc: CharacterDocument) {
+    return {
+      saveDef: okSave(doc.files.def),
+      saveAir: okSave(doc.files.air),
+      saveCns: okSave(doc.files.cns),
+    };
+  }
+
+  it("passes the .snd through byte for byte, without calling the snd module, when no sound was edited", async () => {
+    const doc = baseDocument({
+      character: baseCharacter({ soundFile: "sounds/kfm.snd" }),
+      files: { ...baseDocument().files, snd: sndBytes },
+    });
+    const buildSnd = vi.fn();
+
+    const result = await exportCharacterFiles(doc, { ...saves(doc), buildSnd });
+
+    if (!result.ok) throw new Error("expected an ok result");
+    const snd = result.files.find((f) => f.kind === "snd");
+    expect(snd).toEqual({
+      kind: "snd",
+      fileName: "kfm.snd",
+      bytes: sndBytes,
+      unchanged: true,
+    });
+    expect(buildSnd).not.toHaveBeenCalled();
+  });
+
+  it("writes the .snd the snd module builds from the pending edits, marked modified", async () => {
+    const edited = textBytes("edited snd");
+    const doc = baseDocument({
+      files: { ...baseDocument().files, snd: sndBytes },
+      soundEdits: [addEdit],
+    });
+    const buildSnd = okSave(edited);
+
+    const result = await exportCharacterFiles(doc, { ...saves(doc), buildSnd });
+
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(buildSnd).toHaveBeenCalledWith(sndBytes, [addEdit], undefined);
+    expect(result.files.find((f) => f.kind === "snd")).toMatchObject({
+      fileName: "character.snd",
+      bytes: edited,
+      unchanged: false,
+    });
+  });
+
+  it("marks the .snd unchanged when the edits net out to the original bytes", async () => {
+    const doc = baseDocument({
+      files: { ...baseDocument().files, snd: sndBytes },
+      soundEdits: [addEdit],
+    });
+
+    const result = await exportCharacterFiles(doc, {
+      ...saves(doc),
+      buildSnd: okSave(sndBytes),
+    });
+
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.files.find((f) => f.kind === "snd")?.unchanged).toBe(true);
+  });
+
+  it("writes a real .snd through the default snd module when nothing is injected", async () => {
+    const realSnd = fixture("sample.snd");
+    const wav = new Uint8Array(46);
+    const view = new DataView(wav.buffer);
+    wav.set([0x52, 0x49, 0x46, 0x46], 0);
+    view.setUint32(4, 38, true);
+    wav.set([0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20], 8);
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, 8000, true);
+    view.setUint32(28, 16000, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    wav.set([0x64, 0x61, 0x74, 0x61], 36);
+    view.setUint32(40, 2, true);
+    view.setInt16(44, 7, true);
+    const doc = baseDocument({
+      files: { ...baseDocument().files, snd: realSnd },
+      soundEdits: [{ ...addEdit, group: 90, sample: 1, wav }],
+    });
+    const sndDir = path.resolve(
+      import.meta.dirname,
+      "..",
+      "..",
+      "public",
+      "wasm",
+      "snd",
+    );
+
+    resetSndBridgeForTests();
+    const result = await exportCharacterFiles(doc, {
+      ...saves(doc),
+      sndBridgeOptions: {
+        fetchWasmExecSource: async () =>
+          readFileSync(path.join(sndDir, "wasm_exec.js"), "utf-8"),
+        fetchWasmBytes: async () =>
+          new Uint8Array(readFileSync(path.join(sndDir, "snd.wasm"))),
+      },
+    });
+
+    if (!result.ok) throw new Error("expected an ok result");
+    const snd = result.files.find((f) => f.kind === "snd");
+    expect(snd?.unchanged).toBe(false);
+    expect(snd?.bytes.length).toBeGreaterThan(realSnd.length);
+    const decoded = await decodeSndSound(
+      snd?.bytes ?? new Uint8Array(),
+      90,
+      1,
+      {
+        fetchWasmExecSource: async () =>
+          readFileSync(path.join(sndDir, "wasm_exec.js"), "utf-8"),
+        fetchWasmBytes: async () =>
+          new Uint8Array(readFileSync(path.join(sndDir, "snd.wasm"))),
+      },
+    );
+    expect(decoded).toMatchObject({ ok: true, sound: { pcm: [7] } });
+  });
+
+  it("blocks the whole export with the module's message when the .snd cannot be written", async () => {
+    const doc = baseDocument({
+      files: { ...baseDocument().files, snd: sndBytes },
+      soundEdits: [addEdit],
+    });
+    const buildSnd = vi.fn().mockResolvedValue({ ok: false, error: "boom" });
+
+    const result = await exportCharacterFiles(doc, { ...saves(doc), buildSnd });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: {
+        kind: "serialize-error",
+        fileKind: "snd",
+        fileName: "character.snd",
+        message: "boom",
+      },
+    });
+  });
+
+  it("exports no .snd for a character that has none, even with sound edits recorded", async () => {
+    const doc = baseDocument({ soundEdits: [addEdit] });
+    const buildSnd = vi.fn();
+
+    const result = await exportCharacterFiles(doc, { ...saves(doc), buildSnd });
+
+    if (!result.ok) throw new Error("expected an ok result");
+    expect(result.files.some((f) => f.kind === "snd")).toBe(false);
+    expect(buildSnd).not.toHaveBeenCalled();
   });
 });

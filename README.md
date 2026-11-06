@@ -46,6 +46,12 @@ Download a specific version of the `character` library's WebAssembly build (need
 ```sh
 npm run wasm:download -- v0.10.0
 ```
+
+Download the `snd` library's WebAssembly build too (needed to import, replace and delete sounds):
+
+```sh
+npm run wasm:download -- v0.7.1 --repo openkakutou/snd --out public/wasm/snd
+```
 <!-- vibe:end:install -->
 
 <!-- vibe:begin:usage -->

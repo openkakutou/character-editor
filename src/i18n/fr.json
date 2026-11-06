@@ -391,7 +391,29 @@
     "rowUndecodable": "{{key}} — Lecture impossible",
     "noAudioData": "aucune donnée audio",
     "nowPlaying": "Lecture de {{key}}",
-    "empty": "Ce personnage n'a pas de fichier son. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files]."
+    "empty": "Ce personnage n'a pas de fichier son. Un fichier .def peut en référencer un avec une ligne \"sound =\" dans sa section [Files].",
+    "chooseWav": "Choisir un fichier WAV",
+    "wavType": "Un fichier WAV (PCM 8 ou 16 bits)",
+    "groupLabel": "Groupe",
+    "sampleLabel": "Numéro",
+    "importSound": "Importer le son",
+    "importing": "Import…",
+    "noFileChosen": "Choisissez d'abord un fichier WAV à importer.",
+    "invalidGroup": "Saisissez un numéro de groupe valide, positif ou nul.",
+    "invalidSample": "Saisissez un numéro de son valide, positif ou nul.",
+    "selected": "Sélection : {{key}}",
+    "replace": "Remplacer l'audio",
+    "delete": "Supprimer",
+    "confirmDelete": "Confirmer la suppression",
+    "cancel": "Annuler",
+    "notReferenced": "Aucun contrôleur ne l'utilise.",
+    "referencedByControllers_one": "Utilisé par {{count}} contrôleur.",
+    "referencedByControllers_other": "Utilisé par {{count}} contrôleurs.",
+    "unresolvedControllers_one": "{{count}} autre contrôleur choisit son son par une expression et peut le jouer.",
+    "unresolvedControllers_other": "{{count}} autres contrôleurs choisissent leur son par une expression et peuvent le jouer.",
+    "confirmDeleteWithCount_one": "Confirmer la suppression (utilisé par {{count}} contrôleur)",
+    "confirmDeleteWithCount_other": "Confirmer la suppression (utilisé par {{count}} contrôleurs)",
+    "changedMeanwhile": "Les sons ont changé pendant la vérification. Réessayez."
   },
   "validation": {
     "allClear": "Aucun problème détecté.",
@@ -429,7 +451,8 @@
     "identity": "modification de l'identité",
     "states": "modification d'état",
     "animations": "modification d'animation",
-    "replaceFile": "remplacement de {{fileName}}"
+    "replaceFile": "remplacement de {{fileName}}",
+    "sounds": "modification de son"
   },
   "sections": {
     "helpLabel": "Aide : {{section}}",
@@ -443,7 +466,7 @@
     },
     "sounds": {
       "title": "Sons",
-      "description": "Écoutez les sons que le personnage peut jouer."
+      "description": "Écoutez les sons du personnage, et importez-les, remplacez-les ou supprimez-les."
     },
     "palettes": {
       "title": "Palettes",

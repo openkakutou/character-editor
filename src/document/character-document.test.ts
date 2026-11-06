@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { emptyCommandFile } from "../commands/command-logic.ts";
 import { getAppHistory, isDirty } from "../history/app-history.ts";
+import type { SoundEdit } from "../sounds/sound-edits.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData, CommandFile, StateDef } from "../wasm/types.ts";
 import {
+  addSoundEdit,
   addSpriteEdit,
   getCharacterDocument,
   replaceUnreadableFile,
@@ -61,6 +63,7 @@ describe("setCharacterDocument / getCharacterDocument", () => {
       character,
       files,
       spriteEdits: [],
+      soundEdits: [],
       commandFile: emptyCommandFile(),
       unreadable: [],
     });
@@ -624,5 +627,72 @@ describe("replaceUnreadableFile (flow 002)", () => {
     replaceUnreadableFile("cmd", bytes("x"), {}, meta);
     expect(getAppHistory().canUndo).toBe(false);
     expect(getCharacterDocument()?.unreadable).toEqual(unreadable);
+  });
+});
+
+describe("addSoundEdit", () => {
+  const files = {
+    def: bytes("d"),
+    air: bytes("a"),
+    sff: bytes("s"),
+    cns: bytes("c"),
+    snd: bytes("n"),
+  };
+  const sound = {
+    group: 1,
+    sample: 1,
+    sampleRate: 8000,
+    channels: 1,
+    bitsPerSample: 16,
+    pcm: [1],
+  };
+  const add: SoundEdit = {
+    kind: "add",
+    group: 1,
+    sample: 1,
+    wav: bytes("w"),
+    sound,
+  };
+  const replace: SoundEdit = { ...add, kind: "replace" };
+
+  it("starts empty for a freshly loaded document, dropping the previous document's edits", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    addSoundEdit(add);
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    expect(getCharacterDocument()?.soundEdits).toEqual([]);
+  });
+
+  it("keeps every edit in the order it was made, an add followed by a replace of the same sound included", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+
+    addSoundEdit(add);
+    addSoundEdit(replace);
+
+    expect(getCharacterDocument()?.soundEdits).toEqual([add, replace]);
+  });
+
+  it("is one undo step per edit, and marks the document modified", () => {
+    setCharacterDocument({ character: minimalCharacter(), files });
+    expect(isDirty()).toBe(false);
+
+    addSoundEdit(add);
+    addSoundEdit(replace);
+    expect(isDirty()).toBe(true);
+
+    getAppHistory().undo();
+    expect(getCharacterDocument()?.soundEdits).toEqual([add]);
+    getAppHistory().undo();
+    expect(getCharacterDocument()?.soundEdits).toEqual([]);
+    getAppHistory().redo();
+    expect(getCharacterDocument()?.soundEdits).toEqual([add]);
+  });
+
+  it("does nothing when no character is loaded", () => {
+    resetCharacterDocumentForTests();
+
+    addSoundEdit(add);
+
+    expect(getCharacterDocument()).toBeNull();
   });
 });

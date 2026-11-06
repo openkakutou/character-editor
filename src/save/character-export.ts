@@ -15,6 +15,8 @@
 // otherwise. See .vibe/decisions/009-export-scope-input-files-only-block-on-unwritable-sprite-edits.md.
 import type { CharacterDocument } from "../document/character-document.ts";
 import { t } from "../i18n/i18n.ts";
+import { buildEditedSnd as defaultBuildEditedSnd } from "../sounds/sound-editing.ts";
+import type { SoundEdit } from "../sounds/sound-edits.ts";
 import type { SpriteEdit } from "../sprites/sprite-edits.ts";
 import {
   type SaveResult,
@@ -24,6 +26,7 @@ import {
   saveCns as defaultSaveCns,
   saveDef as defaultSaveDef,
 } from "../wasm/bridge.ts";
+import type { SndBridgeOptions } from "../wasm/snd-bridge.ts";
 import type {
   Animation,
   CharacterData,
@@ -33,7 +36,7 @@ import type {
 } from "../wasm/types.ts";
 
 /** The file kinds Export can ever produce -- a subset of `FileKind` (no `sff`, since it's never reserialized). */
-export type ExportFileKind = "def" | "air" | "cns" | "cmd" | "zss";
+export type ExportFileKind = "def" | "air" | "cns" | "cmd" | "zss" | "snd";
 
 /** One file ready to be offered as a download. */
 export interface ExportedFile {
@@ -91,6 +94,14 @@ export interface ExportOptions {
     commandFile: CommandFile,
     options?: WasmBridgeOptions,
   ) => Promise<SaveResult>;
+  /** Replays the pending sound edits on the original `.snd`. Defaults to the real `snd` WASM bridge; injectable for testing. */
+  buildSnd?: (
+    originalSndBytes: Uint8Array,
+    edits: readonly SoundEdit[],
+    options?: SndBridgeOptions,
+  ) => Promise<SaveResult>;
+  /** Forwarded to the default `buildSnd` when it isn't overridden. */
+  sndBridgeOptions?: SndBridgeOptions;
   /** Forwarded to whichever default `saveX` wrappers aren't overridden; ignored for an overridden one. */
   bridgeOptions?: WasmBridgeOptions;
 }
@@ -101,6 +112,7 @@ const DEFAULT_FILE_NAMES: Readonly<Record<ExportFileKind, string>> = {
   cns: "character.cns",
   cmd: "character.cmd",
   zss: "character.zss",
+  snd: "character.snd",
 };
 
 /** The last path segment of `path` (splitting on `/` or `\`), so a referenced field like `"anim/kfm.air"` yields a plain, download-safe file name. */
@@ -204,6 +216,7 @@ export async function exportCharacterFiles(
   const saveAirFn = options.saveAir ?? defaultSaveAir;
   const saveCnsFn = options.saveCns ?? defaultSaveCns;
   const saveCmdFn = options.saveCmd ?? defaultSaveCmd;
+  const buildSndFn = options.buildSnd ?? defaultBuildEditedSnd;
 
   const defFileName = fileNameFor("def", "");
   const defResult = await saveDefFn(
@@ -274,6 +287,29 @@ export async function exportCharacterFiles(
       unchanged:
         doc.files.cmd !== undefined &&
         bytesEqual(cmdResult.bytes, doc.files.cmd),
+    });
+  }
+
+  if (doc.files.snd) {
+    const sndFileName = fileNameFor("snd", doc.character.soundFile);
+    // With no pending edit the file is passed through byte for byte, without
+    // loading the snd module at all.
+    const sndResult =
+      doc.soundEdits.length === 0
+        ? { ok: true as const, bytes: doc.files.snd }
+        : await buildSndFn(
+            doc.files.snd,
+            doc.soundEdits,
+            options.sndBridgeOptions,
+          );
+    if (!sndResult.ok) {
+      return blockedBySerializeError("snd", sndFileName, sndResult.error);
+    }
+    files.push({
+      kind: "snd",
+      fileName: sndFileName,
+      bytes: sndResult.bytes,
+      unchanged: bytesEqual(sndResult.bytes, doc.files.snd),
     });
   }
 

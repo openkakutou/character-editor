@@ -14,13 +14,13 @@ A read+write web editor for an OpenKakutou (MUGEN/Ikemen GO-compatible) characte
 
 English — all documentation, backlog items, code comments, and other generated content for this project must be written in English.
 
-## WASM dependencies on `character` and `sff` <!-- keep -->
+## WASM dependencies on `character`, `sff` and `snd` <!-- keep -->
 
 Character data (`.def`/`.air`/`.cns`/`.cmd`/`.zss`) is parsed and, eventually, serialized by the `character` Go library (github.com/openkakutou/character); sprite/palette data (`.sff` v1/v2, `.act`) by the `sff` Go library (github.com/openkakutou/sff). Neither is reimplemented here. This repo consumes both as WebAssembly modules, loaded client-side — no Go toolchain, no server, keeping this project a static site. `public/wasm/` stays gitignored: the artifacts are downloaded/built, never committed.
 
 Being an *editor*, not a viewer, this app additionally needs each library's write/serialize path (format-preserving round trip), not just its read path — several backlog items are explicitly blocked on that WASM surface landing in `character`/`sff` first (see `.vibe/backlog/`).
 
-**The current pin lives in exactly one place: the `wasm:download -- vX.Y.Z` argument in `.github/workflows/deploy-pages.yml`.** That is the source of truth a `character` release should update — see `roadmap`'s `.vibe/decisions/016-wasm-version-pinning-push-based-propagation.md` for the org-wide policy: exact pins, bumped by the producer's own release step, no scheduled job. When bumping by hand, also update the illustrative version number in `README.md` and `docs/development.md` so they don't drift into stale examples.
+**The current pins live in exactly one place: the workflow-level `env` block (`CHARACTER_WASM_VERSION`, `SND_WASM_VERSION`) of `.github/workflows/deploy-pages.yml`, read by every `wasm:download` step.** That is the source of truth a `character` release should update — see `roadmap`'s `.vibe/decisions/016-wasm-version-pinning-push-based-propagation.md` for the org-wide policy: exact pins, bumped by the producer's own release step, no scheduled job. The `snd` pin (downloaded with `--repo openkakutou/snd --out public/wasm/snd`) follows the same policy. When bumping by hand, also update the illustrative version number in `README.md` and `docs/development.md` so they don't drift into stale examples.
 
 ## Shared design system: `web-ui-kit` <!-- keep -->
 

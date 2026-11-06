@@ -16,6 +16,14 @@ npm run wasm:download -- v0.10.0
 
 Implementation: `scripts/download-wasm.mjs`. It downloads both `character.wasm` and `wasm_exec.js` from `https://github.com/openkakutou/character/releases/download/<version>/`, writing each atomically (temp file + rename) so a failed run never leaves a truncated file in `public/wasm/`. If either asset fails to download, any asset already fetched during that same run is rolled back too — a run either fully updates `public/wasm/` or leaves it exactly as it was.
 
+The sound editor also needs the `snd` module (it validates and writes `.snd` files), a separate WASM build with its own `wasm_exec.js`, kept in `public/wasm/snd/`:
+
+```sh
+npm run wasm:download -- v0.7.1 --repo openkakutou/snd --out public/wasm/snd
+```
+
+`--repo owner/name` selects another repository (assets `<name>.wasm` and that release's `wasm_exec.js`) and `--out dir` the output directory. `npm test` needs both downloads: the `snd` bridge and sound-editing tests run the real module.
+
 Run `npm run wasm:download` with no argument, or `-- --help`, to see usage and exit codes:
 
 | Exit code | Meaning |

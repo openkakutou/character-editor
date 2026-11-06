@@ -42,6 +42,7 @@ function document_(): CharacterDocument {
       cns: fixture("sample.cns"),
     },
     spriteEdits: [],
+    soundEdits: [],
     commandFile: emptyCommandFile(),
     unreadable: [],
   };

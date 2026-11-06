@@ -3,3 +3,5 @@
 **Files:** `scripts/download-wasm.mjs`
 **Exports:** `downloadWasmRelease(options): Promise<string[]>`, `main(argv?, overrides?): Promise<number>`, `DownloadError`, `EXIT_CODES`
 **Depends on:** none (plain Node.js, injectable `fetch`)
+
+`download-wasm.mjs` also downloads another repo's release with `--repo owner/name` (assets `<name>.wasm` and that release's own `wasm_exec.js`) and `--out dir`, e.g. `snd` into `public/wasm/snd` (item 023).

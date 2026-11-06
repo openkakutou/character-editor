@@ -314,6 +314,36 @@ wuik-button[hidden] {
   --wuik-color-surface-raised: transparent;
 }
 
+.sound-browser__import,
+.sound-browser__selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wuik-space-2);
+  padding-bottom: var(--wuik-space-3);
+  border-bottom: var(--wuik-border-width) solid var(--wuik-color-border);
+}
+
+/* Nothing selected: no empty band with only a border. */
+.sound-browser__selected:empty {
+  display: none;
+}
+
+.sound-browser__selected-label {
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
+.sound-browser__import-error,
+.sound-browser__replace-error,
+.sound-browser__delete-warning {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--wuik-font-size-sm);
+  color: var(--wuik-color-text);
+}
+
 .sound-browser__empty,
 .sound-browser__error {
   margin: 0;

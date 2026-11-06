@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getI18n, initAppI18n } from "../i18n/i18n.ts";
 import type { CharacterData, Sound } from "../wasm/types.ts";
-import { type SoundPlayer, renderSoundBrowser } from "./sound-browser.ts";
+import {
+  type SoundPlayer,
+  createWebAudioPlayer,
+  renderSoundBrowser,
+} from "./sound-browser.ts";
 
 function sound(group: number, sample: number, extra: Partial<Sound> = {}) {
   return {
@@ -347,5 +351,55 @@ describe("renderSoundBrowser", () => {
       expect(rows(root)[0].dataset.playing).toBe("true");
       expect(rows(root)).toHaveLength(3);
     });
+  });
+});
+
+describe("createWebAudioPlayer", () => {
+  function stubAudioContext() {
+    const buffers: {
+      channels: number;
+      frames: number;
+      rate: number;
+      data: Float32Array;
+    }[] = [];
+    class FakeAudioContext {
+      destination = {};
+      createBuffer(channels: number, frames: number, rate: number) {
+        const data = new Float32Array(frames);
+        buffers.push({ channels, frames, rate, data });
+        return { getChannelData: () => data };
+      }
+      createBufferSource() {
+        return {
+          connect() {},
+          start() {},
+          stop() {},
+          onended: null as null | (() => void),
+        };
+      }
+      resume() {
+        return Promise.resolve();
+      }
+    }
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    return buffers;
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("builds the audio again for a replaced sound under the same key, never replaying the old buffer", () => {
+    const buffers = stubAudioContext();
+    const player = createWebAudioPlayer();
+    const original = sound(5, 1, { pcm: [16384, 0] });
+    const replaced = sound(5, 1, { pcm: [-16384, 8192], sampleRate: 8000 });
+
+    player.play(original, () => {});
+    player.play(original, () => {});
+    player.play(replaced, () => {});
+
+    expect(buffers).toHaveLength(2); // the same sound object is built once, the replacement once more
+    expect([...buffers[0].data]).toEqual([0.5, 0]);
+    expect([...buffers[1].data]).toEqual([-0.5, 0.25]);
+    expect(buffers[1].rate).toBe(8000);
   });
 });

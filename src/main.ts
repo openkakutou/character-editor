@@ -7,6 +7,7 @@ import "./problems/problems.css";
 import { renderAnimationEditor } from "./animations/animation-editor.ts";
 import { renderCommandEditor } from "./commands/command-editor.ts";
 import {
+  addSoundEdit,
   addSpriteEdit,
   getCharacterDocument,
   replaceUnreadableFile,
@@ -67,13 +68,19 @@ import { renderOutputSection } from "./shell/output-section.ts";
 import type { SectionId } from "./shell/sections.ts";
 import { installShellShortcuts } from "./shell/shell-shortcuts.ts";
 import { installGlobalShortcutListener } from "./shortcuts/global-shortcut-listener.ts";
-import { renderSoundBrowser } from "./sounds/sound-browser.ts";
+import {
+  type SoundBrowserEditing,
+  renderSoundBrowser,
+} from "./sounds/sound-browser.ts";
+import { prepareSoundEdit } from "./sounds/sound-editing.ts";
+import { type SoundEdit, countSoundReferences } from "./sounds/sound-edits.ts";
 import { renderSpriteBrowser } from "./sprites/sprite-browser.ts";
 import { validateCharacterDocument } from "./validation/character-validation.ts";
 import type { ValidationIssue } from "./validation/character-validation.ts";
 import { getValidationStore } from "./validation/validation-store.ts";
 import { appVersion } from "./version.ts";
 import { warmUpEngine } from "./wasm/bridge.ts";
+import type { SndBridgeOptions } from "./wasm/snd-bridge.ts";
 import type { CharacterData } from "./wasm/types.ts";
 import {
   MIN_SUPPORTED_WEB_UI_KIT_VERSION,
@@ -152,6 +159,8 @@ export interface RenderAppOptions {
    * one of them ultimately calls into the same `character` WASM module.
    */
   bridgeOptions?: CharacterFileInputOptions & CreateCharacterOptions;
+  /** Forwarded to the `snd` WASM module the sound edits and the `.snd` export go through; injectable for testing. */
+  sndBridgeOptions?: SndBridgeOptions;
   /** Triggers a browser download of an exported file; injectable for testing. */
   triggerDownload?: (bytes: Uint8Array, fileName: string) => void;
 }
@@ -201,7 +210,10 @@ export function renderApp(
     getDocument: getCharacterDocument,
     validation,
     triggerDownload: options.triggerDownload ?? defaultTriggerDownload,
-    exportOptions: { bridgeOptions: options.bridgeOptions },
+    exportOptions: {
+      bridgeOptions: options.bridgeOptions,
+      sndBridgeOptions: options.sndBridgeOptions,
+    },
     onSaved: () => refreshChrome(),
     onEngineFailure: (error) => engine.report(error),
   });
@@ -700,6 +712,65 @@ export function renderApp(
       onChange: onStatesPatch,
     });
     rerenderAnimationEditor();
+    // Sound edits are undoable, so the browser follows Undo/Redo like the
+    // sprite browser: the open groups and the selected sound survive the
+    // re-render (they live per root), only playback stops.
+    renderSoundBrowser(shell.content.sounds, character, files, {
+      editing: soundEditing(files),
+      problems: problemSink,
+    });
+  }
+
+  /**
+   * What the sound browser needs to edit sounds, or `undefined` for a
+   * character with no `.snd` to edit. Everything is read from the document
+   * store at call time, so a states edit made since the last render is
+   * reflected in the controller counts.
+   */
+  function soundEditing(
+    files: LoadedFileBytes,
+  ): SoundBrowserEditing | undefined {
+    if (!files.snd) return undefined;
+    // Which edit log each prepared edit was checked against: committing it on
+    // top of another log (an Undo, another edit, in the meantime) would record
+    // a step that no longer replays on the file.
+    const preparedAgainst = new WeakMap<SoundEdit, readonly SoundEdit[]>();
+    return {
+      edits: () => getCharacterDocument()?.soundEdits ?? [],
+      prepare: async (request) => {
+        const doc = getCharacterDocument();
+        if (!doc?.files.snd) {
+          return {
+            ok: false as const,
+            error: "no character with a sound file is loaded",
+          };
+        }
+        const pending = doc.soundEdits;
+        const result = await prepareSoundEdit(
+          doc.files.snd,
+          pending,
+          request,
+          options.sndBridgeOptions,
+        );
+        if (result.ok) preparedAgainst.set(result.edit, pending);
+        return result;
+      },
+      commit: (edit) => {
+        const doc = getCharacterDocument();
+        if (!doc || doc.soundEdits !== preparedAgainst.get(edit)) return false;
+        addSoundEdit(edit);
+        refreshChrome();
+        return true;
+      },
+      references: (group, sample) => {
+        const doc = getCharacterDocument();
+        const states = [
+          ...(doc?.character.stateDefs ?? []),
+          ...(doc?.commandFile.states ?? []),
+        ];
+        return countSoundReferences(states, group, sample);
+      },
+    };
   }
 
   /**
@@ -764,9 +835,6 @@ export function renderApp(
   ): void {
     mountedUnreadableKey = unreadableKey();
     mountCommandEditor(character, files);
-    // Read-only and independent of edit history, so rendered once here
-    // like the palette editor, never re-rendered on Undo/Redo.
-    renderSoundBrowser(shell.content.sounds, character, files);
     paletteEditorHandle = renderPaletteEditor(
       shell.content.palettes,
       character,

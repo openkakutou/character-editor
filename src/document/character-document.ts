@@ -27,6 +27,7 @@ import type {
   LoadedFileBytes,
   UnreadableFile,
 } from "../input/character-file-input.ts";
+import type { SoundEdit } from "../sounds/sound-edits.ts";
 import { type SpriteEdit, applySpriteEdit } from "../sprites/sprite-edits.ts";
 import type { CharacterData, CommandFile } from "../wasm/types.ts";
 
@@ -35,6 +36,12 @@ export interface CharacterDocument {
   files: LoadedFileBytes;
   /** Pending sprite import/replace/delete edits (item 004) — see sprite-edits.ts. */
   spriteEdits: SpriteEdit[];
+  /**
+   * Pending sound import/replace/delete edits (item 023), in the order they
+   * were made -- see sounds/sound-edits.ts. Replaying them on `files.snd`
+   * gives the `.snd` Export writes.
+   */
+  soundEdits: SoundEdit[];
   /**
    * The command editor's (item 008) latest committed `.cmd` model — a
    * write-only sink from that editor's perspective (it keeps its own local
@@ -90,6 +97,7 @@ export function setCharacterDocument(doc: LoadedCharacter | null): void {
           ...doc,
           unreadable: doc.unreadable ?? [],
           spriteEdits: [],
+          soundEdits: [],
           commandFile: emptyCommandFile(),
         };
   lastCharacterSnapshot = current ? structuredClone(current.character) : null;
@@ -178,6 +186,32 @@ export function addSpriteEdit(edit: SpriteEdit): void {
     meta: { section: "sprites", label: t("history.sprites", "sprite change") },
     do: () => applySpriteEditsSnapshot(after),
     undo: () => applySpriteEditsSnapshot(before),
+  });
+}
+
+function applySoundEditsSnapshot(soundEdits: SoundEdit[]): void {
+  if (current === null) return;
+  current = { ...current, soundEdits };
+}
+
+/**
+ * Appends `edit` to the currently loaded document's pending sound edits and
+ * records an undo/redo entry (item 023). Unlike sprite edits, every edit is
+ * kept in order, not just the latest per sound: the edits are replayed one
+ * after the other on the original `.snd`, so an add followed by a replace
+ * must stay two steps. The arrays are never mutated in place, so the
+ * before/after snapshots are safe to keep by reference. A no-op when no
+ * character is loaded.
+ */
+export function addSoundEdit(edit: SoundEdit): void {
+  if (current === null) return;
+  const before = current.soundEdits;
+  const after = [...before, edit];
+
+  pushHistoryCommand({
+    meta: { section: "sounds", label: t("history.sounds", "sound change") },
+    do: () => applySoundEditsSnapshot(after),
+    undo: () => applySoundEditsSnapshot(before),
   });
 }
 

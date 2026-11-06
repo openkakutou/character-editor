@@ -21,7 +21,8 @@ const DEFAULTS: Record<SectionId, SectionDefaults> = {
   },
   sounds: {
     title: "Sounds",
-    description: "Listen to the sounds the character can play.",
+    description:
+      "Listen to the sounds the character can play, and import, replace or delete them.",
   },
   palettes: {
     title: "Palettes",
