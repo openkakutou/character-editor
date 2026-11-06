@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-06
+
 ### Added
 
 - Sounds can now be imported, replaced and deleted in the Sounds section. Import a WAV file as a new sound under a group and number of your choice, replace the audio of the selected sound, or delete it. Only plain 8-bit or 16-bit PCM WAV files are accepted, and anything else is refused with a clear message instead of being converted. Deleting a sound tells you how many controllers use it. Changes can be undone, and Export now writes the edited sound file along with the other files.
@@ -147,7 +149,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed the GitHub Pages deployment failing on every push since the character file input landed, by fetching the `character` library's WebAssembly build before running the test suite in CI.
 
-[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/openkakutou/character-editor/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/openkakutou/character-editor/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/openkakutou/character-editor/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/openkakutou/character-editor/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openkakutou/character-editor/compare/v0.14.1...v0.15.0
