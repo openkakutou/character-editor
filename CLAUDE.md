@@ -26,6 +26,10 @@ Being an *editor*, not a viewer, this app additionally needs each library's writ
 
 This app adopts `web-ui-kit` (github.com/openkakutou/web-ui-kit) — the org's shared, framework-agnostic design system (native Web Components + CSS custom-property tokens) — as its layout shell, tokens, and form components from day one, rather than building ad-hoc UI first and retrofitting later. See `roadmap`'s `.vibe/decisions/011` and backlog item 001.
 
+## Compatibility target (MUST) <!-- keep -->
+
+Every feature and fix touching MUGEN/Ikemen GO formats or behavior must be compatible with **both MUGEN 1.0/1.1 and Ikemen GO**, extensions included, and validated against real community files — never MUGEN-only, never from memory. Where the two engines diverge, record the divergence and the chosen behavior in an ADR, and ground engine-behavior claims in a source (fixture, doc, engine source), marking anything unverified. This is an org-wide rule (`roadmap/repos.md`), already settled: do not ask the user whether it applies, and carry it as a 🔒 MUST in every need framing, implementer prompt and review.
+
 ## Architecture
 
 Early scaffold stage — only the build setup and an entry point exist so far.
