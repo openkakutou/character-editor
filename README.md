@@ -44,7 +44,7 @@ npm update
 Download a specific version of the `character` library's WebAssembly build (needed to load a character):
 
 ```sh
-npm run wasm:download -- v0.11.0
+npm run wasm:download -- v0.12.0
 ```
 
 Download the `snd` library's WebAssembly build too (needed to import, replace and delete sounds):
