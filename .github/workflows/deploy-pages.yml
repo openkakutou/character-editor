@@ -16,7 +16,7 @@ concurrency:
 # visual job (the gate on deploy) must always run against the same releases.
 # Bumped by the producer's own release step, per roadmap decision 016.
 env:
-  CHARACTER_WASM_VERSION: v0.10.0
+  CHARACTER_WASM_VERSION: v0.11.0
   SND_WASM_VERSION: v0.7.1
 
 jobs:
