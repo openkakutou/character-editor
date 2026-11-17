@@ -12,4 +12,4 @@ CLAUDE.md lists four planned modules while src/ now has animations, commands, do
 - [ ] /vibe:sync runs clean
 
 ## Notes
-Same drift already tracked in stage (018), web-ui-kit (034) and mode-quick-versus (026).
+Same drift already tracked in stage (018), web-ui-kit (034) and game (026).
